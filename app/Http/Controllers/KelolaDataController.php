@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\MockData;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 
@@ -27,13 +28,30 @@ class KelolaDataController extends Controller
     public function cabang(Request $request)
     {
         $jumlah = MockData::pelanggan()->where('status', 'aktif')->countBy('id_lokasi');
+        $periode = MockData::today()->format('Y-m-01');
+        // Pajak & bagi hasil hanya ditampilkan (bulan berjalan); diatur di Pengaturan Pajak
+        $tarif = ['ppn_persen', 'pph_persen', 'bhp_persen', 'uso_persen', 'admin_fee_tipe', 'admin_fee', 'metode_bagi_hasil', 'nilai_bagi_hasil'];
 
-        return $this->list($request, 'Cabang', MockData::lokasi()->map(fn ($l) => $l + ['jumlah_pelanggan' => $jumlah[$l['id']] ?? 0]));
+        return $this->list($request, 'Cabang', MockData::lokasi()->map(fn ($l) => array_merge($l, Arr::only(MockData::pajakLokasi($l['id'], $periode), $tarif), [
+            'jumlah_pelanggan' => $jumlah[$l['id']] ?? 0,
+        ])), ['periodeSekarang' => $periode]);
     }
 
     public function pajak(Request $request)
     {
-        return $this->list($request, 'Pajak', MockData::pajak());
+        $f = $this->filters($request);
+        $f['cabang'] ??= MockData::lokasi()->first()['id'];
+        $tahunOptions = MockData::tahunPajak();
+        if (! in_array($f['tahun'], $tahunOptions)) {
+            $f['tahun'] = MockData::today()->year;
+        }
+
+        return Inertia::render('KelolaData/Pajak', [
+            'filters' => $f,
+            'rows' => MockData::pajak()->where('id_lokasi', $f['cabang'])->where('tahun', $f['tahun'])->sortBy('bulan')->values(),
+            'tahunOptions' => $tahunOptions,
+            'periodeSekarang' => MockData::today()->format('Y-m-01'),
+        ]);
     }
 
     public function paket(Request $request)

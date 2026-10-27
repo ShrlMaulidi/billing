@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Inbox, UploadCloud } from 'react-feather';
 import { Button, FormFeedback, Spinner, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from 'reactstrap';
 import { label as toLabel } from '../lib/format';
+import Select from './Select';
 
 const STATUS_COLOR = {
     aktif: 'success', tidak_aktif: 'danger', nonaktif: 'danger', on: 'success', off: 'warning', berhenti: 'dark',
@@ -132,10 +133,8 @@ export function Field({ field, value, onChange, error, values }) {
             break;
         case 'select':
             control = (
-                <Input type="select" {...common} value={value ?? ''} onChange={(e) => onChange(e.target.value)}>
-                    <option value="">— Pilih —</option>
-                    {optionList(typeof options === 'function' ? options(values) : options).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </Input>
+                <Select id={name} value={value} onChange={onChange} invalid={!!error} disabled={disabled}
+                    options={optionList(typeof options === 'function' ? options(values) : options)} emptyLabel="— Pilih —" />
             );
             break;
         case 'switch':

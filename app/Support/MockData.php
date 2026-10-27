@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Cache;
  */
 class MockData
 {
+    /** Naikkan saat struktur data dummy berubah agar cache lama tidak terpakai. */
+    protected const CACHE_VERSION = 3;
+
     protected static array $cache = [];
 
     protected static ?Generator $faker = null;
@@ -30,7 +33,7 @@ class MockData
         }
 
         $today = self::today();
-        $stored = Cache::store('file')->remember("mockdata:{$today->toDateString()}:$key", $today->copy()->endOfDay(), function () use ($fn) {
+        $stored = Cache::store('file')->remember("mockdata:v".self::CACHE_VERSION.":{$today->toDateString()}:$key", $today->copy()->endOfDay(), function () use ($fn) {
             $value = $fn();
 
             return $value instanceof Collection ? ['collection' => true, 'value' => $value->all()] : ['collection' => false, 'value' => $value];
@@ -79,6 +82,7 @@ class MockData
                 'tlp_owner' => '08'.$f->numerify('##########'),
                 'id_mitra' => $i + 3,
                 'nama_mitra' => $i === 0 ? 'Pusat' : $f->name(),
+                // Nilai awal bagi hasil; pengaturan per bulan ada di pajak()
                 'metode_bagi_hasil' => $i % 3 === 2 ? 'nominal' : 'persentase',
                 'nilai_bagi_hasil' => $i % 3 === 2 ? $f->randomElement([1500000, 2000000, 2500000]) : $f->randomElement([20, 25, 30]),
                 'group_wa' => '1203630'.$f->numerify('########').'@g.us',
@@ -98,32 +102,57 @@ class MockData
         return $id ? (self::lokasi()->firstWhere('id', $id)['nama_lokasi'] ?? '-') : 'Semua Cabang';
     }
 
+    /** Tahun yang tarif pajaknya sudah disiapkan (Jan–Des): tahun lalu s/d tahun depan. */
+    public static function tahunPajak(): array
+    {
+        $y = self::today()->year;
+
+        return [$y - 1, $y, $y + 1];
+    }
+
+    /**
+     * Tarif pajak & bagi hasil per cabang per bulan. Tiap bulan berdiri sendiri, jadi mengubah
+     * satu bulan tidak memengaruhi bulan atau tahun lain.
+     */
     public static function pajak(): Collection
     {
         return self::once('pajak', function () {
-            $rows = collect([[
-                'id' => 1, 'id_lokasi' => null, 'cabang' => 'Default Global', 'ppn_persen' => 11, 'pph_persen' => 2,
-                'bhp_persen' => 0.5, 'uso_persen' => 1.25, 'admin_fee_tipe' => 'persentase', 'admin_fee' => 5, 'berlaku_sejak' => '2025-01-01',
-            ]]);
+            $rows = collect();
+            foreach (self::lokasi() as $i => $l) {
+                foreach (self::tahunPajak() as $tahun) {
+                    foreach (range(1, 12) as $bulan) {
+                        $periode = sprintf('%d-%02d-01', $tahun, $bulan);
+                        $rows->push([
+                            'id' => $rows->count() + 1,
+                            'id_lokasi' => $l['id'],
+                            'cabang' => $l['nama_lokasi'],
+                            'periode' => $periode,
+                            'tahun' => $tahun,
+                            'bulan' => $bulan,
+                            // Contoh: PPN cabang pertama naik ke 12% hanya di Agustus tahun berjalan
+                            'ppn_persen' => $i === 0 && $periode === self::today()->format('Y').'-08-01' ? 12 : 11,
+                            'pph_persen' => 2,
+                            'bhp_persen' => 0.5,
+                            'uso_persen' => 1.25,
+                            'admin_fee_tipe' => $i % 4 === 3 ? 'nominal' : 'persentase',
+                            'admin_fee' => $i % 4 === 3 ? 2500 : 5,
+                            'metode_bagi_hasil' => $l['metode_bagi_hasil'],
+                            'nilai_bagi_hasil' => $l['nilai_bagi_hasil'],
+                        ]);
+                    }
+                }
+            }
 
-            return $rows->merge(self::lokasi()->map(fn ($l, $i) => [
-                'id' => $i + 2,
-                'id_lokasi' => $l['id'],
-                'cabang' => $l['nama_lokasi'],
-                'ppn_persen' => 11,
-                'pph_persen' => 2,
-                'bhp_persen' => 0.5,
-                'uso_persen' => 1.25,
-                'admin_fee_tipe' => $i % 4 === 3 ? 'nominal' : 'persentase',
-                'admin_fee' => $i % 4 === 3 ? 2500 : 5,
-                'berlaku_sejak' => $i % 2 ? '2026-01-01' : '2025-07-01',
-            ]));
+            return $rows;
         });
     }
 
-    public static function pajakLokasi(int $idLokasi): array
+    /** Tarif pajak cabang untuk satu periode (Y-m-01). */
+    public static function pajakLokasi(int $idLokasi, string $periode): array
     {
-        return self::pajak()->firstWhere('id_lokasi', $idLokasi) ?? self::pajak()->first();
+        $index = self::once('pajak_index', fn () => self::pajak()->keyBy(fn ($r) => "{$r['id_lokasi']}:{$r['periode']}")->all());
+
+        return $index["$idLokasi:$periode"] ?? self::pajak()->firstWhere('id_lokasi', $idLokasi) ?? self::pajak()->first();
     }
 
     public static function paket(): Collection
@@ -282,7 +311,7 @@ class MockData
                     $seq++;
                     $isCurrent = $periode === $current;
                     $lunas = $pl['harga'] == 0 || $f->boolean($isCurrent ? 62 : 94);
-                    $pajak = self::pajakLokasi($pl['id_lokasi']);
+                    $pajak = self::pajakLokasi($pl['id_lokasi'], $periode);
                     $total = $pl['harga'] + round($pl['harga'] * $pajak['ppn_persen'] / 100);
                     $inv = 'INV'.$p->format('ym').sprintf('%05d', $seq);
                     $tagihan[] = [
@@ -410,13 +439,13 @@ class MockData
             $bay = self::pembayaran()->where('id_lokasi', $l['id'])->where('periode', $periode);
             $pemasukan = $bay->sum('jml_bayar');
             $pengeluaran = self::pengeluaran()->where('id_lokasi', $l['id'])->filter(fn ($p) => str_starts_with($p['waktu'], substr($periode, 0, 7)))->sum('nominal');
-            $pajak = self::pajakLokasi($l['id']);
+            $pajak = self::pajakLokasi($l['id'], $periode);
             $totalPg = $bay->whereIn('metode', ['tripay', 'xendit', 'pakar_digital'])->sum('jml_bayar');
             $dpp = round($pemasukan / (1 + $pajak['ppn_persen'] / 100));
             $ppn = $pemasukan - $dpp;
             $adminFee = $pajak['admin_fee_tipe'] === 'persentase' ? round($dpp * $pajak['admin_fee'] / 100) : $pajak['admin_fee'] * $bay->count();
             $dasar = $dpp - $adminFee;
-            $bagiHasil = $l['metode_bagi_hasil'] === 'persentase' ? round($dasar * $l['nilai_bagi_hasil'] / 100) : ($pemasukan > 0 ? min($l['nilai_bagi_hasil'], $dasar) : 0);
+            $bagiHasil = $pajak['metode_bagi_hasil'] === 'persentase' ? round($dasar * $pajak['nilai_bagi_hasil'] / 100) : ($pemasukan > 0 ? min($pajak['nilai_bagi_hasil'], $dasar) : 0);
             $omset = $dasar - $bagiHasil;
             $pph = round($omset * $pajak['pph_persen'] / 100);
             $harusSetor = $ppn + $adminFee + $bagiHasil + $pph;
@@ -438,7 +467,7 @@ class MockData
                 'ppn' => $ppn,
                 'admin_fee_label' => $pajak['admin_fee_tipe'] === 'persentase' ? $pajak['admin_fee'].'%' : 'Rp '.number_format($pajak['admin_fee'], 0, ',', '.').'/trx',
                 'admin_fee' => $adminFee,
-                'metode_bagi_hasil' => $l['metode_bagi_hasil'] === 'persentase' ? $l['nilai_bagi_hasil'].'%' : 'Nominal',
+                'metode_bagi_hasil' => $pajak['metode_bagi_hasil'] === 'persentase' ? $pajak['nilai_bagi_hasil'].'%' : 'Nominal',
                 'nominal_bagi_hasil' => $bagiHasil,
                 'omset_reseller' => $omset,
                 'pph_persen' => $pajak['pph_persen'],

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { FileText, Lock } from 'react-feather';
-import { Button, Card, CardBody, Input } from 'reactstrap';
+import { Button, Card, CardBody } from 'reactstrap';
 import FilterBar from '../../Components/FilterBar';
 import PageHeader from '../../Components/PageHeader';
 import RekapCabangTable from '../../Components/RekapCabangTable';
+import Select from '../../Components/Select';
 import { ConfirmDialog } from '../../Components/ui';
 import { BULAN } from '../../lib/format';
 import { applyFilters, dummy } from '../../lib/ui';
@@ -33,9 +34,8 @@ export default function Laporan({ filters, rows, tahunList }) {
                                     ))}
                                 </div>
                                 {tahunan ? (
-                                    <Input type="select" style={{ width: 100 }} value={filters.tahun} onChange={(e) => applyFilters({ ...filters, tahun: e.target.value })}>
-                                        {tahunList.map((y) => <option key={y}>{y}</option>)}
-                                    </Input>
+                                    <Select ariaLabel="Tahun" style={{ width: 100 }} value={filters.tahun} onChange={(v) => applyFilters({ ...filters, tahun: v })}
+                                        options={tahunList.map((y) => ({ value: y, label: String(y) }))} />
                                 ) : <FilterBar filters={filters} fields={['bulan', 'tahun']} />}
                             </>
                         } />

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Card, CardBody, Input } from 'reactstrap';
+import { Card, CardBody } from 'reactstrap';
 import FilterBar from '../../Components/FilterBar';
 import PageHeader from '../../Components/PageHeader';
 import RekapCabangTable, { sumRekap } from '../../Components/RekapCabangTable';
 import RingkasanCard from '../../Components/RingkasanCard';
+import Select from '../../Components/Select';
 import { BULAN } from '../../lib/format';
 
 export default function DashboardCabang({ filters, rows }) {
@@ -17,10 +18,10 @@ export default function DashboardCabang({ filters, rows }) {
             <div className="container-fluid">
                 <div className="row">
                     <div className="col-xxl-4 col-xl-5">
-                        <Input type="select" className="mb-3" value={pilih} onChange={(e) => setPilih(e.target.value)}>
-                            <option value="">Ringkasan: Semua Cabang</option>
-                            {rows.map((r) => <option key={r.id_lokasi} value={r.id_lokasi}>{r.nama_cabang}</option>)}
-                        </Input>
+                        <div className="mb-3">
+                            <Select ariaLabel="Ringkasan cabang" value={pilih} onChange={setPilih} emptyLabel="Ringkasan: Semua Cabang"
+                                options={rows.map((r) => ({ value: r.id_lokasi, label: r.nama_cabang }))} />
+                        </div>
                         {ringkasan && (
                             <RingkasanCard row={ringkasan} subtitle={`${ringkasan.nama_cabang} · ${BULAN[filters.bulan - 1]} ${filters.tahun}`}
                                 moreHref={pilih ? `/dashboard-cabang/${pilih}${query}` : `/laporan${query}`} />

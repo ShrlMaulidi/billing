@@ -1,19 +1,29 @@
+import { Link } from '@inertiajs/react';
+import { Info } from 'react-feather';
 import CrudPage from '../../Components/CrudPage';
 import { StatusBadge } from '../../Components/ui';
-import { angka, rupiah } from '../../lib/format';
+import { angka, periode, persen, rupiah } from '../../lib/format';
 
-export default function Cabang({ filters, rows }) {
+export default function Cabang({ filters, rows, periodeSekarang }) {
     const mitra = [...new Set(rows.map((r) => r.nama_mitra))].map((m, i) => ({ value: rows.find((r) => r.nama_mitra === m).id_mitra ?? i, label: m }));
+    const pct = (key, label) => ({ key, label, align: 'end', render: (r) => persen(r[key]) });
     return (
         <CrudPage
             title="Cabang / Lokasi" entity="Cabang" rows={rows} filters={filters} filterFields={[]}
-            defaults={{ metode_bagi_hasil: 'persentase', status: 'aktif', terima_cash: true }}
+            defaults={{ status: 'aktif', terima_cash: true }}
             deleteLabel={(r) => r.nama_lokasi}
+            before={
+                <div className="alert alert-light-primary d-flex align-items-center gap-2">
+                    <Info size={16} className="flex-shrink-0" />
+                    <span>Pajak dan bagi hasil yang ditampilkan adalah tarif bulan berjalan (<strong>{periode(periodeSekarang)}</strong>). Untuk mengubahnya per bulan, buka <Link href="/kelola-data/pajak" prefetch className="fw-semibold">Pengaturan Pajak</Link>.</span>
+                </div>
+            }
             columns={[
                 { key: 'kode_lokasi', label: 'Kode' }, { key: 'nama_lokasi', label: 'Nama' }, { key: 'alamat_lokasi', label: 'Alamat' },
                 { key: 'tlp_lokasi', label: 'Tlp' }, { key: 'tlp_owner', label: 'Tlp Owner' },
-                { key: 'metode_bagi_hasil', label: 'Metode Bagi Hasil', render: (r) => (r.metode_bagi_hasil === 'persentase' ? 'Persentase' : 'Nominal') },
-                { key: 'nilai_bagi_hasil', label: 'Bagi Hasil', align: 'end', render: (r) => (r.metode_bagi_hasil === 'persentase' ? `${r.nilai_bagi_hasil}%` : rupiah(r.nilai_bagi_hasil)) },
+                pct('ppn_persen', 'PPN'), pct('pph_persen', 'PPh'), pct('bhp_persen', 'BHP'), pct('uso_persen', 'USO'),
+                { key: 'admin_fee', label: 'Admin Fee', align: 'end', render: (r) => (r.admin_fee_tipe === 'persentase' ? persen(r.admin_fee) : rupiah(r.admin_fee)) },
+                { key: 'nilai_bagi_hasil', label: 'Bagi Hasil', align: 'end', render: (r) => (r.metode_bagi_hasil === 'persentase' ? persen(r.nilai_bagi_hasil) : rupiah(r.nilai_bagi_hasil)) },
                 { key: 'jumlah_pelanggan', label: 'Jml Pelanggan', align: 'end', render: (r) => angka(r.jumlah_pelanggan) },
                 { key: 'terima_cash', label: 'Terima Cash', render: (r) => <StatusBadge value={r.terima_cash} /> },
                 { key: 'status', label: 'Status', render: (r) => <StatusBadge value={r.status} /> },
@@ -26,12 +36,10 @@ export default function Cabang({ filters, rows }) {
                 { name: 'tlp_owner', label: 'Tlp Owner', type: 'tel' },
                 { name: 'id_mitra', label: 'Mitra / Pemilik', type: 'select', options: mitra },
                 { name: 'group_wa', label: 'ID Grup WA Notifikasi', placeholder: '1203630xxxx@g.us' },
-                { name: 'metode_bagi_hasil', label: 'Metode Bagi Hasil', type: 'radio', options: [{ value: 'persentase', label: 'Persentase' }, { value: 'nominal', label: 'Nominal' }] },
-                { name: 'nilai_bagi_hasil', label: 'Nilai Bagi Hasil (%)', type: 'number', show: (v) => v.metode_bagi_hasil !== 'nominal' },
-                { name: 'nilai_bagi_hasil', label: 'Nilai Bagi Hasil (Rp)', type: 'currency', show: (v) => v.metode_bagi_hasil === 'nominal' },
                 { name: 'status', label: 'Status', type: 'radio', required: true, options: [{ value: 'aktif', label: 'Aktif' }, { value: 'tidak_aktif', label: 'Tidak Aktif' }] },
                 { name: 'terima_cash', label: 'Cabang menerima pembayaran cash', type: 'switch' },
             ]}
+            formExtra={() => <div className="alert alert-light-warning mb-0 mt-2">Pajak dan bagi hasil cabang diatur per bulan di menu <strong>Pengaturan Pajak</strong>.</div>}
         />
     );
 }
