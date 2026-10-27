@@ -6,6 +6,7 @@ use Faker\Factory;
 use Faker\Generator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Data dummy untuk tahap UI. Struktur mengikuti spesifikasi §4 sehingga
@@ -17,9 +18,25 @@ class MockData
 
     protected static ?Generator $faker = null;
 
+    /**
+     * Disimpan di cache file sampai akhir hari (data bergantung pada today()),
+     * sehingga Faker tidak membangkitkan ulang data di setiap request.
+     * Disimpan sebagai array biasa karena cache tidak meng-unserialize objek.
+     */
     protected static function once(string $key, callable $fn): mixed
     {
-        return self::$cache[$key] ??= $fn();
+        if (array_key_exists($key, self::$cache)) {
+            return self::$cache[$key];
+        }
+
+        $today = self::today();
+        $stored = Cache::store('file')->remember("mockdata:{$today->toDateString()}:$key", $today->copy()->endOfDay(), function () use ($fn) {
+            $value = $fn();
+
+            return $value instanceof Collection ? ['collection' => true, 'value' => $value->all()] : ['collection' => false, 'value' => $value];
+        });
+
+        return self::$cache[$key] = $stored['collection'] ? collect($stored['value']) : $stored['value'];
     }
 
     protected static function faker(): Generator
@@ -304,18 +321,18 @@ class MockData
                 }
             }
 
-            return ['tagihan' => collect($tagihan), 'pembayaran' => collect($bayar)];
+            return ['tagihan' => $tagihan, 'pembayaran' => $bayar];
         });
     }
 
     public static function tagihan(): Collection
     {
-        return self::billing()['tagihan'];
+        return collect(self::billing()['tagihan']);
     }
 
     public static function pembayaran(): Collection
     {
-        return self::billing()['pembayaran'];
+        return collect(self::billing()['pembayaran']);
     }
 
     public static function pengeluaran(): Collection

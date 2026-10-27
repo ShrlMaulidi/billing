@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import Chart from 'react-apexcharts';
+import Chart from '../../Components/Chart';
 import { CheckCircle, DollarSign, MessageCircle, PauseCircle, PlayCircle, Sun, UserX, Users, XCircle } from 'react-feather';
 import { Card, CardBody, CardHeader } from 'reactstrap';
 import DataTable from '../../Components/DataTable';
@@ -9,7 +9,9 @@ import { StatCard, StatusBadge } from '../../Components/ui';
 import { angka, periode, rupiah, tanggal, waktu } from '../../lib/format';
 
 export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik }) {
-    const go = (kategori) => router.get('/dashboard/pelanggan', { kategori, cabang: filters.cabang ?? undefined });
+    const pelangganData = (kategori) => ({ kategori, cabang: filters.cabang ?? undefined });
+    const go = (kategori) => router.get('/dashboard/pelanggan', pelangganData(kategori));
+    const prefetch = (kategori) => router.prefetch('/dashboard/pelanggan', { data: pelangganData(kategori) });
     const cards = [
         ['Data Pelanggan', angka(kpi.total), Users, 'primary', 'total'],
         ['Pelanggan Sudah Lunas', angka(kpi.lunas), CheckCircle, 'success', 'lunas'],
@@ -43,7 +45,7 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik })
                 <div className="row">
                     {cards.map(([title, value, icon, color, kategori]) => (
                         <div className="col-xl-3 col-sm-6" key={title}>
-                            <StatCard title={title} value={value} icon={icon} color={color} onClick={kategori ? () => go(kategori) : undefined} sub={kategori ? 'Klik untuk lihat daftar' : 'Periode berjalan'} />
+                            <StatCard title={title} value={value} icon={icon} color={color} onClick={kategori ? () => go(kategori) : undefined} onMouseEnter={kategori ? () => prefetch(kategori) : undefined} sub={kategori ? 'Klik untuk lihat daftar' : 'Periode berjalan'} />
                         </div>
                     ))}
                 </div>
@@ -58,7 +60,7 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik })
                         <Card>
                             <CardHeader className="pb-0 d-flex justify-content-between align-items-center">
                                 <h5 className="mb-0"><MessageCircle size={18} className="me-1" />Data WAGW</h5>
-                                <Link href="/kelola-data/notifikasi" className="btn btn-outline-primary btn-sm">Kelola</Link>
+                                <Link href="/kelola-data/notifikasi" prefetch className="btn btn-outline-primary btn-sm">Kelola</Link>
                             </CardHeader>
                             <CardBody>
                                 {wagw.devices.map((d) => (
@@ -84,7 +86,7 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik })
                     <CardBody>
                         <DataTable
                             title="Pelanggan Baru Bulan Ini"
-                            toolbar={<Link href={`/dashboard/pelanggan?kategori=baru${filters.cabang ? `&cabang=${filters.cabang}` : ''}`} className="btn btn-outline-primary btn-sm">Lihat Semua</Link>}
+                            toolbar={<Link href={`/dashboard/pelanggan?kategori=baru${filters.cabang ? `&cabang=${filters.cabang}` : ''}`} prefetch className="btn btn-outline-primary btn-sm">Lihat Semua</Link>}
                             exportable={false}
                             searchable={false}
                             pageSize={10}

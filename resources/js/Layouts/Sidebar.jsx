@@ -4,6 +4,8 @@ import { Grid } from 'react-feather';
 import { MENU } from '../lib/menu';
 import Icon from '../Components/Icon';
 
+const NAV_PREFETCH = ['mount', 'hover'];
+
 export default function Sidebar({ closed, onToggle }) {
     const { url } = usePage();
     const path = url.split('?')[0];
@@ -15,7 +17,7 @@ export default function Sidebar({ closed, onToggle }) {
         <div className={`sidebar-wrapper ${closed ? 'close_icon' : ''}`} sidebar-layout="stroke-svg">
             <div>
                 <div className="logo-wrapper">
-                    <Link href="/dashboard">
+                    <Link href="/dashboard" prefetch>
                         <img className="img-fluid for-light" src="/cuba/images/logo/logo.png" alt="MSS" />
                         <img className="img-fluid for-dark" src="/cuba/images/logo/logo_dark.png" alt="MSS" />
                     </Link>
@@ -23,7 +25,7 @@ export default function Sidebar({ closed, onToggle }) {
                     <div className="toggle-sidebar" onClick={onToggle}><Grid className="status_toggle middle sidebar-toggle" /></div>
                 </div>
                 <div className="logo-icon-wrapper">
-                    <Link href="/dashboard"><img className="img-fluid" src="/cuba/images/logo/logo-icon.png" alt="" /></Link>
+                    <Link href="/dashboard" prefetch><img className="img-fluid" src="/cuba/images/logo/logo-icon.png" alt="" /></Link>
                 </div>
                 <nav className="sidebar-main">
                     <div id="sidebar-menu">
@@ -37,7 +39,7 @@ export default function Sidebar({ closed, onToggle }) {
                                     if (!item.children) {
                                         return (
                                             <li className="sidebar-list" key={item.title}>
-                                                <Link href={item.href} onClick={closeOnMobile} className={`sidebar-link sidebar-title link-nav ${isActive(item.href) ? 'active' : ''}`}>
+                                                <Link href={item.href} prefetch={NAV_PREFETCH} onClick={closeOnMobile} className={`sidebar-link sidebar-title link-nav ${isActive(item.href) ? 'active' : ''}`}>
                                                     <Icon id={item.icon} />
                                                     <span>{item.title}</span>
                                                 </Link>
@@ -55,7 +57,7 @@ export default function Sidebar({ closed, onToggle }) {
                                             <ul className="sidebar-submenu" style={{ display: expanded ? 'block' : 'none' }}>
                                                 {item.children.map((c) => (
                                                     <li key={c.href}>
-                                                        <Link href={c.href} onClick={closeOnMobile} className={isActive(c.href) ? 'active' : ''}>{c.title}</Link>
+                                                        <Link href={c.href} prefetch={NAV_PREFETCH} onClick={closeOnMobile} className={isActive(c.href) ? 'active' : ''}>{c.title}</Link>
                                                     </li>
                                                 ))}
                                             </ul>

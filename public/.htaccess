@@ -23,3 +23,18 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# Kompresi teks (CSS/JS/JSON/SVG) — memangkas ukuran unduhan hingga ~80%
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml application/vnd.ms-fontobject font/ttf font/otf
+</IfModule>
+
+# Cache browser: aset build ber-hash tidak pernah berubah, aset statis lain 7 hari
+<IfModule mod_headers.c>
+    <If "%{REQUEST_URI} =~ m#^/build/assets/#">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </If>
+    <ElseIf "%{REQUEST_URI} =~ m#\.(css|js|svg|png|jpe?g|webp|ico|woff2?|ttf|eot)$#">
+        Header set Cache-Control "public, max-age=604800"
+    </ElseIf>
+</IfModule>

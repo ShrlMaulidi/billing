@@ -17,9 +17,9 @@ export function StatusBadge({ value, text }) {
     return <span className={`badge badge-light-${STATUS_COLOR[key] ?? 'info'}`}>{text ?? STATUS_TEXT[key] ?? toLabel(key)}</span>;
 }
 
-export function StatCard({ title, value, sub, icon: IconCmp, color = 'primary', onClick }) {
+export function StatCard({ title, value, sub, icon: IconCmp, color = 'primary', onClick, onMouseEnter }) {
     return (
-        <div className={`card stat-card small-widget mb-4 ${onClick ? 'clickable' : ''}`} onClick={onClick}>
+        <div className={`card stat-card small-widget mb-4 ${onClick ? 'clickable' : ''}`} onClick={onClick} onMouseEnter={onMouseEnter}>
             <div className="card-body d-flex align-items-center gap-3">
                 <div className={`stat-icon bg-light-${color} font-${color}`}>{IconCmp && <IconCmp size={22} />}</div>
                 <div className="flex-grow-1 min-w-0">
@@ -49,7 +49,7 @@ export function Avatar({ name = '', size = 37 }) {
 export function ActionButton({ icon: IconCmp, label, color = 'primary', onClick, href, disabled, loading }) {
     const props = { className: `btn-action btn-action-${color}`, 'data-tip': label, 'aria-label': label };
     const content = loading ? <Spinner size="sm" /> : <IconCmp />;
-    if (href) return <Link href={href} {...props}>{content}</Link>;
+    if (href) return <Link href={href} prefetch {...props}>{content}</Link>;
     return <button type="button" {...props} onClick={onClick} disabled={disabled || loading}>{content}</button>;
 }
 

@@ -14,10 +14,10 @@ export default function PageHeader({ title, crumbs = [], actions }) {
                         <div className="col-sm-6">
                             <ol className="breadcrumb">
                                 <li className="breadcrumb-item">
-                                    <Link href="/dashboard"><svg className="stroke-icon"><use href="/cuba/svg/sprite.svg#stroke-home" /></svg></Link>
+                                    <Link href="/dashboard" prefetch><svg className="stroke-icon"><use href="/cuba/svg/sprite.svg#stroke-home" /></svg></Link>
                                 </li>
                                 {crumbs.map((c) => (
-                                    <li className="breadcrumb-item" key={c.label ?? c}>{c.href ? <Link href={c.href}>{c.label}</Link> : c.label ?? c}</li>
+                                    <li className="breadcrumb-item" key={c.label ?? c}>{c.href ? <Link href={c.href} prefetch>{c.label}</Link> : c.label ?? c}</li>
                                 ))}
                                 <li className="breadcrumb-item active">{title}</li>
                             </ol>

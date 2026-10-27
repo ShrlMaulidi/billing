@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import Chart from 'react-apexcharts';
+import Chart from '../../Components/Chart';
 import { CreditCard, DollarSign, Layers, Smartphone, Zap } from 'react-feather';
 import { Card, CardBody, CardHeader, Offcanvas, OffcanvasBody, OffcanvasHeader } from 'reactstrap';
 import DataTable, { sumFooter } from '../../Components/DataTable';

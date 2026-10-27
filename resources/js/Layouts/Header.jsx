@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Avatar } from '../Components/ui';
-import { AlignCenter, LogOut, Moon, Sun, User, Settings } from 'react-feather';
+import { AlignCenter, Globe, LogOut, Moon, Sun, User, Settings } from 'react-feather';
 
 export default function Header({ closed, onToggle, dark, onToggleTheme }) {
     const { auth } = usePage().props;
@@ -10,7 +10,7 @@ export default function Header({ closed, onToggle, dark, onToggleTheme }) {
             <div className="header-wrapper row m-0">
                 <div className="header-logo-wrapper col-auto p-0">
                     <div className="logo-wrapper">
-                        <Link href="/dashboard"><img className="img-fluid" src="/cuba/images/logo/logo.png" alt="MSS" /></Link>
+                        <Link href="/dashboard" prefetch><img className="img-fluid" src="/cuba/images/logo/logo.png" alt="MSS" /></Link>
                     </div>
                     <div className="toggle-sidebar" onClick={onToggle}><AlignCenter className="status_toggle middle sidebar-toggle" /></div>
                 </div>
@@ -20,7 +20,11 @@ export default function Header({ closed, onToggle, dark, onToggleTheme }) {
                 <div className="nav-right col-xxl-7 col-xl-6 col-md-7 col-8 pull-right right-header p-0 ms-auto">
                     <ul className="nav-menus flex-row">
                         <li className="d-none d-md-block">
-                            <span className="badge badge-light-primary ip-chip" title="IP login">IP {auth.ip}</span>
+                            <div className="ip-chip" title="IP login">
+                                <Globe />
+                                <span className="ip-chip-label">IP</span>
+                                <span className="ip-chip-value">{auth.ip}</span>
+                            </div>
                         </li>
                         <li>
                             <div className="mode" onClick={onToggleTheme} title="Dark / Light">{dark ? <Sun /> : <Moon />}</div>
@@ -34,9 +38,9 @@ export default function Header({ closed, onToggle, dark, onToggleTheme }) {
                                 </div>
                             </div>
                             <ul className="profile-dropdown onhover-show-div">
-                                <li><Link href="/profil"><User /><span>Profil Saya</span></Link></li>
-                                <li><Link href="/profil?tab=password"><Settings /><span>Ganti Password</span></Link></li>
-                                <li><Link href="/login"><LogOut /><span>Logout</span></Link></li>
+                                <li><Link href="/profil" prefetch><User /><span>Profil Saya</span></Link></li>
+                                <li><Link href="/profil?tab=password" prefetch><Settings /><span>Ganti Password</span></Link></li>
+                                <li><Link href="/login" prefetch><LogOut /><span>Logout</span></Link></li>
                             </ul>
                         </li>
                     </ul>

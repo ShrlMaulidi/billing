@@ -46,7 +46,7 @@ export default function RingkasanCard({ row, title = 'Ringkasan Bulan Ini', subt
                 ))}
                 <div className="ringkasan-row total"><span>Saldo / Balance</span><strong>{hidden ? 'Rp ••••••' : rupiah(row.saldo)}</strong></div>
             </div>
-            {moreHref && <Link href={moreHref} className="ringkasan-more">Selengkapnya <ArrowRightCircle size={16} /></Link>}
+            {moreHref && <Link href={moreHref} prefetch className="ringkasan-more">Selengkapnya <ArrowRightCircle size={16} /></Link>}
         </div>
     );
 }

@@ -7,7 +7,7 @@ use App\Http\Controllers\TransaksiController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::redirect('/', '/dashboard');
+Route::redirect('/', '/login');
 Route::get('/login', fn () => Inertia::render('Auth/Login'))->name('login');
 
 Route::controller(DashboardController::class)->group(function () {
