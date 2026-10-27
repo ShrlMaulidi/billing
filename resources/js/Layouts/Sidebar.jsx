@@ -1,0 +1,72 @@
+import { Link, usePage } from '@inertiajs/react';
+import { useState } from 'react';
+import { Grid } from 'react-feather';
+import { MENU } from '../lib/menu';
+import Icon from '../Components/Icon';
+
+export default function Sidebar({ closed, onToggle }) {
+    const { url } = usePage();
+    const path = url.split('?')[0];
+    const isActive = (href) => path === href || path.startsWith(`${href}/`);
+    const [open, setOpen] = useState(() => MENU.flatMap((g) => g.items).find((i) => i.base && path.startsWith(i.base))?.title);
+    const closeOnMobile = () => window.innerWidth <= 991 && !closed && onToggle();
+
+    return (
+        <div className={`sidebar-wrapper ${closed ? 'close_icon' : ''}`} sidebar-layout="stroke-svg">
+            <div>
+                <div className="logo-wrapper">
+                    <Link href="/dashboard">
+                        <img className="img-fluid for-light" src="/cuba/images/logo/logo.png" alt="MSS" />
+                        <img className="img-fluid for-dark" src="/cuba/images/logo/logo_dark.png" alt="MSS" />
+                    </Link>
+                    <div className="back-btn" onClick={onToggle}><i className="fa fa-angle-left" /></div>
+                    <div className="toggle-sidebar" onClick={onToggle}><Grid className="status_toggle middle sidebar-toggle" /></div>
+                </div>
+                <div className="logo-icon-wrapper">
+                    <Link href="/dashboard"><img className="img-fluid" src="/cuba/images/logo/logo-icon.png" alt="" /></Link>
+                </div>
+                <nav className="sidebar-main">
+                    <div id="sidebar-menu">
+                        <ul className="sidebar-links custom-scrollbar">
+                            <li className="back-btn">
+                                <div className="mobile-back text-end" onClick={onToggle}><span>Kembali</span><i className="fa fa-angle-right ps-2" /></div>
+                            </li>
+                            {MENU.map((group) => [
+                                <li className="sidebar-main-title" key={group.title}><div><h6>{group.title}</h6></div></li>,
+                                ...group.items.map((item) => {
+                                    if (!item.children) {
+                                        return (
+                                            <li className="sidebar-list" key={item.title}>
+                                                <Link href={item.href} onClick={closeOnMobile} className={`sidebar-link sidebar-title link-nav ${isActive(item.href) ? 'active' : ''}`}>
+                                                    <Icon id={item.icon} />
+                                                    <span>{item.title}</span>
+                                                </Link>
+                                            </li>
+                                        );
+                                    }
+                                    const expanded = open === item.title;
+                                    return (
+                                        <li className="sidebar-list" key={item.title}>
+                                            <a href="#" className={`sidebar-link sidebar-title ${path.startsWith(item.base) ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setOpen(expanded ? null : item.title); }}>
+                                                <Icon id={item.icon} />
+                                                <span>{item.title}</span>
+                                                <div className="according-menu"><i className={`fa fa-angle-${expanded ? 'down' : 'right'}`} /></div>
+                                            </a>
+                                            <ul className="sidebar-submenu" style={{ display: expanded ? 'block' : 'none' }}>
+                                                {item.children.map((c) => (
+                                                    <li key={c.href}>
+                                                        <Link href={c.href} onClick={closeOnMobile} className={isActive(c.href) ? 'active' : ''}>{c.title}</Link>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </li>
+                                    );
+                                }),
+                            ])}
+                        </ul>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    );
+}

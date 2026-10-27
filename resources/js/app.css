@@ -1,0 +1,59 @@
+/* Penyesuaian kecil di atas Cuba app.css */
+.table-sticky th:first-child,
+.table-sticky td:first-child { position: sticky; left: 0; z-index: 2; background: var(--bs-body-bg, #fff); }
+body.dark-only .table-sticky th:first-child,
+body.dark-only .table-sticky td:first-child { background: #262932; }
+.table-sticky tfoot td { font-weight: 600; }
+.table th { white-space: nowrap; }
+.th-sort { cursor: pointer; user-select: none; }
+.skeleton { display: block; height: 14px; border-radius: 4px; background: linear-gradient(90deg, rgba(0,0,0,.06) 25%, rgba(0,0,0,.12) 37%, rgba(0,0,0,.06) 63%); background-size: 400% 100%; animation: skel 1.2s ease infinite; }
+@keyframes skel { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+.stat-card { cursor: default; transition: transform .15s; }
+.stat-card.clickable { cursor: pointer; }
+.stat-card.clickable:hover { transform: translateY(-2px); }
+.stat-card .stat-icon { width: 46px; height: 46px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.toast-host { position: fixed; right: 20px; bottom: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+.file-drop { border: 1px dashed #c8c8d8; border-radius: 8px; padding: 18px; text-align: center; cursor: pointer; }
+.member-card { width: 340px; height: 210px; border-radius: 14px; color: #fff; padding: 18px; background: linear-gradient(135deg, #7366ff, #3e33c9); position: relative; overflow: hidden; }
+.member-card .qr { position: absolute; right: 16px; bottom: 16px; width: 74px; height: 74px; background: #fff; border-radius: 6px; padding: 4px; }
+.wa-preview { background: #e5ddd5; border-radius: 8px; padding: 16px; }
+.wa-preview .bubble { background: #dcf8c6; border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; max-width: 90%; color: #222; font-size: 13px; }
+.perm-table td, .perm-table th { text-align: center; vertical-align: middle; }
+.perm-table td:first-child, .perm-table th:first-child { text-align: left; }
+.page-header .header-wrapper .nav-right .nav-menus .ip-chip { font-size: 12px; }
+@media print { .page-header, .sidebar-wrapper, .footer, .no-print { display: none !important; } .page-body { margin: 0 !important; } }
+.d-contents { display: contents; }
+
+/* Logo MSS */
+.sidebar-wrapper .logo-wrapper img, .page-header .logo-wrapper img { max-height: 42px; width: auto; }
+.sidebar-wrapper .logo-wrapper { display: flex; align-items: center; height: 81px; padding-top: 0 !important; padding-bottom: 0 !important; }
+.sidebar-wrapper .logo-wrapper > a { display: flex; align-items: center; }
+.sidebar-wrapper .logo-icon-wrapper img { max-height: 38px; width: auto; border-radius: 6px; }
+.login-card .logo-login { max-height: 90px; }
+
+/* Tombol aksi seragam (ikon + tooltip) */
+.action-group { display: inline-flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+.btn-action { --c: #7366ff; position: relative; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); transition: background .15s, color .15s, transform .15s; cursor: pointer; text-decoration: none; }
+.btn-action:hover:not(:disabled) { background: var(--c); color: #fff; transform: translateY(-1px); }
+.btn-action:disabled { opacity: .4; cursor: not-allowed; }
+.btn-action svg, .table .btn-action svg { width: 22px !important; height: 22px !important; margin: 0 !important; flex-shrink: 0; }
+.btn-action-primary { --c: #7366ff; }
+.btn-action-success { --c: #54ba4a; }
+.btn-action-danger { --c: #fc4438; }
+.btn-action-warning { --c: #ffaa05; }
+.btn-action-info { --c: #16c7f9; }
+.btn-action-dark { --c: #52526c; }
+.btn-action[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); right: 0; background: #2c323f; color: #fff; font-size: 11px; line-height: 1.3; padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 10; pointer-events: none; }
+body.dark-only .btn-action-dark { --c: #a9a9c0; }
+
+/* Ringkasan Bulan Ini */
+.ringkasan-card { background: linear-gradient(160deg, #1aa5b8, #12889a); color: #fff; overflow: hidden; }
+.ringkasan-card .card-header { background: transparent; border-bottom: 1px solid rgba(255,255,255,.15); padding: 18px 22px; }
+.ringkasan-card .card-header h5, .ringkasan-card .card-header small { color: #fff; }
+.ringkasan-card .card-body { padding: 10px 22px 14px; }
+.ringkasan-toggle { border: 0; border-radius: 8px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.9); color: #12889a; }
+.ringkasan-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 14px; }
+.ringkasan-row strong { white-space: nowrap; font-weight: 600; }
+.ringkasan-row.total { border-top: 1px dashed rgba(255,255,255,.4); margin-top: 6px; padding-top: 10px; font-size: 15px; }
+.ringkasan-more { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; background: rgba(0,0,0,.12); color: #fff !important; font-weight: 500; }
+.ringkasan-more:hover { background: rgba(0,0,0,.2); }

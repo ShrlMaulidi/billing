@@ -1,0 +1,29 @@
+{
+    "$schema": "https://www.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^6.1.2",
+        "concurrently": "^10.0.3",
+        "laravel-vite-plugin": "^3.1",
+        "sass-embedded": "^1.106.1",
+        "vite": "^8.0.0"
+    },
+    "optionalDependencies": {
+        "@laravel/multiplex": "^0.4.1"
+    },
+    "dependencies": {
+        "@inertiajs/react": "^3.9.1",
+        "apexcharts": "^8.5.0",
+        "bootstrap": "^5.3.8",
+        "react": "^19.3.1",
+        "react-apexcharts": "^2.1.1",
+        "react-dom": "^19.3.1",
+        "react-feather": "^2.0.10",
+        "reactstrap": "^9.2.3"
+    }
+}
