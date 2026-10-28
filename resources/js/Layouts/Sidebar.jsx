@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { Grid } from 'react-feather';
+import { Grid, X } from 'react-feather';
 import { MENU } from '../lib/menu';
 import Icon from '../Components/Icon';
 
@@ -21,7 +21,7 @@ export default function Sidebar({ closed, onToggle }) {
                         <img className="img-fluid for-light" src="/cuba/images/logo/logo.png" alt="MSS" />
                         <img className="img-fluid for-dark" src="/cuba/images/logo/logo_dark.png" alt="MSS" />
                     </Link>
-                    <div className="back-btn" onClick={onToggle}><i className="fa fa-angle-left" /></div>
+                    <button type="button" className="back-btn sidebar-close" onClick={onToggle} aria-label="Tutup menu" title="Tutup menu"><X /></button>
                     <div className="toggle-sidebar" onClick={onToggle}><Grid className="status_toggle middle sidebar-toggle" /></div>
                 </div>
                 <div className="logo-icon-wrapper">

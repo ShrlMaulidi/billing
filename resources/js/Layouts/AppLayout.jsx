@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Header from './Header';
+import MobileNav from './MobileNav';
 import Sidebar from './Sidebar';
 import ToastHost from '../Components/ToastHost';
 
@@ -14,6 +15,17 @@ export default function AppLayout({ children }) {
 
     const toggle = () => setClosed((c) => !c);
 
+    // Mode navigasi mobile: 'navbar' (navbar bawah, default) atau 'sidebar'
+    const [navMode, setNavMode] = useState(() => {
+        try { return localStorage.getItem('navMode') === 'sidebar' ? 'sidebar' : 'navbar'; } catch (e) { return 'navbar'; }
+    });
+    const toggleNavMode = () => {
+        const next = navMode === 'navbar' ? 'sidebar' : 'navbar';
+        try { localStorage.setItem('navMode', next); } catch (e) { /* abaikan */ }
+        if (next === 'navbar' && window.innerWidth <= 991) setClosed(true);
+        setNavMode(next);
+    };
+
     const [dark, setDark] = useState(() => document.body.classList.contains('dark-only'));
     const toggleTheme = () => {
         const next = !dark;
@@ -23,8 +35,8 @@ export default function AppLayout({ children }) {
     };
 
     return (
-        <div className={`page-wrapper compact-wrapper ${dark ? 'dark-sidebar' : ''}`} id="pageWrapper">
-            <Header closed={closed} onToggle={toggle} dark={dark} onToggleTheme={toggleTheme} />
+        <div className={`page-wrapper compact-wrapper nav-mode-${navMode} ${dark ? 'dark-sidebar' : ''}`} id="pageWrapper">
+            <Header closed={closed} onToggle={toggle} dark={dark} onToggleTheme={toggleTheme} navMode={navMode} onToggleNavMode={toggleNavMode} />
             <div className="page-body-wrapper">
                 <Sidebar closed={closed} onToggle={toggle} />
                 <div className="page-body">{children}</div>
@@ -34,6 +46,7 @@ export default function AppLayout({ children }) {
                     </div>
                 </footer>
             </div>
+            {navMode === 'navbar' && <MobileNav />}
             <ToastHost />
         </div>
     );

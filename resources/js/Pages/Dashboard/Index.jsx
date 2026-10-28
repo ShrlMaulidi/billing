@@ -42,9 +42,9 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik })
             <PageHeader title="Dashboard" />
             <div className="container-fluid">
                 <div className="d-flex justify-content-end mb-3"><FilterBar filters={filters} fields={['cabang']} /></div>
-                <div className="row">
+                <div className="row stat-compact">
                     {cards.map(([title, value, icon, color, kategori]) => (
-                        <div className="col-xl-3 col-sm-6" key={title}>
+                        <div className="col-6 col-xl-3" key={title}>
                             <StatCard title={title} value={value} icon={icon} color={color} onClick={kategori ? () => go(kategori) : undefined} onMouseEnter={kategori ? () => prefetch(kategori) : undefined} sub={kategori ? 'Klik untuk lihat daftar' : 'Periode berjalan'} />
                         </div>
                     ))}

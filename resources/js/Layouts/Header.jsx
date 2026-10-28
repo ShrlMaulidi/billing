@@ -1,8 +1,8 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Avatar } from '../Components/ui';
-import { AlignCenter, Globe, LogOut, Moon, Sun, User, Settings } from 'react-feather';
+import { AlignCenter, Globe, LogOut, Moon, Sidebar as SidebarIcon, Sun, User, Settings } from 'react-feather';
 
-export default function Header({ closed, onToggle, dark, onToggleTheme }) {
+export default function Header({ closed, onToggle, dark, onToggleTheme, navMode, onToggleNavMode }) {
     const { auth } = usePage().props;
 
     return (
@@ -25,6 +25,14 @@ export default function Header({ closed, onToggle, dark, onToggleTheme }) {
                                 <span className="ip-chip-label">IP</span>
                                 <span className="ip-chip-value">{auth.ip}</span>
                             </div>
+                        </li>
+                        {/* Ganti mode navigasi (khusus mobile); ikon menunjukkan mode tujuan, seperti tombol tema */}
+                        <li className="d-lg-none">
+                            <button type="button" className="mode nav-mode-toggle" onClick={onToggleNavMode}
+                                title={navMode === 'navbar' ? 'Ganti ke mode Sidebar' : 'Ganti ke mode Navbar bawah'}
+                                aria-label={navMode === 'navbar' ? 'Ganti ke mode Sidebar' : 'Ganti ke mode Navbar bawah'}>
+                                <SidebarIcon style={navMode === 'navbar' ? undefined : { transform: 'rotate(-90deg)' }} />
+                            </button>
                         </li>
                         <li>
                             <div className="mode" onClick={onToggleTheme} title="Dark / Light">{dark ? <Sun /> : <Moon />}</div>
