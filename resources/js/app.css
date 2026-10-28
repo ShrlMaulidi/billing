@@ -29,6 +29,14 @@ body.dark-only .page-wrapper .page-header .header-wrapper .nav-right .nav-menus 
 body.dark-only .page-wrapper .page-header .header-wrapper .nav-right .nav-menus li .ip-chip svg * { stroke: currentColor; color: inherit; }
 @media print { .page-header, .sidebar-wrapper, .footer, .no-print { display: none !important; } .page-body { margin: 0 !important; } }
 .d-contents { display: contents; }
+/* Cuba menimpa .offcanvas (position/background/z-index) untuk fitur headernya;
+   kembalikan perilaku panel samping Bootstrap yang dipakai reactstrap <Offcanvas> */
+.offcanvas.offcanvas-start, .offcanvas.offcanvas-end, .offcanvas.offcanvas-top, .offcanvas.offcanvas-bottom {
+    position: fixed; z-index: var(--bs-offcanvas-zindex, 1045); visibility: hidden; background-color: #fff; box-shadow: -8px 0 32px rgba(15, 23, 42, .12);
+}
+.offcanvas.showing, .offcanvas.hiding, .offcanvas.show { visibility: visible; }
+body.dark-only .offcanvas.offcanvas-end { background-color: #262932; }
+
 /* Dropdown dengan pencarian (Components/Select.jsx) */
 .search-select-toggle { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .search-select-pop { position: fixed; z-index: 2000; background: #fff; border: 1px solid #e6e6ef; border-radius: 10px; box-shadow: 0 12px 32px rgba(15, 23, 42, .14); overflow: hidden; }
