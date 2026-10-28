@@ -28,13 +28,26 @@ class KelolaDataController extends Controller
     public function cabang(Request $request)
     {
         $jumlah = MockData::pelanggan()->where('status', 'aktif')->countBy('id_lokasi');
+        $jumlahArea = MockData::area()->countBy('id_lokasi');
         $periode = MockData::today()->format('Y-m-01');
         // Pajak & bagi hasil hanya ditampilkan (bulan berjalan); diatur di Pengaturan Pajak
         $tarif = ['ppn_persen', 'pph_persen', 'bhp_persen', 'uso_persen', 'admin_fee_tipe', 'admin_fee', 'metode_bagi_hasil', 'nilai_bagi_hasil'];
 
         return $this->list($request, 'Cabang', MockData::lokasi()->map(fn ($l) => array_merge($l, Arr::only(MockData::pajakLokasi($l['id'], $periode), $tarif), [
             'jumlah_pelanggan' => $jumlah[$l['id']] ?? 0,
+            'jumlah_area' => $jumlahArea[$l['id']] ?? 0,
         ])), ['periodeSekarang' => $periode]);
+    }
+
+    public function area(Request $request)
+    {
+        // Sementara pelanggan dibagi rata ke area cabangnya (data dummy belum punya kolom area)
+        $areaPerCabang = MockData::area()->groupBy('id_lokasi');
+        $jumlah = MockData::pelanggan()->where('status', 'aktif')
+            ->map(fn ($p) => $areaPerCabang[$p['id_lokasi']][$p['id'] % $areaPerCabang[$p['id_lokasi']]->count()]['id'])
+            ->countBy();
+
+        return $this->list($request, 'Area', MockData::area()->map(fn ($a) => $a + ['jumlah_pelanggan' => $jumlah[$a['id']] ?? 0]));
     }
 
     public function pajak(Request $request)

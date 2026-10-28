@@ -21,6 +21,7 @@ Route::controller(DashboardController::class)->group(function () {
 Route::prefix('kelola-data')->name('kelola-data.')->controller(KelolaDataController::class)->group(function () {
     Route::get('/kartu-member', 'kartuMember')->name('kartu-member');
     Route::get('/cabang', 'cabang')->name('cabang');
+    Route::get('/area', 'area')->name('area');
     Route::get('/pajak', 'pajak')->name('pajak');
     Route::get('/paket', 'paket')->name('paket');
     Route::get('/router', 'router')->name('router');

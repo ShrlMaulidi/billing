@@ -193,6 +193,31 @@ class MockData
         });
     }
 
+    /** Area di dalam cabang; satu cabang bisa punya banyak area. */
+    public static function area(): Collection
+    {
+        return self::once('area', function () {
+            $arah = ['Kota', 'Utara', 'Selatan', 'Timur', 'Barat'];
+            $rows = collect();
+            foreach (self::lokasi() as $l) {
+                $kota = trim(preg_replace('/\(.*\)/', '', substr($l['nama_lokasi'], 4)));
+                foreach (range(1, $l['id'] <= 4 ? 4 : 2 + $l['id'] % 2) as $n) {
+                    $rows->push([
+                        'id' => $rows->count() + 1,
+                        'kode_area' => sprintf('%s-A%02d', $l['kode_lokasi'], $n),
+                        'nama_area' => "$kota {$arah[$n - 1]}",
+                        'id_lokasi' => $l['id'],
+                        'cabang' => $l['nama_lokasi'],
+                        'cakupan' => $n === 1 ? "Pusat kota $kota dan sekitarnya" : "Kecamatan di wilayah {$arah[$n - 1]} $kota",
+                        'status' => $l['status'] === 'aktif' && ! ($l['id'] === 2 && $n === 3) ? 'aktif' : 'tidak_aktif',
+                    ]);
+                }
+            }
+
+            return $rows;
+        });
+    }
+
     public static function router(): Collection
     {
         return self::once('router', function () {
@@ -700,6 +725,7 @@ class MockData
         return [
             ['key' => 'dashboard', 'label' => 'Dashboard'], ['key' => 'dashboard_cabang', 'label' => 'Dashboard Cabang'], ['key' => 'income_summary', 'label' => 'Income Summary'],
             ['key' => 'kelola_data.kartu_member', 'label' => 'Kelola Data › Kartu Member'], ['key' => 'kelola_data.cabang', 'label' => 'Kelola Data › Cabang / Lokasi'],
+            ['key' => 'kelola_data.area', 'label' => 'Kelola Data › Area'],
             ['key' => 'kelola_data.pajak', 'label' => 'Kelola Data › Pengaturan Pajak'], ['key' => 'kelola_data.paket', 'label' => 'Kelola Data › Paket Pelanggan'],
             ['key' => 'kelola_data.router', 'label' => 'Kelola Data › Router'], ['key' => 'kelola_data.rekening', 'label' => 'Kelola Data › Rekening'],
             ['key' => 'kelola_data.notifikasi', 'label' => 'Kelola Data › Notifikasi'], ['key' => 'kelola_data.pph', 'label' => 'Kelola Data › Upload Bukti PPh'],

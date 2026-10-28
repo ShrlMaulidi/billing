@@ -15,6 +15,7 @@ export const MENU = [
                 children: [
                     { title: 'Kartu Member', href: '/kelola-data/kartu-member' },
                     { title: 'Cabang / Lokasi', href: '/kelola-data/cabang' },
+                    { title: 'Area', href: '/kelola-data/area' },
                     { title: 'Pengaturan Pajak', href: '/kelola-data/pajak' },
                     { title: 'Paket Pelanggan', href: '/kelola-data/paket' },
                     { title: 'Router', href: '/kelola-data/router' },

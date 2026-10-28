@@ -24,6 +24,7 @@ export default function Cabang({ filters, rows, periodeSekarang }) {
                 pct('ppn_persen', 'PPN'), pct('pph_persen', 'PPh'), pct('bhp_persen', 'BHP'), pct('uso_persen', 'USO'),
                 { key: 'admin_fee', label: 'Admin Fee', align: 'end', render: (r) => (r.admin_fee_tipe === 'persentase' ? persen(r.admin_fee) : rupiah(r.admin_fee)) },
                 { key: 'nilai_bagi_hasil', label: 'Bagi Hasil', align: 'end', render: (r) => (r.metode_bagi_hasil === 'persentase' ? persen(r.nilai_bagi_hasil) : rupiah(r.nilai_bagi_hasil)) },
+                { key: 'jumlah_area', label: 'Jml Area', align: 'end', render: (r) => <Link href={`/kelola-data/area?cabang=${r.id}`} prefetch title={`Lihat area ${r.nama_lokasi}`}>{angka(r.jumlah_area)}</Link> },
                 { key: 'jumlah_pelanggan', label: 'Jml Pelanggan', align: 'end', render: (r) => angka(r.jumlah_pelanggan) },
                 { key: 'terima_cash', label: 'Terima Cash', render: (r) => <StatusBadge value={r.terima_cash} /> },
                 { key: 'status', label: 'Status', render: (r) => <StatusBadge value={r.status} /> },
