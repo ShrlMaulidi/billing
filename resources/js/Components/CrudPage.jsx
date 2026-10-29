@@ -9,11 +9,12 @@ import { ActionButton, ActionGroup, ConfirmDialog, FormModal } from './ui';
 
 /**
  * Pola Kelola Data: List → Form Tambah/Edit (modal) → Hapus (konfirmasi).
- * Simpan/hapus masih dummy; nanti diganti router.post/put/delete.
+ * Simpan/hapus dummy kecuali diberi onSave(values, row) / onDelete(row).
  */
 export default function CrudPage({
     title, crumbs = ['Kelola Data'], entity, rows, columns, fields, filters, filterFields = ['cabang'], defaults = {},
     rowActions, headerActions, modalSize, tableProps = {}, canAdd = true, canEdit = true, canDelete = true, deleteLabel, before, after, formExtra,
+    onSave, onDelete,
 }) {
     const [form, setForm] = useState(null); // { row } | null
     const [del, setDel] = useState(null);
@@ -60,7 +61,7 @@ export default function CrudPage({
                     fields={fields}
                     initial={form?.row ?? defaults}
                     size={modalSize}
-                    onSubmit={() => dummy(`${form?.row ? 'Perubahan' : 'Penambahan'} ${name}`)}
+                    onSubmit={(values) => (onSave ? onSave(values, form?.row) : dummy(`${form?.row ? 'Perubahan' : 'Penambahan'} ${name}`))}
                 >
                     {formExtra}
                 </FormModal>
@@ -71,7 +72,7 @@ export default function CrudPage({
                 title={`Hapus ${name}`}
                 message={<>Yakin ingin menghapus <strong>{del && (deleteLabel ? deleteLabel(del) : del.nama ?? del.id)}</strong>? Tindakan ini akan tercatat di Logs.</>}
                 confirmLabel="Hapus"
-                onConfirm={() => dummy(`Penghapusan ${name}`)}
+                onConfirm={() => (onDelete ? onDelete(del) : dummy(`Penghapusan ${name}`))}
             />
         </>
     );

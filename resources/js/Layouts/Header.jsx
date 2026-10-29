@@ -48,7 +48,7 @@ export default function Header({ closed, onToggle, dark, onToggleTheme, navMode,
                             <ul className="profile-dropdown onhover-show-div">
                                 <li><Link href="/profil" prefetch><User /><span>Profil Saya</span></Link></li>
                                 <li><Link href="/profil?tab=password" prefetch><Settings /><span>Ganti Password</span></Link></li>
-                                <li><Link href="/login" prefetch><LogOut /><span>Logout</span></Link></li>
+                                <li><Link href="/logout" method="post" as="button" className="btn-logout"><LogOut /><span>Logout</span></Link></li>
                             </ul>
                         </li>
                     </ul>

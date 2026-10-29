@@ -8,7 +8,7 @@ export default function ToastHost() {
         const onToast = (e) => {
             const id = Date.now() + Math.random();
             setItems((list) => [...list, { id, ...e.detail }]);
-            setTimeout(() => setItems((list) => list.filter((t) => t.id !== id)), 3500);
+            setTimeout(() => setItems((list) => list.filter((t) => t.id !== id)), e.detail.duration ?? 3500);
         };
         window.addEventListener('app:toast', onToast);
         return () => window.removeEventListener('app:toast', onToast);

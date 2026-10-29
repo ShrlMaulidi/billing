@@ -5,7 +5,7 @@ import PageHeader from '../../Components/PageHeader';
 import { StatusBadge } from '../../Components/ui';
 import { rupiah, tanggal } from '../../lib/format';
 
-const KATEGORI = { total: 'Data Pelanggan', lunas: 'Pelanggan Sudah Lunas', belum_lunas: 'Pelanggan Belum Lunas', on: 'Pelanggan On', off: 'Pelanggan Off', berhenti: 'Pelanggan Berhenti', baru: 'Pelanggan Baru Bulan Ini' };
+const KATEGORI = { total: 'Data Pelanggan', lunas: 'Pelanggan Sudah Lunas', belum_lunas: 'Pelanggan Belum Lunas', berhenti: 'Pelanggan Berhenti', baru: 'Pelanggan Baru Bulan Ini' };
 
 export default function Pelanggan({ filters, rows }) {
     return (

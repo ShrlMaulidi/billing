@@ -11,6 +11,14 @@ export const MENU = [
         title: 'Data & Transaksi',
         items: [
             {
+                title: 'Pelanggan', icon: 'contact', base: '/pelanggan',
+                children: [
+                    { title: 'Data Pelanggan', href: '/pelanggan' },
+                    { title: 'Pelanggan On', href: '/pelanggan/on' },
+                    { title: 'Pelanggan Off', href: '/pelanggan/off' },
+                ],
+            },
+            {
                 title: 'Kelola Data', icon: 'form', base: '/kelola-data',
                 children: [
                     { title: 'Kartu Member', href: '/kelola-data/kartu-member' },

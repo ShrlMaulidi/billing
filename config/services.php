@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'mikrotik' => [
+        // Batas waktu (detik) koneksi & balasan RouterOS API
+        'timeout' => env('MIKROTIK_TIMEOUT', 5),
+    ],
+
 ];

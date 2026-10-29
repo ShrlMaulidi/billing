@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Grid, X } from 'react-feather';
 import { MENU } from '../lib/menu';
 import Icon from '../Components/Icon';
@@ -10,7 +10,13 @@ export default function Sidebar({ closed, onToggle }) {
     const { url } = usePage();
     const path = url.split('?')[0];
     const isActive = (href) => path === href || path.startsWith(`${href}/`);
-    const [open, setOpen] = useState(() => MENU.flatMap((g) => g.items).find((i) => i.base && path.startsWith(i.base))?.title);
+    const groupOf = (p) => MENU.flatMap((g) => g.items).find((i) => i.base && p.startsWith(i.base))?.title;
+    const [open, setOpen] = useState(() => groupOf(path));
+    // Buka grup menu halaman aktif juga saat datang dari link lain (mis. kartu Dashboard)
+    useEffect(() => {
+        const g = groupOf(path);
+        if (g) setOpen(g);
+    }, [path]); // eslint-disable-line react-hooks/exhaustive-deps
     const closeOnMobile = () => window.innerWidth <= 991 && !closed && onToggle();
 
     return (
@@ -57,7 +63,7 @@ export default function Sidebar({ closed, onToggle }) {
                                             <ul className="sidebar-submenu" style={{ display: expanded ? 'block' : 'none' }}>
                                                 {item.children.map((c) => (
                                                     <li key={c.href}>
-                                                        <Link href={c.href} prefetch={NAV_PREFETCH} onClick={closeOnMobile} className={isActive(c.href) ? 'active' : ''}>{c.title}</Link>
+                                                        <Link href={c.href} prefetch={NAV_PREFETCH} onClick={closeOnMobile} className={path === c.href ? 'active' : ''}>{c.title}</Link>
                                                     </li>
                                                 ))}
                                             </ul>

@@ -105,6 +105,9 @@ body.dark-only .alert-light-warning { background: rgba(255, 170, 5, .12); color:
 .auth-input input { width: 100%; height: 46px; padding: 0 44px; border: 1px solid var(--auth-border); border-radius: 12px; background: #fff; color: var(--auth-text); font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
 .auth-input input::placeholder { color: #9ca3af; }
 .auth-input input:focus { border-color: var(--auth-primary); box-shadow: 0 0 0 3px rgba(29, 95, 196, .12); }
+.auth-input.invalid input { border-color: #dc3545; }
+.auth-error { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 10px 12px; border-radius: 10px; background: #fdecee; color: #b4232f; font-size: 13px; }
+.auth-btn-primary:disabled { opacity: .7; cursor: wait; }
 .auth-toggle { position: absolute; right: 12px; display: flex; padding: 2px; border: 0; background: none; color: #6b7280; cursor: pointer; }
 .auth-toggle:hover { color: var(--auth-primary); }
 .auth-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; font-size: 13px; }
@@ -129,6 +132,10 @@ body.dark-only .alert-light-warning { background: rgba(255, 170, 5, .12); color:
     .auth-heading h1 { font-size: 24px; }
     .auth-card { padding: 22px; }
 }
+
+/* Tombol Logout di dropdown profil tampil seperti link lain */
+.profile-dropdown .btn-logout { display: flex; align-items: center; width: 100%; padding: 0; border: 0; background: none; color: var(--theme-default); text-align: left; font-family: Roboto, sans-serif; text-transform: uppercase; letter-spacing: .3px; }
+.page-wrapper .page-header .header-wrapper .nav-right .profile-dropdown li:hover .btn-logout span { color: var(--theme-default); transition: color .3s ease; }
 
 /* Tombol aksi seragam (ikon + tooltip) */
 .action-group { display: inline-flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }

@@ -180,13 +180,14 @@ export function Field({ field, value, onChange, error, values }) {
 export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmit, size = 'lg', submitLabel = 'Simpan', children }) {
     const [values, setValues] = useState(initial);
     const [errors, setErrors] = useState({});
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (isOpen) { setValues(initial); setErrors({}); }
     }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const visible = fields.filter((f) => !f.show || f.show(values));
-    const submit = (e) => {
+    const submit = async (e) => {
         e.preventDefault();
         const errs = {};
         visible.forEach((f) => {
@@ -195,7 +196,19 @@ export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmi
         });
         setErrors(errs);
         if (Object.keys(errs).length) return;
-        onSubmit?.(values);
+        // onSubmit boleh async: modal tetap terbuka sampai selesai, error validasi server ditampilkan per field
+        const result = onSubmit?.(values);
+        if (result?.then) {
+            setSaving(true);
+            try {
+                await result;
+            } catch (err) {
+                setErrors(Object.fromEntries(Object.entries(err?.errors ?? {}).map(([k, v]) => [k, [].concat(v)[0]])));
+                return;
+            } finally {
+                setSaving(false);
+            }
+        }
         toggle();
     };
 
@@ -215,7 +228,7 @@ export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmi
                 </ModalBody>
                 <ModalFooter>
                     <Button color="light" type="button" onClick={toggle}>Batal</Button>
-                    <Button color="primary" type="submit">{submitLabel}</Button>
+                    <Button color="primary" type="submit" disabled={saving}>{saving && <Spinner size="sm" className="me-1" />}{submitLabel}</Button>
                 </ModalFooter>
             </form>
         </Modal>

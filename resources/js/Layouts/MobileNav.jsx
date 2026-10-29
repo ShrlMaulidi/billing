@@ -2,7 +2,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
     ArrowDownCircle, ArrowUpCircle, Bell, Box, Circle, CreditCard, Database, GitBranch, List, Map, MapPin, Menu, Percent, Server, Shield,
-    ShoppingBag, UploadCloud, Users, X, Zap,
+    ShoppingBag, UploadCloud, UserCheck, Users, UserX, X, Zap,
 } from 'react-feather';
 import { MENU } from '../lib/menu';
 
@@ -15,6 +15,7 @@ const PRIMARY = [
 ];
 
 const SHEET_ICON = {
+    '/pelanggan': Users, '/pelanggan/on': UserCheck, '/pelanggan/off': UserX,
     '/kelola-data/kartu-member': CreditCard, '/kelola-data/cabang': MapPin, '/kelola-data/area': Map, '/kelola-data/pajak': Percent,
     '/kelola-data/paket': Box, '/kelola-data/router': Server, '/kelola-data/rekening': Database, '/kelola-data/notifikasi': Bell,
     '/kelola-data/pph': UploadCloud, '/kelola-data/tunnel': GitBranch, '/transaksi/penarikan-saldo': ArrowUpCircle,
@@ -62,7 +63,7 @@ export default function MobileNav() {
                         );
                     })}
                 </div>
-                <button type="button" className={`mnav-menu ${open || SHEET_HREFS.some(isActive) ? 'active' : ''}`} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>
+                <button type="button" className={`mnav-menu ${open || SHEET_HREFS.includes(path) ? 'active' : ''}`} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>
                     <Menu />
                     <span>Menu</span>
                 </button>
@@ -83,7 +84,7 @@ export default function MobileNav() {
                                 {s.items.map((i) => {
                                     const IconCmp = SHEET_ICON[i.href] ?? Circle;
                                     return (
-                                        <Link key={i.href} href={i.href} prefetch className={`msheet-item ${isActive(i.href) ? 'active' : ''}`} tabIndex={open ? 0 : -1}>
+                                        <Link key={i.href} href={i.href} prefetch className={`msheet-item ${path === i.href ? 'active' : ''}`} tabIndex={open ? 0 : -1}>
                                             <span className="msheet-icon"><IconCmp size={20} /></span>
                                             <span>{i.title}</span>
                                         </Link>

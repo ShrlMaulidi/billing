@@ -23,4 +23,21 @@ abstract class Controller
     {
         return sprintf('%04d-%02d-01', $f['tahun'], $f['bulan']);
     }
+
+    /** Pesan validasi berbahasa Indonesia (aplikasi belum memakai file terjemahan). */
+    protected function pesanValidasi(): array
+    {
+        return [
+            'required' => ':attribute wajib diisi',
+            'required_if' => ':attribute wajib diisi',
+            'integer' => ':attribute harus berupa angka',
+            'between' => ':attribute harus antara :min dan :max',
+            'exists' => ':attribute tidak ditemukan',
+            'in' => ':attribute tidak valid',
+            'max' => ':attribute maksimal :max karakter',
+            'ip' => ':attribute harus berupa alamat IP yang valid',
+            'unique' => ':attribute sudah dipakai',
+            'date' => ':attribute tidak valid',
+        ];
+    }
 }

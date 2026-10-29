@@ -1,6 +1,6 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Eye, EyeOff, Lock, User } from 'react-feather';
+import { AlertCircle, Eye, EyeOff, Lock, User } from 'react-feather';
 
 function GoogleIcon() {
     return (
@@ -15,6 +15,12 @@ function GoogleIcon() {
 
 export default function Login() {
     const [show, setShow] = useState(false);
+    const form = useForm({ username: '', password: '', remember: false });
+    const error = form.errors.username || form.errors.password;
+    const submit = (e) => {
+        e.preventDefault();
+        form.post('/login', { onFinish: () => form.reset('password') });
+    };
     return (
         <>
             <Head title="Login" />
@@ -34,20 +40,23 @@ export default function Login() {
                     </div>
 
                     <div className="auth-card">
-                        <form onSubmit={(e) => { e.preventDefault(); router.visit('/dashboard'); }}>
+                        <form onSubmit={submit} noValidate>
+                            {error && <div className="auth-error" role="alert"><AlertCircle size={18} /><span>{error}</span></div>}
                             <div className="auth-field">
-                                <label htmlFor="username">Username</label>
-                                <div className="auth-input">
+                                <label htmlFor="username">Username atau Email</label>
+                                <div className={`auth-input ${form.errors.username ? 'invalid' : ''}`}>
                                     <User size={20} className="auth-input-icon" />
-                                    <input id="username" type="text" required autoComplete="username" placeholder="Masukkan username" />
+                                    <input id="username" type="text" required autoComplete="username" autoFocus placeholder="Masukkan username atau email"
+                                        value={form.data.username} onChange={(e) => form.setData('username', e.target.value)} />
                                 </div>
                             </div>
 
                             <div className="auth-field">
                                 <label htmlFor="password">Kata Sandi</label>
-                                <div className="auth-input">
+                                <div className={`auth-input ${form.errors.password ? 'invalid' : ''}`}>
                                     <Lock size={20} className="auth-input-icon" />
-                                    <input id="password" type={show ? 'text' : 'password'} required autoComplete="current-password" placeholder="Masukkan kata sandi" />
+                                    <input id="password" type={show ? 'text' : 'password'} required autoComplete="current-password" placeholder="Masukkan kata sandi"
+                                        value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
                                     <button type="button" className="auth-toggle" onClick={() => setShow(!show)} aria-label={show ? 'Sembunyikan password' : 'Tampilkan password'} title={show ? 'Sembunyikan password' : 'Tampilkan password'}>
                                         {show ? <EyeOff size={20} /> : <Eye size={20} />}
                                     </button>
@@ -56,13 +65,13 @@ export default function Login() {
 
                             <div className="auth-row">
                                 <label className="auth-check">
-                                    <input type="checkbox" />
+                                    <input type="checkbox" checked={form.data.remember} onChange={(e) => form.setData('remember', e.target.checked)} />
                                     <span>Ingat Saya</span>
                                 </label>
                                 <a href="#" className="auth-link">Lupa Sandi?</a>
                             </div>
 
-                            <button type="submit" className="auth-btn-primary">Masuk</button>
+                            <button type="submit" className="auth-btn-primary" disabled={form.processing}>{form.processing ? 'Memproses...' : 'Masuk'}</button>
                         </form>
 
                         <div className="auth-divider"><span>Atau masuk dengan</span></div>

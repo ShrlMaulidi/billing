@@ -38,13 +38,12 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
-            // Dummy user (tahap UI) — nanti diganti $request->user()
             'auth' => [
-                'user' => [
-                    'nama' => 'Hilman Aji',
-                    'username' => 'superadmin',
-                    'role' => 'Super Admin',
-                ],
+                'user' => fn () => $request->user() ? [
+                    'nama' => $request->user()->name,
+                    'username' => $request->user()->username,
+                    'role' => $request->user()->role,
+                ] : null,
                 'ip' => $request->ip(),
             ],
             'cabangOptions' => fn () => MockData::lokasiOptions(),

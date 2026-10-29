@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Pelanggan;
 use App\Support\MockData;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,15 +19,17 @@ class DashboardController extends Controller
         $pelanggan = $byCabang(MockData::pelanggan());
         $tagihan = $byCabang(MockData::tagihan()->where('periode', $periode));
         $bayar = $byCabang(MockData::pembayaran());
+        // Jumlah pelanggan & On/Off memakai data pelanggan asli (database), yang lain masih data dummy
+        $aktif = Pelanggan::where('status', 'aktif')->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
 
         return Inertia::render('Dashboard/Index', [
             'filters' => $f,
             'kpi' => [
-                'total' => $pelanggan->where('status', '!=', 'berhenti')->count(),
+                'total' => (clone $aktif)->count(),
                 'lunas' => $tagihan->where('status', 'lunas')->count(),
                 'belum_lunas' => $tagihan->where('status', '!=', 'lunas')->count(),
-                'on' => $pelanggan->where('status', 'aktif')->where('status_langganan', 'on')->count(),
-                'off' => $pelanggan->where('status', 'aktif')->where('status_langganan', 'off')->count(),
+                'on' => (clone $aktif)->where('status_langganan', 'on')->count(),
+                'off' => (clone $aktif)->where('status_langganan', 'off')->count(),
                 'berhenti' => $pelanggan->where('status', 'berhenti')->count(),
                 'pemasukan_bulan' => $bayar->where('periode', $periode)->sum('jml_bayar'),
                 'pemasukan_hari' => $bayar->filter(fn ($b) => str_starts_with($b['paid_at'], $today->toDateString()))->sum('jml_bayar'),
@@ -49,8 +52,6 @@ class DashboardController extends Controller
             ->filter(fn ($p) => match ($kategori) {
                 'lunas' => $p['status_tagihan'] === 'lunas',
                 'belum_lunas' => $p['status_tagihan'] && $p['status_tagihan'] !== 'lunas',
-                'on' => $p['status'] === 'aktif' && $p['status_langganan'] === 'on',
-                'off' => $p['status'] === 'aktif' && $p['status_langganan'] === 'off',
                 'berhenti' => $p['status'] === 'berhenti',
                 'baru' => str_starts_with($p['tgl_registrasi'], substr($periode, 0, 7)),
                 default => $p['status'] !== 'berhenti',

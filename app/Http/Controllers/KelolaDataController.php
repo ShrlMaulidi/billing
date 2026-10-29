@@ -76,13 +76,6 @@ class KelolaDataController extends Controller
         ]);
     }
 
-    public function router(Request $request)
-    {
-        $jumlah = MockData::pelanggan()->where('status', 'aktif')->countBy('id_router');
-
-        return $this->list($request, 'Router', MockData::router()->map(fn ($r) => $r + ['jumlah_pelanggan' => $jumlah[$r['id']] ?? 0]));
-    }
-
     public function rekening(Request $request)
     {
         return $this->list($request, 'Rekening', MockData::rekening());
@@ -98,12 +91,5 @@ class KelolaDataController extends Controller
         $tahun = (int) $request->input('tahun', MockData::today()->year);
 
         return $this->list($request, 'Pph', MockData::pphUpload()->filter(fn ($p) => str_starts_with($p['periode'], (string) $tahun)));
-    }
-
-    public function tunnel(Request $request)
-    {
-        return $this->list($request, 'Tunnel', MockData::tunnel(), [
-            'routerOptions' => MockData::router()->map(fn ($r) => ['value' => $r['id'], 'label' => $r['nama_router'].' — '.$r['cabang']])->values(),
-        ]);
     }
 }

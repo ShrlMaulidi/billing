@@ -9,9 +9,13 @@ import { StatCard, StatusBadge } from '../../Components/ui';
 import { angka, periode, rupiah, tanggal, waktu } from '../../lib/format';
 
 export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik }) {
-    const pelangganData = (kategori) => ({ kategori, cabang: filters.cabang ?? undefined });
-    const go = (kategori) => router.get('/dashboard/pelanggan', pelangganData(kategori));
-    const prefetch = (kategori) => router.prefetch('/dashboard/pelanggan', { data: pelangganData(kategori) });
+    // Data Pelanggan & On/Off membuka menu Pelanggan (data asli, ada tombol Tambah); kategori lain ke daftar dashboard
+    const MENU_PELANGGAN = { total: '/pelanggan', on: '/pelanggan/on', off: '/pelanggan/off' };
+    const target = (kategori) => (MENU_PELANGGAN[kategori]
+        ? [MENU_PELANGGAN[kategori], { cabang: filters.cabang ?? undefined }]
+        : ['/dashboard/pelanggan', { kategori, cabang: filters.cabang ?? undefined }]);
+    const go = (kategori) => router.get(...target(kategori));
+    const prefetch = (kategori) => { const [url, data] = target(kategori); router.prefetch(url, { data }); };
     const cards = [
         ['Data Pelanggan', angka(kpi.total), Users, 'primary', 'total'],
         ['Pelanggan Sudah Lunas', angka(kpi.lunas), CheckCircle, 'success', 'lunas'],

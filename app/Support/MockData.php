@@ -724,12 +724,15 @@ class MockData
     {
         return [
             ['key' => 'dashboard', 'label' => 'Dashboard'], ['key' => 'dashboard_cabang', 'label' => 'Dashboard Cabang'], ['key' => 'income_summary', 'label' => 'Income Summary'],
+            ['key' => 'pelanggan.data', 'label' => 'Pelanggan › Data Pelanggan'], ['key' => 'pelanggan.on', 'label' => 'Pelanggan › Pelanggan On'],
+            ['key' => 'pelanggan.off', 'label' => 'Pelanggan › Pelanggan Off'],
             ['key' => 'kelola_data.kartu_member', 'label' => 'Kelola Data › Kartu Member'], ['key' => 'kelola_data.cabang', 'label' => 'Kelola Data › Cabang / Lokasi'],
             ['key' => 'kelola_data.area', 'label' => 'Kelola Data › Area'],
             ['key' => 'kelola_data.pajak', 'label' => 'Kelola Data › Pengaturan Pajak'], ['key' => 'kelola_data.paket', 'label' => 'Kelola Data › Paket Pelanggan'],
             ['key' => 'kelola_data.router', 'label' => 'Kelola Data › Router'], ['key' => 'kelola_data.rekening', 'label' => 'Kelola Data › Rekening'],
             ['key' => 'kelola_data.notifikasi', 'label' => 'Kelola Data › Notifikasi'], ['key' => 'kelola_data.pph', 'label' => 'Kelola Data › Upload Bukti PPh'],
-            ['key' => 'kelola_data.tunnel', 'label' => 'Kelola Data › Tunnel'], ['key' => 'transaksi.penarikan', 'label' => 'Transaksi › Penarikan Saldo Mitra'],
+            ['key' => 'kelola_data.tunnel', 'label' => 'Kelola Data › Tunnel'],
+            ['key' => 'transaksi.penarikan', 'label' => 'Transaksi › Penarikan Saldo Mitra'],
             ['key' => 'transaksi.setor', 'label' => 'Transaksi › Setor Kewajiban Mitra'], ['key' => 'transaksi.pengeluaran', 'label' => 'Transaksi › Pengeluaran'],
             ['key' => 'laporan', 'label' => 'Laporan'], ['key' => 'payment_gateway', 'label' => 'Payment Gateway'], ['key' => 'logs', 'label' => 'Logs'],
             ['key' => 'user.manajemen', 'label' => 'User › Manajemen User'], ['key' => 'user.hak_akses', 'label' => 'User › Hak Akses'],

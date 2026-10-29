@@ -15,11 +15,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Akun login untuk uji coba. Di server, ganti kata sandinya: php artisan user:create sahrul
+        User::updateOrCreate(['email' => 'sahrul1@gmail.com'], [
+            'name' => 'Sahrul Maulidi',
+            'username' => 'sahrul',
+            'role' => 'Super Admin',
+            'password' => 'sahrul123',
         ]);
     }
 }
