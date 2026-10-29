@@ -90,6 +90,24 @@ class AuthTest extends TestCase
             ->where('auth.user.nama', 'Sahrul')->where('auth.user.username', 'sahrul')->where('auth.user.role', 'Admin Cabang'));
     }
 
+    private const FORWARDED = ['X-Forwarded-Proto' => 'https', 'X-Forwarded-Host' => 'billingv2.sahrulmaulidi.online', 'X-Forwarded-Port' => '443'];
+
+    public function test_https_from_local_proxy_is_trusted(): void
+    {
+        // cloudflared / reverse proxy di jaringan lokal: redirect memakai https + domain asli
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])->withHeaders(self::FORWARDED)
+            ->get('/')->assertRedirect('https://billingv2.sahrulmaulidi.online/login');
+    }
+
+    public function test_forwarded_headers_from_public_ip_are_ignored(): void
+    {
+        $location = $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])->withHeaders(self::FORWARDED)
+            ->get('/')->assertRedirect()->headers->get('Location');
+
+        $this->assertStringStartsNotWith('https://', $location);
+        $this->assertStringNotContainsString('billingv2', $location);
+    }
+
     public function test_user_create_command_creates_and_resets_password(): void
     {
         $this->artisan('user:create', ['username' => 'superadmin', '--name' => 'Sahrul'])

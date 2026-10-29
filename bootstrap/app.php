@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->redirectGuestsTo('/login');
         $middleware->redirectUsersTo('/dashboard');
+        // Server di balik NAT: HTTPS ditangani proxy (Cloudflare Tunnel di localhost / reverse proxy di jaringan lokal).
+        // Hanya alamat lokal/private yang dipercaya, agar header X-Forwarded-* dari internet tidak bisa dipalsukan.
+        $middleware->trustProxies(at: ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
