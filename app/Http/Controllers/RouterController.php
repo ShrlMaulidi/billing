@@ -6,7 +6,6 @@ use App\Models\Router;
 use App\Models\Tunnel;
 use App\Services\Mikrotik\IsolirService;
 use App\Services\Mikrotik\RouterOsException;
-use App\Support\MockData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,12 +15,11 @@ class RouterController extends Controller
     public function index(Request $request)
     {
         $f = $this->filters($request);
-        $lokasi = MockData::lokasi()->keyBy('id');
         $rows = Router::with('tunnel:id,nama_tunnel,ip_tunnel')->withCount('pelanggan')->orderBy('nama_router')->get()
             ->when($f['cabang'], fn ($c) => $c->where('id_lokasi', $f['cabang']))
             ->map(fn (Router $r) => [
                 ...$r->toArray(),
-                'cabang' => $lokasi[$r->id_lokasi]['nama_lokasi'] ?? '-',
+                'cabang' => '-',
                 'alamat_api' => $r->alamatApi(),
             ])->values();
 

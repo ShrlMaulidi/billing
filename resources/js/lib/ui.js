@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 // Toast global sederhana: notify('Pesan', 'success' | 'danger' | 'info' | 'warning', durasiMs)
 export const notify = (message, type = 'success', duration = 3500) => window.dispatchEvent(new CustomEvent('app:toast', { detail: { message, type, duration } }));
 
-// Placeholder untuk aksi yang logikanya dikerjakan di tahap backend
-export const dummy = (what = 'Aksi') => notify(`${what} berhasil (data dummy — belum tersimpan)`, 'success');
+// Placeholder untuk aksi yang belum terhubung ke database
+export const dummy = (what = 'Aksi') => notify(`${what} belum tersedia — fitur belum terhubung ke database`, 'warning');
 
 /**
  * Status navigasi Inertia untuk loading skeleton.

@@ -23,8 +23,12 @@ export default function Profil({ user }) {
                                 <div className="d-flex justify-content-center mb-3"><Avatar name={user.nama} size={90} /></div>
                                 <h5 className="mb-0">{user.nama}</h5>
                                 <span className="f-light">{user.role}</span>
-                                <hr />
-                                <small className="f-light">Login terakhir {waktu(user.last_login_at)} dari {user.last_login_ip}</small>
+                                {user.last_login_at && (
+                                    <>
+                                        <hr />
+                                        <small className="f-light">Login terakhir {waktu(user.last_login_at)} dari {user.last_login_ip}</small>
+                                    </>
+                                )}
                             </CardBody>
                         </Card>
                     </div>

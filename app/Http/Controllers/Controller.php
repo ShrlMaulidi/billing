@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\MockData;
 use Illuminate\Http\Request;
 
 abstract class Controller
@@ -10,7 +9,7 @@ abstract class Controller
     /** Filter bulan/tahun/cabang standar; default bulan berjalan. */
     protected function filters(Request $request): array
     {
-        $today = MockData::today();
+        $today = today();
 
         return [
             'bulan' => (int) $request->input('bulan', $today->month),

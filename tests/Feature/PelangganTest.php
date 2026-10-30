@@ -48,8 +48,10 @@ class PelangganTest extends TestCase
 
         $this->postJson('/pelanggan', [...$data, 'nama' => 'Budi Lain'])
             ->assertStatus(422)->assertJsonValidationErrors(['username_pppoe' => 'Username PPPoE sudah dipakai']);
+        // Cabang opsional selama tabel cabang belum ada
         $this->postJson('/pelanggan', ['nama' => ''])
-            ->assertStatus(422)->assertJsonValidationErrors(['nama', 'id_lokasi', 'router_id', 'username_pppoe', 'status']);
+            ->assertStatus(422)->assertJsonValidationErrors(['nama', 'router_id', 'username_pppoe', 'status'])
+            ->assertJsonMissingValidationErrors('id_lokasi');
     }
 
     public function test_on_and_off_pages_only_show_matching_active_customers(): void

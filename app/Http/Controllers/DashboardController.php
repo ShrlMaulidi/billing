@@ -3,40 +3,43 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pelanggan;
-use App\Support\MockData;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
+/**
+ * Data pelanggan diambil dari database. Tagihan, pembayaran, rekap cabang, dan WAGW belum punya tabel,
+ * sehingga nilainya kosong/0 sampai modul tersebut terhubung ke database.
+ */
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
         $f = $this->filters($request);
-        $today = MockData::today();
-        $periode = $today->format('Y-m-01');
-        $byCabang = fn ($c) => $f['cabang'] ? $c->where('id_lokasi', $f['cabang']) : $c;
-
-        $pelanggan = $byCabang(MockData::pelanggan());
-        $tagihan = $byCabang(MockData::tagihan()->where('periode', $periode));
-        $bayar = $byCabang(MockData::pembayaran());
-        // Jumlah pelanggan & On/Off memakai data pelanggan asli (database), yang lain masih data dummy
-        $aktif = Pelanggan::where('status', 'aktif')->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
+        $today = today();
+        $pelanggan = Pelanggan::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
+        $aktif = (clone $pelanggan)->where('status', 'aktif');
 
         return Inertia::render('Dashboard/Index', [
             'filters' => $f,
             'kpi' => [
                 'total' => (clone $aktif)->count(),
-                'lunas' => $tagihan->where('status', 'lunas')->count(),
-                'belum_lunas' => $tagihan->where('status', '!=', 'lunas')->count(),
+                'lunas' => 0,
+                'belum_lunas' => 0,
                 'on' => (clone $aktif)->where('status_langganan', 'on')->count(),
                 'off' => (clone $aktif)->where('status_langganan', 'off')->count(),
-                'berhenti' => $pelanggan->where('status', 'berhenti')->count(),
-                'pemasukan_bulan' => $bayar->where('periode', $periode)->sum('jml_bayar'),
-                'pemasukan_hari' => $bayar->filter(fn ($b) => str_starts_with($b['paid_at'], $today->toDateString()))->sum('jml_bayar'),
+                'berhenti' => (clone $pelanggan)->where('status', 'berhenti')->count(),
+                'pemasukan_bulan' => 0,
+                'pemasukan_hari' => 0,
             ],
-            'pelangganBaru' => $pelanggan->filter(fn ($p) => str_starts_with($p['tgl_registrasi'], $today->format('Y-m')))->sortByDesc('tgl_registrasi')->take(8)->values(),
-            'wagw' => MockData::wagw(),
-            'grafik' => collect(MockData::periods())->map(fn ($p) => ['periode' => $p, 'total' => $bayar->where('periode', $p)->sum('jml_bayar')]),
+            'pelangganBaru' => (clone $pelanggan)->with('paket:id,nama_paket,harga')
+                ->whereBetween('tgl_registrasi', $this->bulanIni())
+                ->latest('tgl_registrasi')->take(8)->get()
+                ->map->toBaris(),
+            'wagw' => ['devices' => [], 'sent' => 0, 'outbox' => 0, 'failed' => 0],
+            'grafik' => collect(range(11, 0))->map(fn ($i) => [
+                'periode' => $today->copy()->startOfMonth()->subMonths($i)->format('Y-m-01'),
+                'total' => 0,
+            ]),
         ]);
     }
 
@@ -44,65 +47,51 @@ class DashboardController extends Controller
     {
         $f = $this->filters($request);
         $kategori = $request->input('kategori', 'total');
-        $periode = MockData::today()->format('Y-m-01');
-        $tagihan = MockData::tagihan()->where('periode', $periode)->keyBy('id_pelanggan');
-        $rows = MockData::pelanggan()
-            ->when($f['cabang'], fn ($c) => $c->where('id_lokasi', $f['cabang']))
-            ->map(fn ($p) => $p + ['status_tagihan' => $tagihan[$p['id']]['status'] ?? null])
-            ->filter(fn ($p) => match ($kategori) {
-                'lunas' => $p['status_tagihan'] === 'lunas',
-                'belum_lunas' => $p['status_tagihan'] && $p['status_tagihan'] !== 'lunas',
-                'berhenti' => $p['status'] === 'berhenti',
-                'baru' => str_starts_with($p['tgl_registrasi'], substr($periode, 0, 7)),
-                default => $p['status'] !== 'berhenti',
-            })->values();
+        $query = Pelanggan::with('paket:id,nama_paket,harga')->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
 
-        return Inertia::render('Dashboard/Pelanggan', ['filters' => $f + ['kategori' => $kategori], 'rows' => $rows]);
+        $rows = match ($kategori) {
+            // Status lunas/belum lunas menunggu tabel tagihan
+            'lunas', 'belum_lunas' => collect(),
+            'berhenti' => $query->where('status', 'berhenti')->orderBy('nama')->get(),
+            'baru' => $query->whereBetween('tgl_registrasi', $this->bulanIni())->latest('tgl_registrasi')->get(),
+            default => $query->where('status', 'aktif')->orderBy('nama')->get(),
+        };
+
+        return Inertia::render('Dashboard/Pelanggan', ['filters' => $f + ['kategori' => $kategori], 'rows' => $rows->map->toBaris()]);
     }
 
     public function cabang(Request $request)
     {
-        $f = $this->filters($request);
-
         return Inertia::render('DashboardCabang/Index', [
-            'filters' => $f,
-            'rows' => MockData::rekapCabang($this->periode($f)),
+            'filters' => $this->filters($request),
+            'rows' => [],
         ]);
     }
 
-    public function cabangDetail(Request $request, int $id)
+    /** Detail cabang tersedia setelah tabel cabang ada. */
+    public function cabangDetail(int $id)
     {
-        $f = $this->filters($request);
-        $periode = $this->periode($f);
-        $lokasi = MockData::lokasi()->firstWhere('id', $id) ?? abort(404);
-
-        return Inertia::render('DashboardCabang/Detail', [
-            'filters' => $f,
-            'lokasi' => $lokasi,
-            'rekap' => MockData::rekapCabang($periode, $id)[0],
-            'pelanggan' => MockData::pelanggan()->where('id_lokasi', $id)->values(),
-            'pembayaran' => MockData::pembayaran()->where('id_lokasi', $id)->where('periode', $periode)->values(),
-            'pengeluaran' => MockData::pengeluaran()->where('id_lokasi', $id)->filter(fn ($p) => str_starts_with($p['waktu'], substr($periode, 0, 7)))->values(),
-        ]);
+        abort(404);
     }
 
     public function income(Request $request)
     {
-        $f = $this->filters($request);
-        $bayar = MockData::pembayaran()->where('periode', $this->periode($f))
-            ->when($f['cabang'], fn ($c) => $c->where('id_lokasi', $f['cabang']))->values();
-
-        $rekening = $bayar->where('metode', 'transfer')->groupBy('rekening')
-            ->map(fn ($g, $k) => ['rekening' => $k, 'total' => $g->sum('jml_bayar'), 'jumlah' => $g->count()])->values();
-
         return Inertia::render('IncomeSummary/Index', [
-            'filters' => $f,
-            'total' => ['total' => $bayar->sum('jml_bayar'), 'jumlah' => $bayar->count()],
-            'metode' => collect(['cash', 'transfer', 'tripay', 'xendit', 'pakar_digital'])->map(fn ($m) => [
-                'metode' => $m, 'total' => $bayar->where('metode', $m)->sum('jml_bayar'), 'jumlah' => $bayar->where('metode', $m)->count(),
-            ]),
-            'rekening' => $rekening,
-            'pembayaran' => $bayar,
+            'filters' => $this->filters($request),
+            'total' => ['total' => 0, 'jumlah' => 0],
+            'metode' => collect(['cash', 'transfer', 'tripay', 'xendit', 'pakar_digital'])->map(fn ($m) => ['metode' => $m, 'total' => 0, 'jumlah' => 0]),
+            'rekening' => [],
+            'pembayaran' => [],
         ]);
+    }
+
+    /**
+     * Awal dan akhir bulan berjalan sebagai Y-m-d (kolom tgl_registrasi bertipe date).
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function bulanIni(): array
+    {
+        return [today()->startOfMonth()->toDateString(), today()->endOfMonth()->toDateString()];
     }
 }

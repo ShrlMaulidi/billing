@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\MockData;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -46,8 +45,8 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
                 'ip' => $request->ip(),
             ],
-            'cabangOptions' => fn () => MockData::lokasiOptions(),
-            //
+            // Diisi dari tabel cabang setelah menu Cabang terhubung ke database
+            'cabangOptions' => fn () => [],
         ];
     }
 }

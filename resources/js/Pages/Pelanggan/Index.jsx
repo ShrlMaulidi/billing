@@ -96,7 +96,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, routerOp
                     { name: 'id_pelanggan', label: 'ID Pelanggan', placeholder: 'Otomatis bila dikosongkan' },
                     { name: 'nama', label: 'Nama Pelanggan', required: true },
                     { name: 'tlp', label: 'No. Telepon / WA', type: 'tel' },
-                    { name: 'id_lokasi', label: 'Cabang', type: 'select', required: true, options: cabangOptions },
+                    { name: 'id_lokasi', label: 'Cabang', type: 'select', options: cabangOptions },
                     { name: 'alamat', label: 'Alamat', type: 'textarea', col: 'col-12' },
                     { name: 'id_paket', label: 'Paket', type: 'select', options: paketOptions, help: 'Profile paket dipakai saat On bila profile asal tidak diketahui' },
                     { name: 'tgl_jatuh_tempo', label: 'Tgl Jatuh Tempo', type: 'number', help: 'Tanggal 1–31 setiap bulan' },

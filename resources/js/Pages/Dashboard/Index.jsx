@@ -67,6 +67,7 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik })
                                 <Link href="/kelola-data/notifikasi" prefetch className="btn btn-outline-primary btn-sm">Kelola</Link>
                             </CardHeader>
                             <CardBody>
+                                {!wagw.devices.length && <p className="f-light text-center mb-0">Belum ada device WhatsApp</p>}
                                 {wagw.devices.map((d) => (
                                     <div key={d.id} className="d-flex justify-content-between align-items-start border-bottom pb-2 mb-2">
                                         <div>

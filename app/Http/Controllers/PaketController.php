@@ -6,7 +6,6 @@ use App\Models\Paket;
 use App\Models\Router;
 use App\Services\Mikrotik\IsolirService;
 use App\Services\Mikrotik\RouterOsException;
-use App\Support\MockData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,12 +19,11 @@ class PaketController extends Controller
     public function index(Request $request)
     {
         $f = $this->filters($request);
-        $lokasi = MockData::lokasi()->keyBy('id');
         $rows = Paket::with('router:id,nama_router')
             ->withCount(['pelanggan as jumlah_pelanggan' => fn ($q) => $q->where('status', 'aktif')])
             ->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']))
             ->orderBy('nama_paket')->get()
-            ->map(fn (Paket $p) => [...$p->toArray(), 'cabang' => $lokasi[$p->id_lokasi]['nama_lokasi'] ?? '-']);
+            ->map(fn (Paket $p) => [...$p->toArray(), 'cabang' => '-']);
 
         return Inertia::render('KelolaData/Paket', [
             'filters' => $f,

@@ -2,85 +2,71 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\MockData;
+use App\Models\Pelanggan;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 
 class KelolaDataController extends Controller
 {
-    protected function list(Request $request, string $page, Collection $rows, array $extra = [])
+    /** Menu yang belum punya tabel: tampil kosong sampai terhubung ke database. */
+    protected function kosong(Request $request, string $page, array $extra = [])
     {
-        $f = $this->filters($request);
-        if ($f['cabang']) {
-            $rows = $rows->filter(fn ($r) => ($r['id_lokasi'] ?? null) === $f['cabang'] || ($r['id'] ?? null) === $f['cabang'] && $page === 'Cabang');
-        }
-
-        return Inertia::render("KelolaData/$page", ['filters' => $f, 'rows' => $rows->values()] + $extra);
+        return Inertia::render("KelolaData/$page", ['filters' => $this->filters($request), 'rows' => []] + $extra);
     }
 
     public function kartuMember(Request $request)
     {
-        return $this->list($request, 'KartuMember', MockData::pelanggan()->where('status', 'aktif'));
+        $f = $this->filters($request);
+
+        return Inertia::render('KelolaData/KartuMember', [
+            'filters' => $f,
+            'rows' => Pelanggan::with('paket:id,nama_paket,harga')->where('status', 'aktif')
+                ->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']))
+                ->orderBy('nama')->get()
+                ->map->toBaris(),
+        ]);
     }
 
     public function cabang(Request $request)
     {
-        $jumlah = MockData::pelanggan()->where('status', 'aktif')->countBy('id_lokasi');
-        $jumlahArea = MockData::area()->countBy('id_lokasi');
-        $periode = MockData::today()->format('Y-m-01');
-        // Pajak & bagi hasil hanya ditampilkan (bulan berjalan); diatur di Pengaturan Pajak
-        $tarif = ['ppn_persen', 'pph_persen', 'bhp_persen', 'uso_persen', 'admin_fee_tipe', 'admin_fee', 'metode_bagi_hasil', 'nilai_bagi_hasil'];
-
-        return $this->list($request, 'Cabang', MockData::lokasi()->map(fn ($l) => array_merge($l, Arr::only(MockData::pajakLokasi($l['id'], $periode), $tarif), [
-            'jumlah_pelanggan' => $jumlah[$l['id']] ?? 0,
-            'jumlah_area' => $jumlahArea[$l['id']] ?? 0,
-        ])), ['periodeSekarang' => $periode]);
+        return $this->kosong($request, 'Cabang', ['periodeSekarang' => today()->format('Y-m-01')]);
     }
 
     public function area(Request $request)
     {
-        // Sementara pelanggan dibagi rata ke area cabangnya (data dummy belum punya kolom area)
-        $areaPerCabang = MockData::area()->groupBy('id_lokasi');
-        $jumlah = MockData::pelanggan()->where('status', 'aktif')
-            ->map(fn ($p) => $areaPerCabang[$p['id_lokasi']][$p['id'] % $areaPerCabang[$p['id_lokasi']]->count()]['id'])
-            ->countBy();
-
-        return $this->list($request, 'Area', MockData::area()->map(fn ($a) => $a + ['jumlah_pelanggan' => $jumlah[$a['id']] ?? 0]));
+        return $this->kosong($request, 'Area');
     }
 
     public function pajak(Request $request)
     {
         $f = $this->filters($request);
-        $f['cabang'] ??= MockData::lokasi()->first()['id'];
-        $tahunOptions = MockData::tahunPajak();
+        // Tahun yang bisa diatur tarifnya: tahun lalu s/d tahun depan
+        $tahun = today()->year;
+        $tahunOptions = [$tahun - 1, $tahun, $tahun + 1];
         if (! in_array($f['tahun'], $tahunOptions)) {
-            $f['tahun'] = MockData::today()->year;
+            $f['tahun'] = $tahun;
         }
 
         return Inertia::render('KelolaData/Pajak', [
             'filters' => $f,
-            'rows' => MockData::pajak()->where('id_lokasi', $f['cabang'])->where('tahun', $f['tahun'])->sortBy('bulan')->values(),
+            'rows' => [],
             'tahunOptions' => $tahunOptions,
-            'periodeSekarang' => MockData::today()->format('Y-m-01'),
+            'periodeSekarang' => today()->format('Y-m-01'),
         ]);
     }
 
     public function rekening(Request $request)
     {
-        return $this->list($request, 'Rekening', MockData::rekening());
+        return $this->kosong($request, 'Rekening');
     }
 
     public function notifikasi(Request $request)
     {
-        return $this->list($request, 'Notifikasi', MockData::notifikasi(), ['wagw' => MockData::wagw()]);
+        return $this->kosong($request, 'Notifikasi', ['wagw' => ['devices' => [], 'sent' => 0, 'outbox' => 0, 'failed' => 0]]);
     }
 
     public function pph(Request $request)
     {
-        $tahun = (int) $request->input('tahun', MockData::today()->year);
-
-        return $this->list($request, 'Pph', MockData::pphUpload()->filter(fn ($p) => str_starts_with($p['periode'], (string) $tahun)));
+        return $this->kosong($request, 'Pph');
     }
 }

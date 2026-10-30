@@ -29,6 +29,7 @@ export default function HakAkses({ roles, selected, menus, permissions }) {
                             <CardHeader className="pb-0"><h5>Role</h5></CardHeader>
                             <CardBody>
                                 <div className="list-group">
+                                    {!roles.length && <p className="f-light text-center mb-0">Belum ada role</p>}
                                     {roles.map((r) => (
                                         <button key={r.id} type="button" className={`list-group-item list-group-item-action d-flex justify-content-between ${r.id === selected ? 'active' : ''}`}
                                             onClick={() => router.get('/user/hak-akses', { role: r.id }, { preserveState: true, preserveScroll: true })}>

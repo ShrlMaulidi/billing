@@ -9,7 +9,7 @@ export default function Channel({ pg, rows }) {
     const [aktif, setAktif] = useState(() => Object.fromEntries(rows.map((r) => [r.id, r.aktif])));
     const toggle = (r) => {
         setAktif((s) => ({ ...s, [r.id]: !s[r.id] }));
-        notify(`${r.nama_channel} ${aktif[r.id] ? 'dinonaktifkan' : 'diaktifkan'} (dummy)`, 'info');
+        notify(`${r.nama_channel} ${aktif[r.id] ? 'dinonaktifkan' : 'diaktifkan'} (belum tersimpan)`, 'info');
     };
     return (
         <>

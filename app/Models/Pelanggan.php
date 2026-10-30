@@ -32,4 +32,19 @@ class Pelanggan extends Model
     {
         return $this->belongsTo(Paket::class, 'id_paket');
     }
+
+    /**
+     * Baris tabel pelanggan di halaman. Nama cabang menyusul setelah tabel cabang ada.
+     *
+     * @return array<string, mixed>
+     */
+    public function toBaris(): array
+    {
+        return [
+            ...$this->toArray(),
+            'cabang' => '-',
+            'paket' => $this->paket?->nama_paket ?? '-',
+            'harga' => $this->paket?->harga,
+        ];
+    }
 }

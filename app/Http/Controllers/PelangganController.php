@@ -7,7 +7,6 @@ use App\Models\Pelanggan;
 use App\Models\Router;
 use App\Services\Mikrotik\IsolirService;
 use App\Services\Mikrotik\RouterOsException;
-use App\Support\MockData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,19 +21,12 @@ class PelangganController extends Controller
     public function index(Request $request, ?string $status = null)
     {
         $f = $this->filters($request);
-        $lokasi = MockData::lokasi()->keyBy('id');
         $base = Pelanggan::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
 
         $rows = (clone $base)->with(['router:id,nama_router,profile_isolir', 'paket:id,nama_paket,harga,profile_mikrotik'])
             ->when($status, fn ($q) => $q->where('status', 'aktif')->where('status_langganan', $status))
             ->orderBy('nama')->get()
-            ->map(fn (Pelanggan $p) => [
-                ...$p->toArray(),
-                'cabang' => $lokasi[$p->id_lokasi]['nama_lokasi'] ?? '-',
-                'paket' => $p->paket?->nama_paket ?? '-',
-                'harga' => $p->paket?->harga,
-                'profile_paket' => $p->paket?->profile_mikrotik,
-            ]);
+            ->map(fn (Pelanggan $p) => [...$p->toBaris(), 'profile_paket' => $p->paket?->profile_mikrotik]);
 
         return Inertia::render('Pelanggan/Index', [
             'filters' => $f,
@@ -107,7 +99,7 @@ class PelangganController extends Controller
             'nama' => ['required', 'string', 'max:100'],
             'tlp' => ['nullable', 'string', 'max:30'],
             'alamat' => ['nullable', 'string', 'max:500'],
-            'id_lokasi' => ['required', 'integer'],
+            'id_lokasi' => ['nullable', 'integer'],
             'id_paket' => ['nullable', 'integer', 'exists:paket,id'],
             'router_id' => ['required', 'integer', 'exists:routers,id'],
             'username_pppoe' => ['required', 'string', 'max:100',
