@@ -62,7 +62,8 @@ export const reloadData = (only) => {
 export const saveTo = (base, only = ['rows']) => async (values, row) => {
     try {
         const res = await api(row ? 'PUT' : 'POST', row ? `${base}/${row.id}` : base, values);
-        notify(res.message);
+        // type 'warning': data tersimpan tetapi ada langkah lanjutan yang gagal (mis. sinkron ke router)
+        notify(res.message, res.type ?? 'success', res.type === 'warning' ? 9000 : undefined);
         reloadData(only);
     } catch (err) {
         if (!err.errors) notify(err.message, 'danger', 7000);

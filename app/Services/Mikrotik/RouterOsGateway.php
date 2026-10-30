@@ -46,6 +46,30 @@ class RouterOsGateway implements MikrotikGateway
         return count($sessions);
     }
 
+    public function saveProfile(string $jenis, string $name, array $attributes): bool
+    {
+        return $this->upsert($jenis === 'hotspot' ? '/ip/hotspot/user/profile' : '/ppp/profile', $name, $attributes);
+    }
+
+    public function savePool(string $name, string $ranges): bool
+    {
+        return $this->upsert('/ip/pool', $name, ['ranges' => $ranges]);
+    }
+
+    /** Set bila item bernama $name sudah ada, selain itu add. */
+    private function upsert(string $path, string $name, array $attributes): bool
+    {
+        $row = $this->api->command("$path/print", [], ['name' => $name])[0] ?? null;
+        if ($row) {
+            $this->api->command("$path/set", ['.id' => $row['.id'], ...$attributes]);
+
+            return false;
+        }
+        $this->api->command("$path/add", ['name' => $name, ...$attributes]);
+
+        return true;
+    }
+
     private function secret(array $row): array
     {
         return [

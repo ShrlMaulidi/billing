@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Router;
 use App\Services\Mikrotik\IsolirService;
@@ -22,17 +23,17 @@ class PelangganController extends Controller
     {
         $f = $this->filters($request);
         $lokasi = MockData::lokasi()->keyBy('id');
-        $paket = MockData::paket()->keyBy('id');
         $base = Pelanggan::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
 
-        $rows = (clone $base)->with('router:id,nama_router,profile_isolir')
+        $rows = (clone $base)->with(['router:id,nama_router,profile_isolir', 'paket:id,nama_paket,harga,profile_mikrotik'])
             ->when($status, fn ($q) => $q->where('status', 'aktif')->where('status_langganan', $status))
             ->orderBy('nama')->get()
             ->map(fn (Pelanggan $p) => [
                 ...$p->toArray(),
                 'cabang' => $lokasi[$p->id_lokasi]['nama_lokasi'] ?? '-',
-                'paket' => $paket[$p->id_paket]['nama_paket'] ?? '-',
-                'harga' => $paket[$p->id_paket]['harga'] ?? null,
+                'paket' => $p->paket?->nama_paket ?? '-',
+                'harga' => $p->paket?->harga,
+                'profile_paket' => $p->paket?->profile_mikrotik,
             ]);
 
         return Inertia::render('Pelanggan/Index', [
@@ -45,7 +46,8 @@ class PelangganController extends Controller
                 'off' => (clone $base)->where('status', 'aktif')->where('status_langganan', 'off')->count(),
             ],
             'routerOptions' => Router::orderBy('nama_router')->get()->map(fn ($r) => ['value' => $r->id, 'label' => $r->nama_router]),
-            'paketOptions' => MockData::paket()->where('jns_koneksi', 'pppoe')->values()->map(fn ($p) => ['value' => $p['id'], 'label' => $p['nama_paket']]),
+            'paketOptions' => Paket::where('jns_koneksi', 'pppoe')->orderBy('nama_paket')->get()
+                ->map(fn ($p) => ['value' => $p->id, 'label' => "{$p->nama_paket} ({$p->profile_mikrotik})"]),
         ]);
     }
 
@@ -106,7 +108,7 @@ class PelangganController extends Controller
             'tlp' => ['nullable', 'string', 'max:30'],
             'alamat' => ['nullable', 'string', 'max:500'],
             'id_lokasi' => ['required', 'integer'],
-            'id_paket' => ['nullable', 'integer'],
+            'id_paket' => ['nullable', 'integer', 'exists:paket,id'],
             'router_id' => ['required', 'integer', 'exists:routers,id'],
             'username_pppoe' => ['required', 'string', 'max:100',
                 Rule::unique('pelanggan')->where('router_id', $request->input('router_id'))->ignore($pelanggan)],
@@ -114,7 +116,7 @@ class PelangganController extends Controller
             'tgl_jatuh_tempo' => ['nullable', 'integer', 'between:1,31'],
             'status' => ['required', 'in:aktif,berhenti'],
         ], $this->pesanValidasi(), [
-            'id_pelanggan' => 'ID pelanggan', 'nama' => 'Nama', 'id_lokasi' => 'Cabang', 'router_id' => 'Router',
+            'id_pelanggan' => 'ID pelanggan', 'nama' => 'Nama', 'id_lokasi' => 'Cabang', 'id_paket' => 'Paket', 'router_id' => 'Router',
             'username_pppoe' => 'Username PPPoE', 'tgl_registrasi' => 'Tanggal registrasi', 'tgl_jatuh_tempo' => 'Tanggal jatuh tempo', 'status' => 'Status',
         ]);
     }

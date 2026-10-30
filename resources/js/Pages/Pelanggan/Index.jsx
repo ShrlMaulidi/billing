@@ -33,8 +33,8 @@ export default function PelangganIndex({ filters, status, rows, jumlah, routerOp
         }
     };
     const klikOn = async (p) => {
-        if (p.profile_asal) return setConfirm({ p, aksi: 'aktifkan' });
-        // Profile asal tidak diketahui (mis. diisolir langsung di router) → pilih profile dulu
+        if (p.profile_asal || p.profile_paket) return setConfirm({ p, aksi: 'aktifkan' });
+        // Profile asal & paket tidak diketahui (mis. diisolir langsung di router) → pilih profile dulu
         setBusy(p.id);
         try {
             const { data } = await api('GET', `/mikrotik/router/${p.router_id}/profiles`);
@@ -98,7 +98,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, routerOp
                     { name: 'tlp', label: 'No. Telepon / WA', type: 'tel' },
                     { name: 'id_lokasi', label: 'Cabang', type: 'select', required: true, options: cabangOptions },
                     { name: 'alamat', label: 'Alamat', type: 'textarea', col: 'col-12' },
-                    { name: 'id_paket', label: 'Paket', type: 'select', options: paketOptions },
+                    { name: 'id_paket', label: 'Paket', type: 'select', options: paketOptions, help: 'Profile paket dipakai saat On bila profile asal tidak diketahui' },
                     { name: 'tgl_jatuh_tempo', label: 'Tgl Jatuh Tempo', type: 'number', help: 'Tanggal 1–31 setiap bulan' },
                     { name: 'router_id', label: 'Router', type: 'select', required: true, options: routerOptions },
                     { name: 'username_pppoe', label: 'Username PPPoE', required: true, help: 'Harus sama persis dengan nama PPP Secret di Mikrotik' },
@@ -115,7 +115,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, routerOp
                 confirmLabel={confirm?.aksi === 'isolir' ? 'Ya, Off-kan' : 'Ya, On-kan'}
                 message={confirm && (confirm.aksi === 'isolir'
                     ? <>Internet <strong>{confirm.p.nama}</strong> ({confirm.p.username_pppoe}) akan diisolir: profile diubah ke <strong>{confirm.p.router?.profile_isolir}</strong> dan sesi aktif diputus. Lanjutkan?</>
-                    : <>Internet <strong>{confirm.p.nama}</strong> ({confirm.p.username_pppoe}) dikembalikan ke profile <strong>{confirm.p.profile_asal}</strong> dan sesinya diputus agar login ulang. Lanjutkan?</>)}
+                    : <>Internet <strong>{confirm.p.nama}</strong> ({confirm.p.username_pppoe}) dikembalikan ke profile <strong>{confirm.p.profile_asal ?? confirm.p.profile_paket}</strong>{!confirm.p.profile_asal && ' (profile paket)'} dan sesinya diputus agar login ulang. Lanjutkan?</>)}
                 onConfirm={() => jalankan(confirm.p, confirm.aksi)}
             />
 

@@ -27,4 +27,9 @@ class Pelanggan extends Model
     {
         return $this->belongsTo(Router::class);
     }
+
+    public function paket(): BelongsTo
+    {
+        return $this->belongsTo(Paket::class, 'id_paket');
+    }
 }

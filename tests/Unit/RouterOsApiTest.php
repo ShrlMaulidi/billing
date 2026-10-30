@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\Mikrotik\RouterOsApi;
 use App\Services\Mikrotik\RouterOsException;
+use App\Services\Mikrotik\RouterOsGateway;
 use PHPUnit\Framework\TestCase;
 
 /** Protokol RouterOS API diuji lewat pasangan socket: sisi "server" meniru balasan Mikrotik. */
@@ -16,8 +17,41 @@ class RouterOsApiTest extends TestCase
 
     protected function setUp(): void
     {
-        [$client, $this->server] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        if (PHP_OS_FAMILY === 'Windows') {
+            // Windows tidak mendukung socket UNIX: pakai pasangan TCP loopback
+            $listener = stream_socket_server('tcp://127.0.0.1:0');
+            $client = stream_socket_client('tcp://'.stream_socket_get_name($listener, false));
+            $this->server = stream_socket_accept($listener);
+            fclose($listener);
+        } else {
+            [$client, $this->server] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        }
         $this->api = new RouterOsApi($client);
+    }
+
+    public function test_gateway_updates_existing_profile_and_adds_missing_pool(): void
+    {
+        $gw = new RouterOsGateway($this->api);
+
+        $this->reply(['!re', '=.id=*5', '=name=UP-30M'], ['!done'], ['!done']);
+        $this->assertFalse($gw->saveProfile('pppoe', 'UP-30M', ['rate-limit' => '30M/30M']));
+        $this->assertSame(['/ppp/profile/print', '?name=UP-30M'], $this->sentSentence());
+        $this->assertSame(['/ppp/profile/set', '=.id=*5', '=rate-limit=30M/30M'], $this->sentSentence());
+
+        $this->reply(['!done'], ['!done']);
+        $this->assertTrue($gw->savePool('pool-30m', '10.10.3.2-10.10.3.254'));
+        $this->assertSame(['/ip/pool/print', '?name=pool-30m'], $this->sentSentence());
+        $this->assertSame(['/ip/pool/add', '=name=pool-30m', '=ranges=10.10.3.2-10.10.3.254'], $this->sentSentence());
+    }
+
+    public function test_gateway_hotspot_profile_uses_hotspot_user_profile_menu(): void
+    {
+        $this->reply(['!done'], ['!done']);
+
+        (new RouterOsGateway($this->api))->saveProfile('hotspot', 'HS-1D', ['rate-limit' => '5M/5M']);
+
+        $this->assertSame(['/ip/hotspot/user/profile/print', '?name=HS-1D'], $this->sentSentence());
+        $this->assertSame(['/ip/hotspot/user/profile/add', '=name=HS-1D', '=rate-limit=5M/5M'], $this->sentSentence());
     }
 
     public function test_command_sends_attributes_and_query_and_parses_rows(): void

@@ -7,9 +7,10 @@ use App\Models\Router;
 use App\Models\Tunnel;
 use App\Models\User;
 use App\Services\Mikrotik\MikrotikConnector;
-use App\Services\Mikrotik\MikrotikGateway;
 use App\Services\Mikrotik\RouterOsException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Fakes\FakeConnector;
+use Tests\Fakes\FakeGateway;
 use Tests\TestCase;
 
 class PelangganTest extends TestCase
@@ -201,69 +202,5 @@ class PelangganTest extends TestCase
         return Pelanggan::create([
             'nama' => ucfirst($username), 'id_lokasi' => 1, 'router_id' => $this->router->id, 'username_pppoe' => $username, ...$attrs,
         ]);
-    }
-}
-
-/** Connector tiruan: selalu memberi FakeGateway, atau melempar $gagal bila diisi. */
-class FakeConnector extends MikrotikConnector
-{
-    public ?RouterOsException $gagal = null;
-
-    public function __construct(private FakeGateway $gw) {}
-
-    public function connect(Router $router): MikrotikGateway
-    {
-        return $this->gagal ? throw $this->gagal : $this->gw;
-    }
-}
-
-/** Mikrotik tiruan: menyimpan PPP Secret di memori dan mencatat sesi yang diputus. */
-class FakeGateway implements MikrotikGateway
-{
-    public array $secrets = [
-        'budi' => ['id' => '*1', 'name' => 'budi', 'profile' => '20Mbps', 'service' => 'pppoe', 'remote_address' => null, 'comment' => null, 'disabled' => false],
-        'sari' => ['id' => '*2', 'name' => 'sari', 'profile' => '10Mbps', 'service' => 'pppoe', 'remote_address' => null, 'comment' => null, 'disabled' => false],
-        'tono' => ['id' => '*3', 'name' => 'tono', 'profile' => 'ISOLIR', 'service' => 'pppoe', 'remote_address' => null, 'comment' => null, 'disabled' => false],
-    ];
-
-    public array $profiles = ['default', '10Mbps', '20Mbps', 'ISOLIR'];
-
-    public array $active = ['budi'];
-
-    public array $kicked = [];
-
-    public function info(): array
-    {
-        return ['identity' => 'MSS-Pusat', 'version' => '7.16', 'board' => 'CCR1036', 'uptime' => '3d4h'];
-    }
-
-    public function findSecret(string $name): ?array
-    {
-        return $this->secrets[$name] ?? null;
-    }
-
-    public function profiles(): array
-    {
-        return $this->profiles;
-    }
-
-    public function setSecretProfile(string $id, string $profile): void
-    {
-        foreach ($this->secrets as $name => $s) {
-            if ($s['id'] === $id) {
-                $this->secrets[$name]['profile'] = $profile;
-            }
-        }
-    }
-
-    public function removeActive(string $name): int
-    {
-        if (! in_array($name, $this->active, true)) {
-            return 0;
-        }
-        $this->active = array_values(array_diff($this->active, [$name]));
-        $this->kicked[] = $name;
-
-        return 1;
     }
 }

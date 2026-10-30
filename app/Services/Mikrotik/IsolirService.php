@@ -3,13 +3,15 @@
 namespace App\Services\Mikrotik;
 
 use App\Models\IsolirLog;
+use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Router;
 use Throwable;
 
 /**
  * Isolir PPPoE: profile PPP Secret pelanggan diubah ke profile isolir router (profile asal disimpan),
- * lalu sesi aktif diputus agar langsung berlaku. Aktifkan = kembalikan ke profile asal.
+ * lalu sesi aktif diputus agar langsung berlaku. Aktifkan = kembalikan ke profile asal (atau profile paket).
+ * Profile paket disinkronkan ke router lewat sinkronPaket().
  */
 class IsolirService
 {
@@ -55,11 +57,15 @@ class IsolirService
         });
     }
 
-    /** @param string|null $profile dipakai bila profile asal tidak diketahui (mis. diisolir manual di router) */
+    /**
+     * Tujuan profile: pilihan user → profile asal sebelum isolir → profile paket pelanggan.
+     *
+     * @param  string|null  $profile  dipakai bila profile asal tidak diketahui (mis. diisolir manual di router)
+     */
     public function aktifkan(Pelanggan $pelanggan, ?string $profile = null): string
     {
         $this->routerOf($pelanggan);
-        $tujuan = $profile ?: $pelanggan->profile_asal;
+        $tujuan = $profile ?: $pelanggan->profile_asal ?: $pelanggan->paket?->profile_mikrotik;
 
         return $this->catat($pelanggan, 'aktifkan', $tujuan, function (MikrotikGateway $gw) use ($pelanggan, $tujuan) {
             $secret = $this->secretDiRouter($gw, $pelanggan);
@@ -73,6 +79,11 @@ class IsolirService
                 }
                 throw new RouterOsException("Profile asal {$pelanggan->nama} tidak diketahui, pilih profile yang akan dipakai");
             }
+            if ($secret['profile'] === $tujuan) {
+                $pelanggan->update(['status_langganan' => 'on', 'profile_asal' => null, 'isolir_at' => null]);
+
+                return [$secret['profile'], "{$pelanggan->nama} sudah aktif dengan profile $tujuan"];
+            }
             $this->pastikanProfileAda($gw, $tujuan, 'Profile');
 
             $gw->setSecretProfile($secret['id'], $tujuan);
@@ -80,6 +91,32 @@ class IsolirService
             $pelanggan->update(['status_langganan' => 'on', 'profile_asal' => null, 'isolir_at' => null]);
 
             return [$secret['profile'], "{$pelanggan->nama} diaktifkan kembali ({$secret['profile']} → $tujuan)".($diputus ? ', sesi diputus agar login ulang' : '')];
+        });
+    }
+
+    /**
+     * Buat/perbarui profile paket (beserta IP pool bila diisi) di router, agar profile tujuan saat On selalu tersedia.
+     *
+     * @return string pesan hasil
+     */
+    public function sinkronPaket(Paket $paket, Router $router): string
+    {
+        // Menimpa profile isolir akan membuat pelanggan terisolir ikut mendapat kecepatan paket
+        if ($paket->profile_mikrotik === $router->profile_isolir) {
+            throw new RouterOsException("Profile '{$paket->profile_mikrotik}' adalah profile isolir router {$router->nama_router}, pakai nama lain");
+        }
+
+        return $this->onRouter($router, function (MikrotikGateway $gw) use ($paket, $router) {
+            $pool = $paket->buat_pool ? $paket->nama_pool : null;
+            if ($pool) {
+                $gw->savePool($pool, $paket->range_pool);
+            }
+            $attributes = $paket->jns_koneksi === 'hotspot'
+                ? ['rate-limit' => $paket->rate_limit, 'address-pool' => $pool]
+                : ['rate-limit' => $paket->rate_limit, 'local-address' => $paket->local_address, 'remote-address' => $pool];
+            $baru = $gw->saveProfile($paket->jns_koneksi, $paket->profile_mikrotik, array_filter($attributes, fn ($v) => filled($v)));
+
+            return "{$router->nama_router}: profile {$paket->profile_mikrotik} ".($baru ? 'dibuat' : 'diperbarui');
         });
     }
 

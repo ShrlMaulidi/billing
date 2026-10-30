@@ -67,15 +67,6 @@ class KelolaDataController extends Controller
         ]);
     }
 
-    public function paket(Request $request)
-    {
-        $jumlah = MockData::pelanggan()->where('status', 'aktif')->countBy('id_paket');
-
-        return $this->list($request, 'Paket', MockData::paket()->map(fn ($p) => $p + ['jumlah_pelanggan' => $jumlah[$p['id']] ?? 0]), [
-            'routerOptions' => MockData::router()->map(fn ($r) => ['value' => $r['id'], 'label' => $r['nama_router']])->values(),
-        ]);
-    }
-
     public function rekening(Request $request)
     {
         return $this->list($request, 'Rekening', MockData::rekening());

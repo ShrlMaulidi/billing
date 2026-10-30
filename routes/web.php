@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\KelolaDataController;
+use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\SistemController;
@@ -33,7 +34,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/cabang', 'cabang')->name('cabang');
         Route::get('/area', 'area')->name('area');
         Route::get('/pajak', 'pajak')->name('pajak');
-        Route::get('/paket', 'paket')->name('paket');
         Route::get('/rekening', 'rekening')->name('rekening');
         Route::get('/notifikasi', 'notifikasi')->name('notifikasi');
         Route::get('/pph', 'pph')->name('pph');
@@ -48,6 +48,13 @@ Route::middleware('auth')->group(function () {
     Route::delete('/pelanggan/{pelanggan}', [PelangganController::class, 'destroy'])->name('pelanggan.destroy');
     Route::post('/pelanggan/{pelanggan}/isolir', [PelangganController::class, 'isolir'])->name('pelanggan.isolir');
     Route::post('/pelanggan/{pelanggan}/aktifkan', [PelangganController::class, 'aktifkan'])->name('pelanggan.aktifkan');
+
+    // Paket langganan (database) — profile paket bisa disinkronkan ke Mikrotik
+    Route::get('/kelola-data/paket', [PaketController::class, 'index'])->name('kelola-data.paket');
+    Route::post('/paket', [PaketController::class, 'store'])->name('paket.store');
+    Route::put('/paket/{paket}', [PaketController::class, 'update'])->name('paket.update');
+    Route::delete('/paket/{paket}', [PaketController::class, 'destroy'])->name('paket.destroy');
+    Route::post('/paket/{paket}/sinkron', [PaketController::class, 'sinkron'])->name('paket.sinkron');
 
     // Router & tunnel memakai database + koneksi Mikrotik sungguhan
     Route::get('/kelola-data/router', [RouterController::class, 'index'])->name('kelola-data.router');
