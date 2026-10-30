@@ -246,6 +246,27 @@ class PelangganTest extends TestCase
         $this->assertSame('20Mbps', $this->gw->secrets['budi']['profile']);
     }
 
+    public function test_ip_already_used_on_router_but_not_in_billing_is_rejected(): void
+    {
+        // 10.12.10.3 dipakai secret 'tono' yang belum tercatat di billing, 10.12.10.2 dipakai sesi aktif 'budi'
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Sari', 'username_pppoe' => 'sari', 'ip_address' => '10.12.10.3']))
+            ->assertStatus(422)->assertJsonValidationErrors(['ip_address' => "IP sudah dipakai akun PPPoE 'tono' di router"]);
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Sari', 'username_pppoe' => 'sari', 'ip_address' => '10.12.10.2']))
+            ->assertStatus(422)->assertJsonValidationErrors(['ip_address' => "IP sudah dipakai akun PPPoE 'budi' di router"]);
+
+        // Sinkronisasi akun 'tono' sendiri memakai IP-nya di router: bukan bentrok
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Tono', 'username_pppoe' => 'tono', 'ip_address' => '10.12.10.3']))->assertOk();
+    }
+
+    public function test_ip_router_endpoint_lists_pool_free_ips_excluding_router_and_billing_usage(): void
+    {
+        $this->postJson('/pelanggan', $this->data(['username_pppoe' => 'budi.baru', 'ip_address' => '10.12.10.5']))->assertOk();
+
+        $this->getJson("/pelanggan/ip-router/{$this->router->id}")->assertOk()
+            ->assertJsonPath('pools.0', ['name' => 'pool-pppoe', 'ranges' => '10.12.10.2-10.12.10.6', 'kosong' => ['10.12.10.4', '10.12.10.6'], 'jumlah_kosong' => 2])
+            ->assertJsonPath('terpakai', ['10.12.10.3' => 'tono', '10.12.10.2' => 'budi']);
+    }
+
     public function test_changing_package_of_isolated_customer_keeps_isolir_and_updates_restore_profile(): void
     {
         $p = $this->pelangganDariForm();

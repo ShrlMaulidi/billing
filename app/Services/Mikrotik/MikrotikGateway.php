@@ -39,6 +39,12 @@ interface MikrotikGateway
      */
     public function saveProfile(string $jenis, string $name, array $attributes): bool;
 
+    /** @return list<array{name: string, ranges: string}> IP Pool di router */
+    public function pools(): array;
+
+    /** @return list<array{name: string, address: ?string}> sesi PPP yang sedang aktif beserta IP-nya */
+    public function activeSessions(): array;
+
     /** Buat atau perbarui IP Pool; true bila baru dibuat. */
     public function savePool(string $name, string $ranges): bool;
 

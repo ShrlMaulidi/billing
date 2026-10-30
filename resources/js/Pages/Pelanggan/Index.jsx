@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Info, Power, WifiOff } from 'react-feather';
-import { Button, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from 'reactstrap';
+import { Button, Input, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from 'reactstrap';
 import CrudPage from '../../Components/CrudPage';
 import Select from '../../Components/Select';
 import { ActionButton, ConfirmDialog, StatusBadge } from '../../Components/ui';
@@ -48,6 +48,44 @@ function AkunRouter({ routerId, jenis, value, onChange, invalid }) {
     return <Select value={value} onChange={onChange} options={options} invalid={invalid} placeholder={`— Pilih dari ${state.options.length} ${AKUN[jenis]} —`} />;
 }
 
+/** Remote Address PPPoE: saran IP kosong dari IP Pool router & peringatan bila IP sudah dipakai akun lain di router. */
+function RemoteAddress({ routerId, username, value, onChange, invalid }) {
+    const [state, setState] = useState({ loading: false, error: null, pools: [], terpakai: {} });
+    const [muatUlang, setMuatUlang] = useState(0);
+    useEffect(() => {
+        if (!routerId) return undefined;
+        let batal = false;
+        setState((s) => ({ ...s, loading: true, error: null }));
+        api('GET', `/pelanggan/ip-router/${routerId}`)
+            .then((data) => !batal && setState({ loading: false, error: null, pools: data.pools, terpakai: data.terpakai }))
+            .catch((err) => !batal && setState({ loading: false, error: err.message, pools: [], terpakai: {} }));
+        return () => { batal = true; };
+    }, [routerId, muatUlang]);
+
+    const pemakai = value && state.terpakai[value];
+    return (
+        <>
+            <Input value={value ?? ''} onChange={(e) => onChange(e.target.value.trim())} invalid={invalid || (!!pemakai && pemakai !== username)}
+                placeholder="10.12.10.5" list="ip-kosong-router" autoComplete="off" />
+            <datalist id="ip-kosong-router">
+                {state.pools.flatMap((p) => p.kosong.map((ip) => <option key={`${p.name}-${ip}`} value={ip}>{p.name}</option>))}
+            </datalist>
+            {pemakai && pemakai !== username && <div className="text-danger small mt-1">IP sudah dipakai akun PPPoE '{pemakai}' di router</div>}
+            <div className="form-text">
+                {!routerId && 'Pilih router untuk melihat IP kosong di pool'}
+                {state.loading && <><Spinner size="sm" className="me-1" />Membaca IP pool router...</>}
+                {state.error && <span className="text-danger">{state.error} <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => setMuatUlang((n) => n + 1)}>Coba lagi</button></span>}
+                {routerId && !state.loading && !state.error && (state.pools.length === 0 ? 'Router belum punya IP pool, isi IP manual' : state.pools.map((p) => (
+                    <div key={p.name}>
+                        Pool <strong>{p.name}</strong> ({p.ranges}): {p.jumlah_kosong} IP kosong
+                        {p.kosong[0] && <> · <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => onChange(p.kosong[0])}>pakai {p.kosong[0]}</button></>}
+                    </div>
+                )))}
+            </div>
+        </>
+    );
+}
+
 /**
  * Data pelanggan (database). Halaman Pelanggan On punya tombol Off (isolir),
  * halaman Pelanggan Off punya tombol On (kembali ke profile asal).
@@ -58,6 +96,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
     // Saat edit, akun dianggap sudah ada di router (pilih "Buat baru" untuk membuat ulang)
     const formRows = useMemo(() => rows.map((r) => ({ ...r, mode_akun: 'sinkron' })), [rows]);
     const renderAkun = ({ value, onChange, values, invalid }) => <AkunRouter routerId={values.router_id} jenis={values.jns_koneksi} value={value} onChange={onChange} invalid={invalid} />;
+    const renderRemoteAddress = ({ value, onChange, values, invalid }) => <RemoteAddress routerId={values.router_id} username={values.username_pppoe} value={value} onChange={onChange} invalid={invalid} />;
     const [busy, setBusy] = useState(null);
     const [confirm, setConfirm] = useState(null); // { p, aksi }
     const [pilihProfile, setPilihProfile] = useState(null); // { p, options, value }
@@ -167,8 +206,8 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
                     { name: 'ip_address', label: 'IP Address', placeholder: '192.168.10.20', help: 'Opsional', show: (v) => v.jns_koneksi === 'ip_binding' },
                     { name: 'ip_address', label: 'IP Address', required: true, placeholder: '192.168.10.20', show: (v) => v.jns_koneksi === 'static' },
                     {
-                        name: 'ip_address', label: 'Remote Address (IP Pelanggan)', required: true, placeholder: '10.12.10.5', show: (v) => v.jns_koneksi === 'pppoe',
-                        help: 'Diisi ke Remote Address PPP Secret di router; satu IP hanya untuk satu pelanggan per router',
+                        name: 'ip_address', label: 'Remote Address (IP Pelanggan)', type: 'custom', required: true, render: renderRemoteAddress, show: (v) => v.jns_koneksi === 'pppoe',
+                        help: 'Diisi ke Remote Address PPP Secret di router; IP yang sudah dipakai di router atau billing ditolak',
                     },
                     {
                         name: 'id_paket', label: 'Paket Langganan', type: 'select', required: true, help: 'Sesuai cabang; profile paket dipakai saat akun dibuat & saat On',

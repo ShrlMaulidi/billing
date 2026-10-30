@@ -78,6 +78,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/pelanggan/{pelanggan}/isolir', [PelangganController::class, 'isolir'])->middleware('permission:pelanggan.on.update')->name('pelanggan.isolir');
         Route::post('/pelanggan/{pelanggan}/aktifkan', [PelangganController::class, 'aktifkan'])->middleware('permission:pelanggan.off.update')->name('pelanggan.aktifkan');
         Route::get('/pelanggan/akun-router/{router}', [PelangganController::class, 'akunRouter'])->middleware('permission:pelanggan.data.create|pelanggan.data.update')->name('pelanggan.akun-router');
+        Route::get('/pelanggan/ip-router/{router}', [PelangganController::class, 'ipRouter'])->middleware('permission:pelanggan.data.create|pelanggan.data.update')->name('pelanggan.ip-router');
         Route::post('/paket/{paket}/sinkron', [PaketController::class, 'sinkron'])->middleware('permission:kelola_data.paket.update')->name('paket.sinkron');
         Route::get('/paket/profile-router/{router}', [PaketController::class, 'profileRouter'])->middleware('permission:kelola_data.paket.create|kelola_data.paket.update')->name('paket.profile-router');
         // Daftar profile dipakai saat menyalakan pelanggan yang profile asalnya tidak diketahui

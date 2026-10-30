@@ -153,6 +153,26 @@ class IsolirService
     }
 
     /**
+     * IP PPPoE yang sudah terpakai di router (Remote Address PPP Secret & IP sesi aktif) beserta IP Pool-nya,
+     * agar IP pelanggan baru tidak bentrok walau akun lama belum tercatat di billing.
+     *
+     * @return array{pools: list<array{name: string, ranges: string}>, terpakai: array<string, string>} terpakai: IP => username
+     */
+    public function ipPppoe(Router $router): array
+    {
+        return $this->onRouter($router, function (MikrotikGateway $gw) {
+            $terpakai = [];
+            foreach ([...$gw->accounts('pppoe'), ...$gw->activeSessions()] as $row) {
+                if (filter_var($row['address'] ?? null, FILTER_VALIDATE_IP)) {
+                    $terpakai[$row['address']] ??= $row['name'];
+                }
+            }
+
+            return ['pools' => $gw->pools(), 'terpakai' => $terpakai];
+        });
+    }
+
+    /**
      * Pilihan "Buat baru": buat PPP Secret / Hotspot User / IP Binding pelanggan di router-nya,
      * memakai profile paket pelanggan.
      *

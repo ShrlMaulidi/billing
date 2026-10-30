@@ -64,6 +64,18 @@ class RouterOsGateway implements MikrotikGateway
         return $this->upsert(self::PROFILE[$jenis], $name, $attributes);
     }
 
+    public function pools(): array
+    {
+        $rows = array_filter($this->api->command('/ip/pool/print'), fn ($row) => isset($row['name']));
+
+        return array_values(array_map(fn ($row) => ['name' => $row['name'], 'ranges' => $row['ranges'] ?? ''], $rows));
+    }
+
+    public function activeSessions(): array
+    {
+        return array_map(fn ($row) => ['name' => $row['name'] ?? '', 'address' => $row['address'] ?? null], $this->api->command('/ppp/active/print'));
+    }
+
     public function savePool(string $name, string $ranges): bool
     {
         return $this->upsert('/ip/pool', $name, ['ranges' => $ranges]);

@@ -10,7 +10,7 @@ class FakeGateway implements MikrotikGateway
     public array $secrets = [
         'budi' => ['id' => '*1', 'name' => 'budi', 'profile' => '20Mbps', 'service' => 'pppoe', 'remote_address' => null, 'comment' => null, 'disabled' => false],
         'sari' => ['id' => '*2', 'name' => 'sari', 'profile' => '10Mbps', 'service' => 'pppoe', 'remote_address' => null, 'comment' => null, 'disabled' => false],
-        'tono' => ['id' => '*3', 'name' => 'tono', 'profile' => 'ISOLIR', 'service' => 'pppoe', 'remote_address' => null, 'comment' => null, 'disabled' => false],
+        'tono' => ['id' => '*3', 'name' => 'tono', 'profile' => 'ISOLIR', 'service' => 'pppoe', 'remote_address' => '10.12.10.3', 'comment' => null, 'disabled' => false],
     ];
 
     public array $profiles = ['default', '10Mbps', '20Mbps', 'ISOLIR'];
@@ -81,6 +81,23 @@ class FakeGateway implements MikrotikGateway
         $this->savedProfiles[$name] = ['jenis' => $jenis, 'attributes' => $attributes];
 
         return $baru;
+    }
+
+    public function pools(): array
+    {
+        $rows = ['pool-pppoe' => '10.12.10.2-10.12.10.6', ...$this->pools];
+
+        return array_map(fn ($name, $ranges) => ['name' => $name, 'ranges' => $ranges], array_keys($rows), $rows);
+    }
+
+    /** @var array<string, string> IP sesi aktif: username => address */
+    public array $activeAddresses = ['budi' => '10.12.10.2'];
+
+    public function activeSessions(): array
+    {
+        $aktif = array_intersect_key($this->activeAddresses, array_flip($this->active));
+
+        return array_map(fn ($name, $address) => ['name' => $name, 'address' => $address], array_keys($aktif), $aktif);
     }
 
     public function savePool(string $name, string $ranges): bool

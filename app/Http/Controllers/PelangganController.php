@@ -9,9 +9,11 @@ use App\Models\Router;
 use App\Models\User;
 use App\Services\Mikrotik\IsolirService;
 use App\Services\Mikrotik\RouterOsException;
+use App\Support\IpPool;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 /**
@@ -58,6 +60,7 @@ class PelangganController extends Controller
     public function store(Request $request, IsolirService $mikrotik): JsonResponse
     {
         [$data, $akun] = $this->validated($request);
+        $this->pastikanIpKosongDiRouter($data, null, $mikrotik);
         $pelanggan = Pelanggan::create($data);
         // Kode pelanggan otomatis bila tidak diisi
         if (! $pelanggan->id_pelanggan) {
@@ -71,6 +74,7 @@ class PelangganController extends Controller
     {
         $this->pastikanCabang($request, $pelanggan->id_lokasi);
         [$data, $akun] = $this->validated($request, $pelanggan);
+        $this->pastikanIpKosongDiRouter($data, $pelanggan, $mikrotik);
         $pelanggan->update($data);
         $pesan = "Data {$pelanggan->nama} diperbarui";
 
@@ -108,6 +112,28 @@ class PelangganController extends Controller
         } catch (RouterOsException $e) {
             return response()->json(['message' => "{$router->nama_router}: {$e->getMessage()}"], 422);
         }
+    }
+
+    /**
+     * Remote Address untuk form pelanggan PPPoE: IP Pool router beserta IP kosongnya, dan IP yang sudah terpakai
+     * (dibaca langsung dari router, termasuk akun yang belum tercatat di billing).
+     */
+    public function ipRouter(Request $request, Router $router, IsolirService $mikrotik): JsonResponse
+    {
+        abort_unless($router->id_lokasi === null || $request->user()->bolehAksesCabang($router->id_lokasi), 404);
+
+        try {
+            $ip = $mikrotik->ipPppoe($router);
+        } catch (RouterOsException $e) {
+            return response()->json(['message' => "{$router->nama_router}: {$e->getMessage()}"], 422);
+        }
+        // IP milik pelanggan billing di router ini juga dianggap terpakai
+        $terpakai = [...array_keys($ip['terpakai']), ...Pelanggan::where('router_id', $router->id)->whereNotNull('ip_address')->pluck('ip_address')->all()];
+
+        return response()->json([
+            'pools' => array_map(fn ($pool) => [...$pool, ...IpPool::kosong($pool['ranges'], $terpakai)], $ip['pools']),
+            'terpakai' => $ip['terpakai'],
+        ]);
     }
 
     /** Off: isolir PPPoE pelanggan. */
@@ -153,6 +179,29 @@ class PelangganController extends Controller
             return response()->json(['message' => "$pesan. {$mikrotik->buatAkun($pelanggan, $akun['password'])}"]);
         } catch (RouterOsException $e) {
             return response()->json(['message' => "$pesan, tetapi akun gagal dibuat di router: {$e->getMessage()}", 'type' => 'warning']);
+        }
+    }
+
+    /**
+     * IP PPPoE baru/diubah dicek ke router: tolak bila sudah dipakai PPP Secret atau sesi aktif lain,
+     * termasuk akun yang belum tercatat di billing. Router tidak terjangkau → pengecekan dilewati.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function pastikanIpKosongDiRouter(array $data, ?Pelanggan $pelanggan, IsolirService $mikrotik): void
+    {
+        $berubah = ! $pelanggan || $pelanggan->ip_address !== $data['ip_address'] || $pelanggan->router_id !== (int) $data['router_id']
+            || $pelanggan->username_pppoe !== $data['username_pppoe'];
+        if ($data['jns_koneksi'] !== 'pppoe' || ! $data['ip_address'] || ! $berubah) {
+            return;
+        }
+        try {
+            $pemakai = $mikrotik->ipPppoe(Router::findOrFail($data['router_id']))['terpakai'][$data['ip_address']] ?? null;
+        } catch (RouterOsException) {
+            return;
+        }
+        if ($pemakai !== null && $pemakai !== $data['username_pppoe']) {
+            throw ValidationException::withMessages(['ip_address' => "IP sudah dipakai akun PPPoE '$pemakai' di router"]);
         }
     }
 
