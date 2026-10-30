@@ -48,4 +48,9 @@ return [
         'gateway' => env('TUNNEL_GATEWAY', '10.10.10.1'),
     ],
 
+    'isolir' => [
+        // Tujuan redirect pelanggan terisolir; kosong = APP_URL/isolir
+        'url' => env('ISOLIR_URL'),
+    ],
+
 ];

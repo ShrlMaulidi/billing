@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\IsolirController;
 use App\Http\Controllers\KelolaDataController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PelangganController;
@@ -12,6 +13,8 @@ use App\Http\Controllers\TunnelController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login');
+// Tujuan redirect web proxy router untuk pelanggan terisolir (tanpa login)
+Route::get('/isolir', [IsolirController::class, 'halaman'])->name('isolir');
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
     Route::post('/login', [AuthController::class, 'store'])->name('login.store');
@@ -55,6 +58,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/paket/{paket}', [PaketController::class, 'update'])->name('paket.update');
     Route::delete('/paket/{paket}', [PaketController::class, 'destroy'])->name('paket.destroy');
     Route::post('/paket/{paket}/sinkron', [PaketController::class, 'sinkron'])->name('paket.sinkron');
+
+    // Template script isolir (Static/PPPoE/Hotspot) + isi halaman isolir
+    Route::get('/kelola-data/template-isolir', [IsolirController::class, 'index'])->name('kelola-data.template-isolir');
+    Route::put('/isolir/pengaturan', [IsolirController::class, 'simpanPengaturan'])->name('isolir.pengaturan');
+    Route::post('/isolir/script', [IsolirController::class, 'script'])->name('isolir.script');
 
     // Router & tunnel memakai database + koneksi Mikrotik sungguhan
     Route::get('/kelola-data/router', [RouterController::class, 'index'])->name('kelola-data.router');

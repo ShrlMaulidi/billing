@@ -31,6 +31,7 @@ export const MENU = [
                     { title: 'Notifikasi', href: '/kelola-data/notifikasi' },
                     { title: 'Upload Bukti PPh', href: '/kelola-data/pph' },
                     { title: 'Tunnel', href: '/kelola-data/tunnel' },
+                    { title: 'Template Isolir', href: '/kelola-data/template-isolir' },
                 ],
             },
             {
