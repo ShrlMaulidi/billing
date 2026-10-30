@@ -39,20 +39,23 @@ class RouterController extends Controller
 
     public function update(Request $request, Router $router): JsonResponse
     {
+        $this->pastikanCabang($request, $router->id_lokasi);
         $router->update($this->validated($request, $router));
 
         return response()->json(['message' => "Router {$router->nama_router} diperbarui"]);
     }
 
-    public function destroy(Router $router): JsonResponse
+    public function destroy(Request $request, Router $router): JsonResponse
     {
+        $this->pastikanCabang($request, $router->id_lokasi);
         $router->delete();
 
         return response()->json(['message' => "Router {$router->nama_router} dihapus"]);
     }
 
-    public function test(Router $router, IsolirService $isolir): JsonResponse
+    public function test(Request $request, Router $router, IsolirService $isolir): JsonResponse
     {
+        $this->pastikanCabang($request, $router->id_lokasi);
         try {
             $info = $isolir->test($router);
         } catch (RouterOsException $e) {
@@ -65,8 +68,10 @@ class RouterController extends Controller
         ]);
     }
 
-    public function profiles(Router $router, IsolirService $isolir): JsonResponse
+    public function profiles(Request $request, Router $router, IsolirService $isolir): JsonResponse
     {
+        // Router tanpa cabang dipakai bersama semua cabang
+        abort_unless($router->id_lokasi === null || $request->user()->bolehAksesCabang($router->id_lokasi), 404);
         try {
             return response()->json(['data' => $isolir->profiles($router)]);
         } catch (RouterOsException $e) {
@@ -79,7 +84,7 @@ class RouterController extends Controller
         $data = $request->validate([
             'kode_router' => ['nullable', 'string', 'max:50'],
             'nama_router' => ['required', 'string', 'max:100'],
-            'id_lokasi' => ['nullable', 'integer', 'exists:lokasi,id'],
+            'id_lokasi' => ['nullable', 'integer', 'exists:lokasi,id', ...$this->aturanCabangSendiri($request)],
             'mode_koneksi' => ['required', 'in:langsung,tunnel'],
             'host' => ['required_if:mode_koneksi,langsung', 'nullable', 'string', 'max:255'],
             'tunnel_id' => ['required_if:mode_koneksi,tunnel', 'nullable', 'integer', 'exists:tunnels,id'],

@@ -23,6 +23,9 @@ class PelangganController extends Controller
     public function index(Request $request, ?string $status = null)
     {
         $f = $this->filters($request);
+        $cabangUser = $request->user()->id_lokasi;
+        // Pilihan milik cabang user, plus yang berlaku untuk semua cabang (tanpa cabang)
+        $cabangDanUmum = fn ($q) => $q->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $cabangUser));
         $base = Pelanggan::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
 
         $rows = (clone $base)->with(['router:id,nama_router,profile_isolir', 'paket:id,nama_paket,harga,profile_mikrotik', 'lokasi:id,nama_lokasi'])
@@ -40,13 +43,15 @@ class PelangganController extends Controller
                 'off' => (clone $base)->where('status', 'aktif')->where('status_langganan', 'off')->count(),
             ],
             // id_lokasi dkk. dipakai form untuk menyaring pilihan sesuai cabang & jenis koneksi
-            'areaOptions' => Area::orderBy('nama_area')->get()->map(fn ($a) => ['value' => $a->id, 'label' => $a->nama_area, 'id_lokasi' => $a->id_lokasi]),
-            'routerOptions' => Router::orderBy('nama_router')->get()->map(fn ($r) => ['value' => $r->id, 'label' => $r->nama_router, 'id_lokasi' => $r->id_lokasi]),
-            'paketOptions' => Paket::orderBy('nama_paket')->get()->map(fn ($p) => [
-                'value' => $p->id, 'label' => "{$p->nama_paket} ({$p->profile_mikrotik})",
-                'id_lokasi' => $p->filter_lokasi ? $p->id_lokasi : null, 'jns_koneksi' => $p->jns_koneksi,
-            ]),
-            'salesOptions' => User::where('role', 'Sales')->orderBy('name')->get()->map(fn ($u) => ['value' => $u->id, 'label' => $u->name]),
+            'areaOptions' => Area::when($cabangUser, fn ($q) => $q->where('id_lokasi', $cabangUser))->orderBy('nama_area')->get()->map(fn ($a) => ['value' => $a->id, 'label' => $a->nama_area, 'id_lokasi' => $a->id_lokasi]),
+            'routerOptions' => Router::when($cabangUser, $cabangDanUmum)->orderBy('nama_router')->get()->map(fn ($r) => ['value' => $r->id, 'label' => $r->nama_router, 'id_lokasi' => $r->id_lokasi]),
+            'paketOptions' => Paket::when($cabangUser, fn ($q) => $q->where(fn ($q) => $q->where('filter_lokasi', false)->orWhere('id_lokasi', $cabangUser)))
+                ->orderBy('nama_paket')->get()->map(fn ($p) => [
+                    'value' => $p->id, 'label' => "{$p->nama_paket} ({$p->profile_mikrotik})",
+                    'id_lokasi' => $p->filter_lokasi ? $p->id_lokasi : null, 'jns_koneksi' => $p->jns_koneksi,
+                ]),
+            'salesOptions' => User::role('Sales')->where('status', 'aktif')->when($cabangUser, $cabangDanUmum)->orderBy('name')->get()
+                ->map(fn ($u) => ['value' => $u->id, 'label' => $u->name, 'id_lokasi' => $u->id_lokasi]),
         ]);
     }
 
@@ -64,14 +69,16 @@ class PelangganController extends Controller
 
     public function update(Request $request, Pelanggan $pelanggan, IsolirService $mikrotik): JsonResponse
     {
+        $this->pastikanCabang($request, $pelanggan->id_lokasi);
         [$data, $akun] = $this->validated($request, $pelanggan);
         $pelanggan->update($data);
 
         return $this->simpanAkun($pelanggan, $akun, "Data {$pelanggan->nama} diperbarui", $mikrotik);
     }
 
-    public function destroy(Pelanggan $pelanggan): JsonResponse
+    public function destroy(Request $request, Pelanggan $pelanggan): JsonResponse
     {
+        $this->pastikanCabang($request, $pelanggan->id_lokasi);
         $pelanggan->delete();
 
         return response()->json(['message' => "Pelanggan {$pelanggan->nama} dihapus"]);
@@ -80,6 +87,8 @@ class PelangganController extends Controller
     /** Daftar akun di router untuk dropdown "Sinkronisasi" (PPP Secret / Hotspot User / IP Binding). */
     public function akunRouter(Request $request, Router $router, IsolirService $mikrotik): JsonResponse
     {
+        // Router tanpa cabang dipakai bersama semua cabang
+        abort_unless($router->id_lokasi === null || $request->user()->bolehAksesCabang($router->id_lokasi), 404);
         $jenis = $request->validate(['jenis' => ['required', 'in:pppoe,hotspot,ip_binding']])['jenis'];
 
         try {
@@ -90,14 +99,17 @@ class PelangganController extends Controller
     }
 
     /** Off: isolir PPPoE pelanggan. */
-    public function isolir(Pelanggan $pelanggan, IsolirService $isolir): JsonResponse
+    public function isolir(Request $request, Pelanggan $pelanggan, IsolirService $isolir): JsonResponse
     {
+        $this->pastikanCabang($request, $pelanggan->id_lokasi);
+
         return $this->jalankan(fn () => $isolir->isolir($pelanggan));
     }
 
     /** On: kembalikan ke profile asal (atau profile pilihan bila asal tidak diketahui). */
     public function aktifkan(Request $request, Pelanggan $pelanggan, IsolirService $isolir): JsonResponse
     {
+        $this->pastikanCabang($request, $pelanggan->id_lokasi);
         $profile = $request->validate(['profile' => ['nullable', 'string', 'max:100']])['profile'] ?? null;
 
         return $this->jalankan(fn () => $isolir->aktifkan($pelanggan, $profile));
@@ -146,7 +158,7 @@ class PelangganController extends Controller
             'nik' => ['nullable', 'digits:16'],
             'alamat' => ['required', 'string', 'max:500'],
             'jns_tagihan' => ['required', 'in:prabayar,pascabayar'],
-            'id_lokasi' => ['required', 'integer', 'exists:lokasi,id'],
+            'id_lokasi' => ['required', 'integer', 'exists:lokasi,id', ...$this->aturanCabangSendiri($request)],
             'id_area' => ['nullable', 'integer', Rule::exists('area', 'id')->where('id_lokasi', $lokasi)],
             // Router milik cabang ini, atau router yang belum diberi cabang
             'router_id' => ['required', 'integer', Rule::exists('routers', 'id')->where(fn ($q) => $q->where('id_lokasi', $lokasi)->orWhereNull('id_lokasi'))],
@@ -165,7 +177,7 @@ class PelangganController extends Controller
             'tgl_registrasi' => ['required', 'date'],
             'tgl_jatuh_tempo' => ['required', 'integer', 'between:1,31'],
             'ppn' => ['required', 'boolean'],
-            'sales_id' => ['required', 'integer', Rule::exists('users', 'id')->where('role', 'Sales')],
+            'sales_id' => ['required', 'integer', Rule::in(User::role('Sales')->where('status', 'aktif')->pluck('id'))],
             'status' => [$pelanggan ? 'required' : 'nullable', 'in:aktif,berhenti'],
         ], $this->pesanValidasi(), [
             'id_pelanggan' => 'ID pelanggan', 'nama' => 'Nama pelanggan', 'tlp' => 'No. telepon', 'nik' => 'NIK', 'alamat' => 'Alamat',

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\User;
+use App\Support\HakAkses;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -27,12 +28,23 @@ class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'username' => fake()->unique()->userName(),
-            'role' => 'Super Admin',
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /** User baru otomatis Super Admin kecuali diberi state peran(). Role dibuat oleh HakAksesSeeder. */
+    public function configure(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->roles()->exists() ? null : $user->assignRole(HakAkses::SUPER_ADMIN));
+    }
+
+    /** User dengan role tertentu, mis. User::factory()->peran('Admin')->create(). */
+    public function peran(string $role): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->syncRoles($role));
     }
 
     /**

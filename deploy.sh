@@ -22,6 +22,8 @@ rm -f public/hot
 
 echo "→ Database & cache"
 php artisan migrate --force
+# Daftar permission & role bawaan (role yang sudah diatur di menu Hak Akses tidak ditimpa)
+php artisan db:seed --class=HakAksesSeeder --force
 php artisan optimize:clear
 php artisan optimize
 

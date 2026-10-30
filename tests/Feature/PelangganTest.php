@@ -45,7 +45,7 @@ class PelangganTest extends TestCase
         ]);
         $this->lokasi = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
         $this->paket = Paket::create(['nama_paket' => 'Home 20 Mbps', 'harga' => 200000, 'jenis' => 'bulanan', 'jns_koneksi' => 'pppoe', 'profile_mikrotik' => '20Mbps']);
-        $this->sales = User::factory()->create(['name' => 'Agus Sales', 'role' => 'Sales']);
+        $this->sales = User::factory()->peran('Sales')->create(['name' => 'Agus Sales']);
     }
 
     public function test_store_creates_customer_with_auto_id_and_unique_username_per_router(): void
@@ -81,13 +81,13 @@ class PelangganTest extends TestCase
         $routerLain = Router::create([...$this->router->only(['mode_koneksi', 'host', 'port_api', 'username', 'profile_isolir']), 'nama_router' => 'RB Cimahi', 'password' => 'x', 'id_lokasi' => $lain->id]);
         $areaLain = Area::create(['nama_area' => 'Cimahi Utara', 'id_lokasi' => $lain->id]);
         $paketLain = Paket::create([...$this->paket->only(['harga', 'jenis', 'jns_koneksi', 'profile_mikrotik']), 'nama_paket' => 'Khusus Cimahi', 'filter_lokasi' => true, 'id_lokasi' => $lain->id]);
-        $bukanSales = User::factory()->create(['role' => 'Admin']);
+        $bukanSales = User::factory()->peran('Admin')->create();
 
         $this->postJson('/pelanggan', $this->data([
             'router_id' => $routerLain->id, 'id_area' => $areaLain->id, 'id_paket' => $paketLain->id, 'sales_id' => $bukanSales->id, 'nik' => '320512',
         ]))->assertStatus(422)->assertJsonValidationErrors([
             'router_id' => 'Router tidak ditemukan', 'id_area' => 'Area tidak ditemukan', 'id_paket' => 'Paket tidak ditemukan',
-            'sales_id' => 'Sales tidak ditemukan', 'nik' => 'NIK harus 16 digit angka',
+            'sales_id' => 'Sales tidak valid', 'nik' => 'NIK harus 16 digit angka',
         ]);
 
         $this->assertDatabaseCount('pelanggan', 0);

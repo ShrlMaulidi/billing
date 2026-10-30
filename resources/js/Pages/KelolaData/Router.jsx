@@ -4,9 +4,10 @@ import { Activity, Info } from 'react-feather';
 import CrudPage from '../../Components/CrudPage';
 import { ActionButton, StatusBadge } from '../../Components/ui';
 import { angka, waktu } from '../../lib/format';
-import { api, deleteFrom, notify, reloadData, saveTo } from '../../lib/ui';
+import { api, deleteFrom, notify, reloadData, saveTo, useBisa } from '../../lib/ui';
 
 export default function Router({ filters, rows, tunnelOptions }) {
+    const bisa = useBisa();
     const { cabangOptions } = usePage().props;
     const [testing, setTesting] = useState(null);
     const tes = async (r) => {
@@ -26,6 +27,7 @@ export default function Router({ filters, rows, tunnelOptions }) {
             title="Router" rows={rows} filters={filters} deleteLabel={(r) => r.nama_router}
             defaults={{ mode_koneksi: 'langsung', port_api: 8728, ssl: false, profile_isolir: 'ISOLIR' }}
             onSave={saveTo('/mikrotik/router')} onDelete={deleteFrom('/mikrotik/router')}
+            canAdd={bisa('kelola_data.router.create')} canEdit={bisa('kelola_data.router.update')} canDelete={bisa('kelola_data.router.delete')}
             before={
                 <div className="alert alert-light-primary d-flex gap-2">
                     <Info size={16} className="flex-shrink-0 mt-1" />

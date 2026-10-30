@@ -5,12 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Cabang / lokasi (menu Kelola Data › Cabang). */
 #[Table('lokasi')]
-#[Fillable(['kode_lokasi', 'nama_lokasi', 'alamat_lokasi', 'tlp_lokasi', 'tlp_owner', 'id_mitra', 'group_wa', 'terima_cash', 'status'])]
+#[Fillable(['kode_lokasi', 'nama_lokasi', 'alamat_lokasi', 'tlp_lokasi', 'tlp_owner', 'nama_mitra', 'group_wa', 'terima_cash', 'status'])]
 class Lokasi extends Model
 {
     protected function casts(): array
@@ -20,9 +19,10 @@ class Lokasi extends Model
         ];
     }
 
-    public function mitra(): BelongsTo
+    /** Akun user yang ditugaskan ke cabang ini. */
+    public function users(): HasMany
     {
-        return $this->belongsTo(User::class, 'id_mitra');
+        return $this->hasMany(User::class, 'id_lokasi');
     }
 
     public function area(): HasMany

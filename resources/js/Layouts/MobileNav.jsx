@@ -5,6 +5,7 @@ import {
     ShoppingBag, UploadCloud, UserCheck, Users, UserX, X, Zap,
 } from 'react-feather';
 import { MENU, menuUntuk } from '../lib/menu';
+import { useBisa } from '../lib/ui';
 
 // Menu utama di navbar bawah (mobile); label dipersingkat agar muat di layar kecil
 const PRIMARY = [
@@ -34,8 +35,10 @@ const sectionsOf = (menu) => menu.flatMap((group) => {
 
 export default function MobileNav() {
     const { url, props } = usePage();
-    const role = props.auth.user?.role;
-    const sections = useMemo(() => sectionsOf(menuUntuk(role)), [role]);
+    const bisa = useBisa();
+    const sections = useMemo(() => sectionsOf(menuUntuk(bisa)), [props.auth]); // eslint-disable-line react-hooks/exhaustive-deps
+    const allItems = MENU.flatMap((g) => g.items);
+    const primary = PRIMARY.filter((p) => bisa(allItems.find((i) => i.href === p.href)?.izin));
     const sheetHrefs = sections.flatMap((s) => s.items.map((i) => i.href));
     const path = url.split('?')[0];
     const isActive = (href) => path === href || path.startsWith(`${href}/`);
@@ -55,8 +58,8 @@ export default function MobileNav() {
         <>
             <nav className="mnav" aria-label="Navigasi utama">
                 <div className="mnav-pill">
-                    {PRIMARY.map((p) => {
-                        const item = MENU.flatMap((g) => g.items).find((i) => i.href === p.href);
+                    {primary.map((p) => {
+                        const item = allItems.find((i) => i.href === p.href);
                         return (
                             <Link key={p.href} href={p.href} prefetch className={`mnav-item ${isActive(p.href) ? 'active' : ''}`} aria-label={item.title} aria-current={isActive(p.href) ? 'page' : undefined}>
                                 <svg><use href={`/cuba/svg/sprite.svg#stroke-${item.icon}`} /></svg>

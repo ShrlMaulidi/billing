@@ -11,17 +11,6 @@ class SistemTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_management_lists_database_users(): void
-    {
-        $this->actingAs(User::factory()->create(['name' => 'Sahrul', 'username' => 'sahrul', 'role' => 'Super Admin']));
-        User::factory()->create(['name' => 'Andi', 'username' => 'andi', 'role' => 'Admin']);
-
-        $this->get('/user/manajemen')->assertOk()->assertInertia(fn ($page) => $page->component('User/Manajemen')
-            ->has('rows', 2)
-            ->where('rows.0.nama', 'Andi')->where('rows.0.role', 'Admin')
-            ->where('rows.1.username', 'sahrul'));
-    }
-
     public function test_profile_shows_logged_in_user(): void
     {
         $this->actingAs(User::factory()->create(['name' => 'Sahrul', 'username' => 'sahrul', 'email' => 'sahrul1@gmail.com']));
@@ -40,11 +29,17 @@ class SistemTest extends TestCase
         $this->get($url)->assertOk()->assertInertia(fn ($page) => $page->component($component)->has('rows', 0));
     }
 
-    public function test_access_rights_page_has_no_roles_and_channel_page_returns_404(): void
+    public function test_payment_gateway_channel_page_returns_404(): void
     {
         $this->actingAs(User::factory()->create());
 
-        $this->get('/user/hak-akses')->assertOk()->assertInertia(fn ($page) => $page->component('User/HakAkses')->has('roles', 0)->where('selected', null));
         $this->get('/payment-gateway/1/channel')->assertNotFound();
+    }
+
+    public function test_profile_is_open_to_any_logged_in_user(): void
+    {
+        $this->actingAs(User::factory()->peran('Teknisi')->create(['name' => 'Bayu']));
+
+        $this->get('/profil')->assertOk()->assertInertia(fn ($page) => $page->where('user.nama', 'Bayu')->where('user.role', 'Teknisi')->where('user.cabang_akses', 'Semua Cabang'));
     }
 }

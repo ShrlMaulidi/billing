@@ -3,12 +3,13 @@ import { Info } from 'react-feather';
 import CrudPage from '../../Components/CrudPage';
 import { StatusBadge } from '../../Components/ui';
 import { angka, periode, persen, rupiah } from '../../lib/format';
-import { deleteFrom, saveTo } from '../../lib/ui';
+import { deleteFrom, saveTo, useBisa } from '../../lib/ui';
 
 // Tarif bulan berjalan belum ada sampai Pengaturan Pajak terhubung ke database
 const kosong = (v) => v === null || v === undefined;
 
-export default function Cabang({ filters, rows, mitraOptions, periodeSekarang }) {
+export default function Cabang({ filters, rows, periodeSekarang }) {
+    const bisa = useBisa();
     const pct = (key, label) => ({ key, label, align: 'end', render: (r) => (kosong(r[key]) ? '-' : persen(r[key])) });
     return (
         <CrudPage
@@ -16,6 +17,7 @@ export default function Cabang({ filters, rows, mitraOptions, periodeSekarang })
             defaults={{ status: 'aktif', terima_cash: true }}
             deleteLabel={(r) => r.nama_lokasi}
             onSave={saveTo('/cabang')} onDelete={deleteFrom('/cabang')}
+            canAdd={bisa('kelola_data.cabang.create')} canEdit={bisa('kelola_data.cabang.update')} canDelete={bisa('kelola_data.cabang.delete')}
             before={
                 <div className="alert alert-light-primary d-flex align-items-center gap-2">
                     <Info size={16} className="flex-shrink-0" />
@@ -23,7 +25,7 @@ export default function Cabang({ filters, rows, mitraOptions, periodeSekarang })
                 </div>
             }
             columns={[
-                { key: 'kode_lokasi', label: 'Kode' }, { key: 'nama_lokasi', label: 'Nama' }, { key: 'alamat_lokasi', label: 'Alamat' },
+                { key: 'kode_lokasi', label: 'Kode' }, { key: 'nama_lokasi', label: 'Nama' }, { key: 'nama_mitra', label: 'Mitra', render: (r) => r.nama_mitra || '-' }, { key: 'alamat_lokasi', label: 'Alamat' },
                 { key: 'tlp_lokasi', label: 'Tlp' }, { key: 'tlp_owner', label: 'Tlp Owner' },
                 pct('ppn_persen', 'PPN'), pct('pph_persen', 'PPh'), pct('bhp_persen', 'BHP'), pct('uso_persen', 'USO'),
                 { key: 'admin_fee', label: 'Admin Fee', align: 'end', render: (r) => (kosong(r.admin_fee) ? '-' : r.admin_fee_tipe === 'persentase' ? persen(r.admin_fee) : rupiah(r.admin_fee)) },
@@ -39,7 +41,7 @@ export default function Cabang({ filters, rows, mitraOptions, periodeSekarang })
                 { name: 'alamat_lokasi', label: 'Alamat', type: 'textarea', required: true, col: 'col-12' },
                 { name: 'tlp_lokasi', label: 'Tlp Lokasi', type: 'tel' },
                 { name: 'tlp_owner', label: 'Tlp Owner', type: 'tel' },
-                { name: 'id_mitra', label: 'Mitra / Pemilik', type: 'select', options: mitraOptions, help: 'User dengan role Mitra' },
+                { name: 'nama_mitra', label: 'Mitra / Pemilik', placeholder: 'Nama pemilik cabang', help: 'Akun login untuk mitra dibuat di User › Manajemen User' },
                 { name: 'group_wa', label: 'ID Grup WA Notifikasi', placeholder: '1203630xxxx@g.us' },
                 { name: 'status', label: 'Status', type: 'radio', required: true, options: [{ value: 'aktif', label: 'Aktif' }, { value: 'tidak_aktif', label: 'Tidak Aktif' }] },
                 { name: 'terima_cash', label: 'Cabang menerima pembayaran cash', type: 'switch' },

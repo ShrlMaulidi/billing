@@ -33,13 +33,15 @@ class AreaController extends Controller
 
     public function update(Request $request, Area $area): JsonResponse
     {
+        $this->pastikanCabang($request, $area->id_lokasi);
         $area->update($this->validated($request));
 
         return response()->json(['message' => "Area {$area->nama_area} diperbarui"]);
     }
 
-    public function destroy(Area $area): JsonResponse
+    public function destroy(Request $request, Area $area): JsonResponse
     {
+        $this->pastikanCabang($request, $area->id_lokasi);
         $area->delete();
 
         return response()->json(['message' => "Area {$area->nama_area} dihapus"]);
@@ -48,7 +50,7 @@ class AreaController extends Controller
     private function validated(Request $request): array
     {
         return $request->validate([
-            'id_lokasi' => ['required', 'integer', 'exists:lokasi,id'],
+            'id_lokasi' => ['required', 'integer', 'exists:lokasi,id', ...$this->aturanCabangSendiri($request)],
             'kode_area' => ['nullable', 'string', 'max:30'],
             'nama_area' => ['required', 'string', 'max:100'],
             'cakupan' => ['nullable', 'string', 'max:500'],

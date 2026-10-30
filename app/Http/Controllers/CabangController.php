@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Lokasi;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,18 +17,17 @@ class CabangController extends Controller
 
         return Inertia::render('KelolaData/Cabang', [
             'filters' => $f,
-            'rows' => Lokasi::with('mitra:id,name')
-                ->withCount(['area as jumlah_area', 'pelanggan as jumlah_pelanggan' => fn ($q) => $q->where('status', 'aktif')])
+            'rows' => Lokasi::withCount(['area as jumlah_area', 'pelanggan as jumlah_pelanggan' => fn ($q) => $q->where('status', 'aktif')])
                 ->when($f['cabang'], fn ($q) => $q->whereKey($f['cabang']))
-                ->orderBy('kode_lokasi')->get()
-                ->map(fn (Lokasi $l) => [...$l->toArray(), 'nama_mitra' => $l->mitra?->name]),
-            'mitraOptions' => User::where('role', 'Mitra')->orderBy('name')->get()->map(fn ($u) => ['value' => $u->id, 'label' => $u->name]),
+                ->orderBy('kode_lokasi')->get(),
             'periodeSekarang' => today()->format('Y-m-01'),
         ]);
     }
 
     public function store(Request $request): JsonResponse
     {
+        // User cabang tidak boleh membuat cabang lain
+        abort_if($request->user()->id_lokasi !== null, 403, 'Anda tidak memiliki akses ke fitur ini');
         $lokasi = Lokasi::create($this->validated($request));
 
         return response()->json(['message' => "Cabang {$lokasi->nama_lokasi} ditambahkan"]);
@@ -37,18 +35,24 @@ class CabangController extends Controller
 
     public function update(Request $request, Lokasi $lokasi): JsonResponse
     {
+        $this->pastikanCabang($request, $lokasi->id);
         $lokasi->update($this->validated($request, $lokasi));
 
         return response()->json(['message' => "Cabang {$lokasi->nama_lokasi} diperbarui"]);
     }
 
-    /** Area ikut terhapus; cabang yang masih dipakai pelanggan, router, atau paket tidak boleh dihapus. */
-    public function destroy(Lokasi $lokasi): JsonResponse
+    /**
+     * Area ikut terhapus; cabang yang masih dipakai pelanggan, router, paket, atau akun user tidak boleh dihapus
+     * (user tanpa cabang = akses semua cabang, jadi menghapus cabangnya sama dengan menaikkan hak aksesnya).
+     */
+    public function destroy(Request $request, Lokasi $lokasi): JsonResponse
     {
+        $this->pastikanCabang($request, $lokasi->id);
         $dipakai = array_filter([
             'pelanggan' => $lokasi->pelanggan()->exists(),
             'router' => $lokasi->routers()->exists(),
             'paket' => $lokasi->paket()->exists(),
+            'akun user' => $lokasi->users()->exists(),
         ]);
         if ($dipakai) {
             return response()->json(['message' => "Cabang {$lokasi->nama_lokasi} masih dipakai ".implode(', ', array_keys($dipakai)).', pindahkan dulu ke cabang lain'], 422);
@@ -66,13 +70,13 @@ class CabangController extends Controller
             'alamat_lokasi' => ['required', 'string', 'max:500'],
             'tlp_lokasi' => ['nullable', 'string', 'max:30'],
             'tlp_owner' => ['nullable', 'string', 'max:30'],
-            'id_mitra' => ['nullable', 'integer', Rule::exists('users', 'id')->where('role', 'Mitra')],
+            'nama_mitra' => ['nullable', 'string', 'max:100'],
             'group_wa' => ['nullable', 'string', 'max:255'],
             'terima_cash' => ['boolean'],
             'status' => ['required', 'in:aktif,tidak_aktif'],
         ], $this->pesanValidasi(), [
             'kode_lokasi' => 'Kode lokasi', 'nama_lokasi' => 'Nama lokasi', 'alamat_lokasi' => 'Alamat', 'tlp_lokasi' => 'Tlp lokasi',
-            'tlp_owner' => 'Tlp owner', 'id_mitra' => 'Mitra', 'group_wa' => 'ID grup WA', 'status' => 'Status',
+            'tlp_owner' => 'Tlp owner', 'nama_mitra' => 'Mitra / pemilik', 'group_wa' => 'ID grup WA', 'status' => 'Status',
         ]);
     }
 }

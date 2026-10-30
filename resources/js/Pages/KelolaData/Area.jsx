@@ -2,16 +2,18 @@ import { usePage } from '@inertiajs/react';
 import CrudPage from '../../Components/CrudPage';
 import { StatusBadge } from '../../Components/ui';
 import { angka } from '../../lib/format';
-import { deleteFrom, saveTo } from '../../lib/ui';
+import { deleteFrom, saveTo, useBisa } from '../../lib/ui';
 
 // Area di dalam cabang: satu cabang bisa memiliki banyak area
 export default function Area({ filters, rows }) {
+    const bisa = useBisa();
     const { cabangOptions } = usePage().props;
     return (
         <CrudPage
             title="Area" rows={rows} filters={filters} deleteLabel={(r) => `${r.nama_area} (${r.cabang})`}
             defaults={{ id_lokasi: filters.cabang ?? '', status: 'aktif' }}
             onSave={saveTo('/area')} onDelete={deleteFrom('/area')}
+            canAdd={bisa('kelola_data.area.create')} canEdit={bisa('kelola_data.area.update')} canDelete={bisa('kelola_data.area.delete')}
             columns={[
                 { key: 'kode_area', label: 'Kode' }, { key: 'nama_area', label: 'Nama Area' }, { key: 'cabang', label: 'Cabang' },
                 { key: 'cakupan', label: 'Cakupan Wilayah' },

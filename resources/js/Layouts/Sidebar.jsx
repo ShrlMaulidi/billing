@@ -2,14 +2,15 @@ import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Grid, X } from 'react-feather';
 import { menuUntuk } from '../lib/menu';
+import { useBisa } from '../lib/ui';
 import Icon from '../Components/Icon';
 
 const NAV_PREFETCH = ['mount', 'hover'];
 
 export default function Sidebar({ closed, onToggle }) {
     const { url, props } = usePage();
-    const role = props.auth.user?.role;
-    const menu = useMemo(() => menuUntuk(role), [role]);
+    const bisa = useBisa();
+    const menu = useMemo(() => menuUntuk(bisa), [props.auth]); // eslint-disable-line react-hooks/exhaustive-deps
     const path = url.split('?')[0];
     const isActive = (href) => path === href || path.startsWith(`${href}/`);
     const groupOf = (p) => menu.flatMap((g) => g.items).find((i) => i.base && p.startsWith(i.base))?.title;

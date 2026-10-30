@@ -7,10 +7,11 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "fakerphp/faker": "^1.23",
         "inertiajs/inertia-laravel": "^3.5",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0",
-        "fakerphp/faker": "^1.23"
+        "spatie/laravel-permission": "^8.3"
     },
     "require-dev": {
         "laravel/boost": "^2.10",

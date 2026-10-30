@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Router;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -72,14 +73,30 @@ class AuthTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_role_without_app_access_cannot_log_in(): void
+    public function test_role_without_any_menu_or_inactive_account_cannot_log_in(): void
     {
-        User::factory()->create(['username' => 'agus', 'password' => 'rahasia123', 'role' => 'Sales']);
+        Role::create(['name' => 'Tamu', 'guard_name' => 'web']);
+        User::factory()->peran('Tamu')->create(['username' => 'tamu', 'password' => 'rahasia123']);
+        User::factory()->create(['username' => 'lama', 'password' => 'rahasia123', 'status' => 'nonaktif']);
 
-        $this->post('/login', ['username' => 'agus', 'password' => 'rahasia123'])
+        $this->post('/login', ['username' => 'tamu', 'password' => 'rahasia123'])
             ->assertSessionHasErrors(['username' => 'Akun ini belum memiliki akses ke aplikasi. Hubungi Super Admin.']);
+        $this->post('/login', ['username' => 'lama', 'password' => 'rahasia123'])
+            ->assertSessionHasErrors(['username' => 'Akun ini sedang dinonaktifkan. Hubungi Super Admin.']);
 
         $this->assertGuest();
+    }
+
+    public function test_login_records_time_and_ip_and_goes_to_first_allowed_menu(): void
+    {
+        $this->travelTo('2026-10-30 09:15:00');
+        Role::findByName('Sales')->syncPermissions(['pelanggan.data.view']);
+        $user = User::factory()->peran('Sales')->create(['username' => 'agus', 'password' => 'rahasia123']);
+
+        $this->post('/login', ['username' => 'agus', 'password' => 'rahasia123'], ['REMOTE_ADDR' => '203.0.113.7'])->assertRedirect('/pelanggan');
+
+        $user->refresh();
+        $this->assertSame(['2026-10-30 09:15:00', '203.0.113.7'], [$user->last_login_at->toDateTimeString(), $user->last_login_ip]);
     }
 
     public function test_one_ip_guessing_many_usernames_is_locked_out(): void
@@ -107,7 +124,7 @@ class AuthTest extends TestCase
 
     public function test_shared_props_use_logged_in_user(): void
     {
-        $this->actingAs(User::factory()->create(['name' => 'Sahrul', 'username' => 'sahrul', 'role' => 'Admin']));
+        $this->actingAs(User::factory()->peran('Admin')->create(['name' => 'Sahrul', 'username' => 'sahrul']));
 
         $this->get('/dashboard')->assertInertia(fn ($page) => $page
             ->where('auth.user.nama', 'Sahrul')->where('auth.user.username', 'sahrul')->where('auth.user.role', 'Admin'));

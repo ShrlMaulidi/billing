@@ -4,9 +4,10 @@ import { Info, RefreshCw } from 'react-feather';
 import CrudPage from '../../Components/CrudPage';
 import { ActionButton, StatusBadge } from '../../Components/ui';
 import { angka, rupiah, waktu } from '../../lib/format';
-import { api, deleteFrom, notify, reloadData, saveTo } from '../../lib/ui';
+import { api, deleteFrom, notify, reloadData, saveTo, useBisa } from '../../lib/ui';
 
 export default function Paket({ filters, rows, routerOptions }) {
+    const bisa = useBisa();
     const { cabangOptions } = usePage().props;
     const [syncing, setSyncing] = useState(null);
     const sinkron = async (r) => {
@@ -26,6 +27,7 @@ export default function Paket({ filters, rows, routerOptions }) {
             title="Paket Pelanggan" entity="Paket" rows={rows} filters={filters} deleteLabel={(r) => r.nama_paket}
             defaults={{ harga: 0, jenis: 'bulanan', jns_koneksi: 'pppoe', tampil_registrasi: true, buat_profile: true, buat_pool: false, filter_lokasi: false }}
             onSave={saveTo('/paket')} onDelete={deleteFrom('/paket')}
+            canAdd={bisa('kelola_data.paket.create')} canEdit={bisa('kelola_data.paket.update')} canDelete={bisa('kelola_data.paket.delete')}
             before={
                 <div className="alert alert-light-primary d-flex gap-2">
                     <Info size={16} className="flex-shrink-0 mt-1" />
@@ -36,7 +38,7 @@ export default function Paket({ filters, rows, routerOptions }) {
                     </span>
                 </div>
             }
-            rowActions={(r) => (
+            rowActions={(r) => bisa('kelola_data.paket.update') && (
                 <ActionButton icon={RefreshCw} label="Sinkron ke MikroTik" color="info" loading={syncing === r.id} disabled={!!syncing} onClick={() => sinkron(r)} />
             )}
             columns={[

@@ -6,7 +6,7 @@ import CrudPage from '../../Components/CrudPage';
 import Select from '../../Components/Select';
 import { ActionButton, ConfirmDialog, StatusBadge } from '../../Components/ui';
 import { rupiah, tanggal, waktu } from '../../lib/format';
-import { api, deleteFrom, notify, reloadData, saveTo } from '../../lib/ui';
+import { api, deleteFrom, notify, reloadData, saveTo, useBisa } from '../../lib/ui';
 
 const RELOAD = ['rows', 'jumlah'];
 const JUDUL = { on: 'Pelanggan On', off: 'Pelanggan Off' };
@@ -54,6 +54,7 @@ function AkunRouter({ routerId, jenis, value, onChange, invalid }) {
  */
 export default function PelangganIndex({ filters, status, rows, jumlah, areaOptions, routerOptions, paketOptions, salesOptions }) {
     const { cabangOptions } = usePage().props;
+    const bisa = useBisa();
     // Saat edit, akun dianggap sudah ada di router (pilih "Buat baru" untuk membuat ulang)
     const formRows = useMemo(() => rows.map((r) => ({ ...r, mode_akun: 'sinkron' })), [rows]);
     const renderAkun = ({ value, onChange, values, invalid }) => <AkunRouter routerId={values.router_id} jenis={values.jns_koneksi} value={value} onChange={onChange} invalid={invalid} />;
@@ -93,12 +94,13 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
                 deleteLabel={(r) => r.nama}
                 defaults={{ jns_tagihan: 'prabayar', id_lokasi: filters.cabang ?? '', jns_koneksi: 'pppoe', mode_akun: 'sinkron', tgl_registrasi: new Date().toISOString().slice(0, 10), ppn: false }}
                 onSave={saveTo('/pelanggan', RELOAD)} onDelete={deleteFrom('/pelanggan', RELOAD)}
+                canAdd={bisa('pelanggan.data.create')} canEdit={bisa('pelanggan.data.update')} canDelete={bisa('pelanggan.data.delete')}
                 before={
                     <>
                         {[
                             [!cabangOptions.length, <>Belum ada cabang. Tambahkan dulu di <Link href="/kelola-data/cabang" className="fw-semibold">Kelola Data › Cabang</Link>.</>],
                             [!routerOptions.length, <>Belum ada router. Tambahkan dulu di <Link href="/kelola-data/router" className="fw-semibold">Kelola Data › Router</Link> agar pelanggan bisa di-On/Off.</>],
-                            [!salesOptions.length, <>Belum ada user dengan role <strong>Sales</strong>. Buat lewat terminal: <code>php artisan user:create namasales --role=Sales</code></>],
+                            [!salesOptions.length, <>Belum ada user aktif dengan role <strong>Sales</strong>. Tambahkan di <Link href="/user/manajemen" className="fw-semibold">User › Manajemen User</Link>.</>],
                         ].filter(([tampil]) => tampil).map(([, pesan], i) => (
                             <div key={i} className="alert alert-light-warning d-flex gap-2 align-items-center">
                                 <Info size={16} className="flex-shrink-0" />
@@ -115,7 +117,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
                         </div>
                     </>
                 }
-                rowActions={status ? (p) => (status === 'on'
+                rowActions={status && bisa(`pelanggan.${status}.update`) ? (p) => (status === 'on'
                     ? <ActionButton icon={WifiOff} label={p.jns_koneksi === 'pppoe' ? 'Off (Isolir)' : 'Off baru tersedia untuk PPPoE'} color="danger" loading={busy === p.id} disabled={!!busy || p.jns_koneksi !== 'pppoe'} onClick={() => setConfirm({ p, aksi: 'isolir' })} />
                     : <ActionButton icon={Power} label={p.jns_koneksi === 'pppoe' ? 'On (Aktifkan)' : 'On baru tersedia untuk PPPoE'} color="success" loading={busy === p.id} disabled={!!busy || p.jns_koneksi !== 'pppoe'} onClick={() => klikOn(p)} />) : undefined}
                 columns={[
@@ -171,7 +173,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
                     { name: 'tgl_registrasi', label: 'Tanggal Registrasi', type: 'date', required: true },
                     { name: 'tgl_jatuh_tempo', label: 'Tanggal Jatuh Tempo', type: 'number', required: true, help: 'Tanggal 1–31 setiap bulan' },
                     { name: 'ppn', label: 'PPN', type: 'radio', required: true, options: [{ value: true, label: 'Iya' }, { value: false, label: 'Tidak' }] },
-                    { name: 'sales_id', label: 'Sales', type: 'select', required: true, options: salesOptions },
+                    { name: 'sales_id', label: 'Sales', type: 'select', required: true, options: (v) => sesuaiCabang(salesOptions, v) },
                     { name: 'status', label: 'Status', type: 'radio', required: true, options: [{ value: 'aktif', label: 'Aktif' }, { value: 'berhenti', label: 'Berhenti' }], show: (v) => !!v.id },
                 ]}
             />

@@ -42,12 +42,18 @@ class HandleInertiaRequests extends Middleware
                 'user' => fn () => $request->user() ? [
                     'nama' => $request->user()->name,
                     'username' => $request->user()->username,
-                    'role' => $request->user()->role,
+                    'role' => $request->user()->getRoleNames()->first(),
+                    'super_admin' => $request->user()->isSuperAdmin(),
+                    'id_lokasi' => $request->user()->id_lokasi,
                 ] : null,
+                // Untuk menyembunyikan menu & tombol; server tetap memeriksa permission di setiap route
+                'permissions' => fn () => $request->user()?->getAllPermissions()->pluck('name') ?? [],
                 'ip' => $request->ip(),
             ],
+            // User cabang hanya melihat cabangnya sendiri
             'cabangOptions' => fn () => $request->user()
-                ? Lokasi::orderBy('nama_lokasi')->get(['id', 'nama_lokasi'])->map(fn ($l) => ['value' => $l->id, 'label' => $l->nama_lokasi])
+                ? Lokasi::when($request->user()->id_lokasi, fn ($q, $id) => $q->whereKey($id))
+                    ->orderBy('nama_lokasi')->get(['id', 'nama_lokasi'])->map(fn ($l) => ['value' => $l->id, 'label' => $l->nama_lokasi])
                 : [],
         ];
     }

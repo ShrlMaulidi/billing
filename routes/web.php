@@ -4,6 +4,7 @@ use App\Http\Controllers\AreaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CabangController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HakAksesController;
 use App\Http\Controllers\IsolirController;
 use App\Http\Controllers\KelolaDataController;
 use App\Http\Controllers\PaketController;
@@ -12,7 +13,7 @@ use App\Http\Controllers\RouterController;
 use App\Http\Controllers\SistemController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\TunnelController;
-use App\Models\User;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login');
@@ -23,101 +24,111 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'store'])->name('login.store');
 });
 
-// Semua halaman aplikasi & aksi Mikrotik wajib login sebagai staf (Super Admin / Admin)
-Route::middleware('auth')->post('/logout', [AuthController::class, 'destroy'])->name('logout');
+/*
+ * Semua halaman aplikasi & aksi Mikrotik wajib login, dan tiap route dijaga permission spatie
+ * "{menu}.{aksi}" (daftar lengkap di App\Support\HakAkses, diatur lewat menu User › Hak Akses).
+ */
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
+    // Profil sendiri boleh dibuka semua user yang login
+    Route::get('/profil', [SistemController::class, 'profil'])->name('profil');
 
-Route::middleware(['auth', 'role:'.implode(',', User::ROLE_STAF)])->group(function () {
     Route::controller(DashboardController::class)->group(function () {
-        Route::get('/dashboard', 'index')->name('dashboard');
-        Route::get('/dashboard/pelanggan', 'pelanggan')->name('dashboard.pelanggan');
-        Route::get('/dashboard-cabang', 'cabang')->name('dashboard-cabang');
-        Route::get('/dashboard-cabang/{id}', 'cabangDetail')->name('dashboard-cabang.detail');
-        Route::get('/income-summary', 'income')->name('income-summary');
+        Route::get('/dashboard', 'index')->middleware('permission:dashboard.view')->name('dashboard');
+        Route::get('/dashboard/pelanggan', 'pelanggan')->middleware('permission:dashboard.view')->name('dashboard.pelanggan');
+        Route::get('/dashboard-cabang', 'cabang')->middleware('permission:dashboard_cabang.view')->name('dashboard-cabang');
+        Route::get('/dashboard-cabang/{id}', 'cabangDetail')->middleware('permission:dashboard_cabang.view')->name('dashboard-cabang.detail');
+        Route::get('/income-summary', 'income')->middleware('permission:income_summary.view')->name('income-summary');
     });
 
     Route::prefix('kelola-data')->name('kelola-data.')->controller(KelolaDataController::class)->group(function () {
-        Route::get('/kartu-member', 'kartuMember')->name('kartu-member');
-        Route::get('/pajak', 'pajak')->name('pajak');
-        Route::get('/rekening', 'rekening')->name('rekening');
-        Route::get('/notifikasi', 'notifikasi')->name('notifikasi');
-        Route::get('/pph', 'pph')->name('pph');
+        Route::get('/kartu-member', 'kartuMember')->middleware('permission:kelola_data.kartu_member.view')->name('kartu-member');
+        Route::get('/pajak', 'pajak')->middleware('permission:kelola_data.pajak.view')->name('pajak');
+        Route::get('/rekening', 'rekening')->middleware('permission:kelola_data.rekening.view')->name('rekening');
+        Route::get('/notifikasi', 'notifikasi')->middleware('permission:kelola_data.notifikasi.view')->name('notifikasi');
+        Route::get('/pph', 'pph')->middleware('permission:kelola_data.pph.view')->name('pph');
     });
 
     // Cabang & area (database)
-    Route::get('/kelola-data/cabang', [CabangController::class, 'index'])->name('kelola-data.cabang');
-    Route::post('/cabang', [CabangController::class, 'store'])->name('cabang.store');
-    Route::put('/cabang/{lokasi}', [CabangController::class, 'update'])->name('cabang.update');
-    Route::delete('/cabang/{lokasi}', [CabangController::class, 'destroy'])->name('cabang.destroy');
-    Route::get('/kelola-data/area', [AreaController::class, 'index'])->name('kelola-data.area');
-    Route::post('/area', [AreaController::class, 'store'])->name('area.store');
-    Route::put('/area/{area}', [AreaController::class, 'update'])->name('area.update');
-    Route::delete('/area/{area}', [AreaController::class, 'destroy'])->name('area.destroy');
+    Route::get('/kelola-data/cabang', [CabangController::class, 'index'])->middleware('permission:kelola_data.cabang.view')->name('kelola-data.cabang');
+    Route::post('/cabang', [CabangController::class, 'store'])->middleware('permission:kelola_data.cabang.create')->name('cabang.store');
+    Route::put('/cabang/{lokasi}', [CabangController::class, 'update'])->middleware('permission:kelola_data.cabang.update')->name('cabang.update');
+    Route::delete('/cabang/{lokasi}', [CabangController::class, 'destroy'])->middleware('permission:kelola_data.cabang.delete')->name('cabang.destroy');
+    Route::get('/kelola-data/area', [AreaController::class, 'index'])->middleware('permission:kelola_data.area.view')->name('kelola-data.area');
+    Route::post('/area', [AreaController::class, 'store'])->middleware('permission:kelola_data.area.create')->name('area.store');
+    Route::put('/area/{area}', [AreaController::class, 'update'])->middleware('permission:kelola_data.area.update')->name('area.update');
+    Route::delete('/area/{area}', [AreaController::class, 'destroy'])->middleware('permission:kelola_data.area.delete')->name('area.destroy');
 
     // Data pelanggan (database) — akun koneksi di Mikrotik & On/Off internet lewat isolir PPPoE
-    Route::get('/pelanggan', [PelangganController::class, 'index'])->name('pelanggan.index');
-    Route::get('/pelanggan/on', [PelangganController::class, 'index'])->defaults('status', 'on')->name('pelanggan.on');
-    Route::get('/pelanggan/off', [PelangganController::class, 'index'])->defaults('status', 'off')->name('pelanggan.off');
-    Route::post('/pelanggan', [PelangganController::class, 'store'])->name('pelanggan.store');
-    Route::put('/pelanggan/{pelanggan}', [PelangganController::class, 'update'])->name('pelanggan.update');
-    Route::delete('/pelanggan/{pelanggan}', [PelangganController::class, 'destroy'])->name('pelanggan.destroy');
+    Route::get('/pelanggan', [PelangganController::class, 'index'])->middleware('permission:pelanggan.data.view')->name('pelanggan.index');
+    Route::get('/pelanggan/on', [PelangganController::class, 'index'])->defaults('status', 'on')->middleware('permission:pelanggan.on.view')->name('pelanggan.on');
+    Route::get('/pelanggan/off', [PelangganController::class, 'index'])->defaults('status', 'off')->middleware('permission:pelanggan.off.view')->name('pelanggan.off');
+    Route::post('/pelanggan', [PelangganController::class, 'store'])->middleware('permission:pelanggan.data.create')->name('pelanggan.store');
+    Route::put('/pelanggan/{pelanggan}', [PelangganController::class, 'update'])->middleware('permission:pelanggan.data.update')->name('pelanggan.update');
+    Route::delete('/pelanggan/{pelanggan}', [PelangganController::class, 'destroy'])->middleware('permission:pelanggan.data.delete')->name('pelanggan.destroy');
 
     // Paket langganan (database) — profile paket bisa disinkronkan ke Mikrotik
-    Route::get('/kelola-data/paket', [PaketController::class, 'index'])->name('kelola-data.paket');
-    Route::post('/paket', [PaketController::class, 'store'])->name('paket.store');
-    Route::put('/paket/{paket}', [PaketController::class, 'update'])->name('paket.update');
-    Route::delete('/paket/{paket}', [PaketController::class, 'destroy'])->name('paket.destroy');
+    Route::get('/kelola-data/paket', [PaketController::class, 'index'])->middleware('permission:kelola_data.paket.view')->name('kelola-data.paket');
+    Route::post('/paket', [PaketController::class, 'store'])->middleware('permission:kelola_data.paket.create')->name('paket.store');
+    Route::put('/paket/{paket}', [PaketController::class, 'update'])->middleware('permission:kelola_data.paket.update')->name('paket.update');
+    Route::delete('/paket/{paket}', [PaketController::class, 'destroy'])->middleware('permission:kelola_data.paket.delete')->name('paket.destroy');
 
     // Aksi yang langsung menghubungi router dibatasi frekuensinya (lihat AppServiceProvider)
     Route::middleware('throttle:mikrotik')->group(function () {
-        Route::post('/pelanggan/{pelanggan}/isolir', [PelangganController::class, 'isolir'])->name('pelanggan.isolir');
-        Route::post('/pelanggan/{pelanggan}/aktifkan', [PelangganController::class, 'aktifkan'])->name('pelanggan.aktifkan');
-        Route::get('/pelanggan/akun-router/{router}', [PelangganController::class, 'akunRouter'])->name('pelanggan.akun-router');
-        Route::post('/paket/{paket}/sinkron', [PaketController::class, 'sinkron'])->name('paket.sinkron');
-        Route::get('/mikrotik/router/{router}/profiles', [RouterController::class, 'profiles'])->name('mikrotik.router.profiles');
+        Route::post('/pelanggan/{pelanggan}/isolir', [PelangganController::class, 'isolir'])->middleware('permission:pelanggan.on.update')->name('pelanggan.isolir');
+        Route::post('/pelanggan/{pelanggan}/aktifkan', [PelangganController::class, 'aktifkan'])->middleware('permission:pelanggan.off.update')->name('pelanggan.aktifkan');
+        Route::get('/pelanggan/akun-router/{router}', [PelangganController::class, 'akunRouter'])->middleware('permission:pelanggan.data.create|pelanggan.data.update')->name('pelanggan.akun-router');
+        Route::post('/paket/{paket}/sinkron', [PaketController::class, 'sinkron'])->middleware('permission:kelola_data.paket.update')->name('paket.sinkron');
+        // Daftar profile dipakai saat menyalakan pelanggan yang profile asalnya tidak diketahui
+        Route::get('/mikrotik/router/{router}/profiles', [RouterController::class, 'profiles'])->middleware('permission:pelanggan.off.update|kelola_data.router.view')->name('mikrotik.router.profiles');
     });
 
     Route::prefix('transaksi')->name('transaksi.')->controller(TransaksiController::class)->group(function () {
-        Route::get('/penarikan-saldo', 'penarikan')->name('penarikan');
-        Route::get('/setor-kewajiban', 'setor')->name('setor');
-        Route::get('/pengeluaran', 'pengeluaran')->name('pengeluaran');
+        Route::get('/penarikan-saldo', 'penarikan')->middleware('permission:transaksi.penarikan.view')->name('penarikan');
+        Route::get('/setor-kewajiban', 'setor')->middleware('permission:transaksi.setor.view')->name('setor');
+        Route::get('/pengeluaran', 'pengeluaran')->middleware('permission:transaksi.pengeluaran.view')->name('pengeluaran');
     });
 
     Route::controller(SistemController::class)->group(function () {
-        Route::get('/laporan', 'laporan')->name('laporan');
-        Route::get('/payment-gateway', 'paymentGateway')->name('payment-gateway');
-        Route::get('/payment-gateway/{id}/channel', 'pgChannel')->name('payment-gateway.channel');
-        Route::get('/logs', 'logs')->name('logs');
-        Route::get('/profil', 'profil')->name('profil');
+        Route::get('/laporan', 'laporan')->middleware('permission:laporan.view')->name('laporan');
+        Route::get('/payment-gateway', 'paymentGateway')->middleware('permission:payment_gateway.view')->name('payment-gateway');
+        Route::get('/payment-gateway/{id}/channel', 'pgChannel')->middleware('permission:payment_gateway.view')->name('payment-gateway.channel');
+        Route::get('/logs', 'logs')->middleware('permission:logs.view')->name('logs');
     });
 
-    /*
-     * Khusus Super Admin: kredensial router & tunnel, script yang di-paste ke router, dan manajemen user.
-     * Menu ini bisa mengubah konfigurasi Mikrotik secara langsung, jadi tidak dibuka untuk Admin.
-     */
-    Route::middleware('role:'.User::SUPER_ADMIN)->group(function () {
+    // Router memakai database + koneksi Mikrotik sungguhan; data router dibatasi per cabang di controller
+    Route::get('/kelola-data/router', [RouterController::class, 'index'])->middleware('permission:kelola_data.router.view')->name('kelola-data.router');
+    Route::prefix('mikrotik')->name('mikrotik.')->group(function () {
+        Route::post('/router', [RouterController::class, 'store'])->middleware('permission:kelola_data.router.create')->name('router.store');
+        Route::put('/router/{router}', [RouterController::class, 'update'])->middleware('permission:kelola_data.router.update')->name('router.update');
+        Route::delete('/router/{router}', [RouterController::class, 'destroy'])->middleware('permission:kelola_data.router.delete')->name('router.destroy');
+        Route::post('/router/{router}/test', [RouterController::class, 'test'])->middleware(['permission:kelola_data.router.view', 'throttle:mikrotik'])->name('router.test');
+    });
+
+    // Menu global (tidak terikat cabang): hanya untuk user semua cabang
+    Route::middleware('semua_cabang')->group(function () {
         // Template script isolir (Static/PPPoE/Hotspot) + isi halaman isolir
-        Route::get('/kelola-data/template-isolir', [IsolirController::class, 'index'])->name('kelola-data.template-isolir');
-        Route::put('/isolir/pengaturan', [IsolirController::class, 'simpanPengaturan'])->name('isolir.pengaturan');
-        Route::post('/isolir/script', [IsolirController::class, 'script'])->name('isolir.script');
+        Route::get('/kelola-data/template-isolir', [IsolirController::class, 'index'])->middleware('permission:kelola_data.template_isolir.view')->name('kelola-data.template-isolir');
+        Route::put('/isolir/pengaturan', [IsolirController::class, 'simpanPengaturan'])->middleware('permission:kelola_data.template_isolir.update')->name('isolir.pengaturan');
+        Route::post('/isolir/script', [IsolirController::class, 'script'])->middleware('permission:kelola_data.template_isolir.view')->name('isolir.script');
 
-        // Router & tunnel memakai database + koneksi Mikrotik sungguhan
-        Route::get('/kelola-data/router', [RouterController::class, 'index'])->name('kelola-data.router');
-        Route::get('/kelola-data/tunnel', [TunnelController::class, 'index'])->name('kelola-data.tunnel');
+        // Tunnel memakai database + FreeRADIUS
+        Route::get('/kelola-data/tunnel', [TunnelController::class, 'index'])->middleware('permission:kelola_data.tunnel.view')->name('kelola-data.tunnel');
+        Route::post('/mikrotik/tunnel', [TunnelController::class, 'store'])->middleware('permission:kelola_data.tunnel.create')->name('mikrotik.tunnel.store');
+        Route::put('/mikrotik/tunnel/{tunnel}', [TunnelController::class, 'update'])->middleware('permission:kelola_data.tunnel.update')->name('mikrotik.tunnel.update');
+        Route::delete('/mikrotik/tunnel/{tunnel}', [TunnelController::class, 'destroy'])->middleware('permission:kelola_data.tunnel.delete')->name('mikrotik.tunnel.destroy');
+        // POST: password user API ikut dikirim, jangan sampai tercatat di URL/log. Script memuat password tunnel → butuh izin ubah
+        Route::post('/mikrotik/tunnel/{tunnel}/script', [TunnelController::class, 'script'])->middleware('permission:kelola_data.tunnel.update')->name('mikrotik.tunnel.script');
 
-        Route::prefix('mikrotik')->name('mikrotik.')->group(function () {
-            Route::post('/router', [RouterController::class, 'store'])->name('router.store');
-            Route::put('/router/{router}', [RouterController::class, 'update'])->name('router.update');
-            Route::delete('/router/{router}', [RouterController::class, 'destroy'])->name('router.destroy');
-            Route::post('/router/{router}/test', [RouterController::class, 'test'])->middleware('throttle:mikrotik')->name('router.test');
+        // Akun user (role & cabang) dan matriks hak akses per role
+        Route::get('/user/manajemen', [UserController::class, 'index'])->middleware('permission:user.manajemen.view')->name('user.manajemen');
+        Route::post('/user', [UserController::class, 'store'])->middleware('permission:user.manajemen.create')->name('user.store');
+        Route::put('/user/{user}', [UserController::class, 'update'])->whereNumber('user')->middleware('permission:user.manajemen.update')->name('user.update');
+        Route::put('/user/{user}/status', [UserController::class, 'status'])->whereNumber('user')->middleware('permission:user.manajemen.update')->name('user.status');
 
-            Route::post('/tunnel', [TunnelController::class, 'store'])->name('tunnel.store');
-            Route::put('/tunnel/{tunnel}', [TunnelController::class, 'update'])->name('tunnel.update');
-            Route::delete('/tunnel/{tunnel}', [TunnelController::class, 'destroy'])->name('tunnel.destroy');
-            // POST: password user API ikut dikirim, jangan sampai tercatat di URL/log
-            Route::post('/tunnel/{tunnel}/script', [TunnelController::class, 'script'])->name('tunnel.script');
-        });
-
-        Route::get('/user/manajemen', [SistemController::class, 'users'])->name('user.manajemen');
-        Route::get('/user/hak-akses', [SistemController::class, 'hakAkses'])->name('user.hak-akses');
+        Route::get('/user/hak-akses', [HakAksesController::class, 'index'])->middleware('permission:user.hak_akses.view')->name('user.hak-akses');
+        Route::post('/user/role', [HakAksesController::class, 'store'])->middleware('permission:user.hak_akses.create')->name('role.store');
+        Route::put('/user/role/{role}', [HakAksesController::class, 'update'])->middleware('permission:user.hak_akses.update')->name('role.update');
+        Route::delete('/user/role/{role}', [HakAksesController::class, 'destroy'])->middleware('permission:user.hak_akses.delete')->name('role.destroy');
     });
 });

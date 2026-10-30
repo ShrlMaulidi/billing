@@ -41,13 +41,15 @@ class PaketController extends Controller
 
     public function update(Request $request, Paket $paket, IsolirService $isolir): JsonResponse
     {
+        $this->pastikanCabangPaket($request, $paket);
         $paket->update($this->validated($request, $paket));
 
         return $this->simpanDanSinkron($paket, "Paket {$paket->nama_paket} diperbarui", $isolir);
     }
 
-    public function destroy(Paket $paket): JsonResponse
+    public function destroy(Request $request, Paket $paket): JsonResponse
     {
+        $this->pastikanCabangPaket($request, $paket);
         if ($paket->pelanggan()->exists()) {
             return response()->json(['message' => "Paket {$paket->nama_paket} masih dipakai pelanggan, pindahkan pelanggan ke paket lain dulu"], 422);
         }
@@ -57,8 +59,9 @@ class PaketController extends Controller
     }
 
     /** Tombol "Sinkron ke MikroTik". */
-    public function sinkron(Paket $paket, IsolirService $isolir): JsonResponse
+    public function sinkron(Request $request, Paket $paket, IsolirService $isolir): JsonResponse
     {
+        $this->pastikanCabangPaket($request, $paket);
         [$berhasil, $pesan] = $this->sinkronSemua($paket, $isolir);
 
         return response()->json(['message' => $pesan], $berhasil ? 200 : 422);
@@ -101,6 +104,12 @@ class PaketController extends Controller
         return [! $gagal, implode('; ', [...$berhasil, ...$gagal])];
     }
 
+    /** Paket untuk semua cabang hanya bisa diubah user semua cabang. */
+    private function pastikanCabangPaket(Request $request, Paket $paket): void
+    {
+        $this->pastikanCabang($request, $paket->filter_lokasi ? $paket->id_lokasi : null);
+    }
+
     private function validated(Request $request, ?Paket $paket = null): array
     {
         $data = $request->validate([
@@ -109,8 +118,9 @@ class PaketController extends Controller
             'harga' => ['required', 'integer', 'min:0'],
             'jenis' => ['required', 'in:bulanan,non_bulanan'],
             'jns_koneksi' => ['required', 'in:pppoe,hotspot'],
-            'id_lokasi' => ['required_if:filter_lokasi,true', 'nullable', 'integer', 'exists:lokasi,id'],
-            'filter_lokasi' => ['boolean'],
+            'id_lokasi' => ['required_if:filter_lokasi,true', 'nullable', 'integer', 'exists:lokasi,id', ...$this->aturanCabangSendiri($request)],
+            // User cabang hanya boleh membuat paket khusus cabangnya
+            'filter_lokasi' => ['boolean', ...($request->user()->id_lokasi ? ['accepted'] : [])],
             'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'profile_mikrotik' => ['required', 'string', 'max:100'],
             // Format rate-limit Mikrotik: rx/tx, boleh dengan burst, mis. 10M/10M atau 10M/10M 20M/20M 8M/8M 16/16

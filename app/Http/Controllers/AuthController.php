@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\HakAkses;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,17 +56,21 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['username' => 'Username/email atau kata sandi salah.']);
         }
 
-        // Role selain staf belum punya akses ke aplikasi
-        if (! $request->user()->bolehMasuk()) {
-            Log::warning('Login ditolak: role tanpa akses', ['username' => $data['username'], 'role' => $request->user()->role, 'ip' => $request->ip()]);
+        // Akun nonaktif, atau role-nya belum diberi satu menu pun di Hak Akses
+        $user = $request->user();
+        if (! $user->bolehMasuk()) {
+            Log::warning('Login ditolak: akun nonaktif / tanpa hak akses', ['username' => $data['username'], 'status' => $user->status, 'ip' => $request->ip()]);
             Auth::logout();
-            throw ValidationException::withMessages(['username' => 'Akun ini belum memiliki akses ke aplikasi. Hubungi Super Admin.']);
+            throw ValidationException::withMessages(['username' => $user->status !== 'aktif'
+                ? 'Akun ini sedang dinonaktifkan. Hubungi Super Admin.'
+                : 'Akun ini belum memiliki akses ke aplikasi. Hubungi Super Admin.']);
         }
 
         RateLimiter::clear($key);
         $request->session()->regenerate();
+        $user->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->save();
 
-        return redirect()->intended('/dashboard');
+        return redirect()->intended(HakAkses::halamanAwal($user));
     }
 
     public function destroy(Request $request): RedirectResponse

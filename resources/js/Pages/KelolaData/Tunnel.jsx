@@ -4,12 +4,13 @@ import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from 'reactstrap';
 import CrudPage from '../../Components/CrudPage';
 import { ActionButton, StatusBadge } from '../../Components/ui';
 import { waktu } from '../../lib/format';
-import { api, deleteFrom, notify, saveTo } from '../../lib/ui';
+import { api, deleteFrom, notify, saveTo, useBisa } from '../../lib/ui';
 
 // saran ikut dimuat ulang agar IP kosong berikutnya tidak basi setelah tambah/hapus
 const RELOAD = ['rows', 'saran'];
 
 export default function Tunnel({ filters, rows, saran, jaringan }) {
+    const bisa = useBisa();
     const [script, setScript] = useState(null); // { id, nama, text, opsi: { port_api, api_user, api_password } }
     const [loading, setLoading] = useState(null);
     // Opsi kosong = port & user diambil dari router yang memakai tunnel (atau default)
@@ -33,6 +34,7 @@ export default function Tunnel({ filters, rows, saran, jaringan }) {
                 title="Tunnel" rows={rows} filters={filters} filterFields={[]} deleteLabel={(r) => r.nama_tunnel}
                 defaults={{ status: 'aktif', server: saran.server ?? '', ip_tunnel: saran.ip_tunnel ?? '' }}
                 onSave={saveTo('/mikrotik/tunnel', RELOAD)} onDelete={deleteFrom('/mikrotik/tunnel', RELOAD)}
+                canAdd={bisa('kelola_data.tunnel.create')} canEdit={bisa('kelola_data.tunnel.update')} canDelete={bisa('kelola_data.tunnel.delete')}
                 before={
                     <div className="alert alert-light-primary d-flex gap-2">
                         <Info size={16} className="flex-shrink-0 mt-1" />
@@ -42,7 +44,8 @@ export default function Tunnel({ filters, rows, saran, jaringan }) {
                         </span>
                     </div>
                 }
-                rowActions={(r) => <ActionButton icon={Code} label="Script Mikrotik" color="info" loading={loading === r.id} onClick={() => buatScript(r)} />}
+                // Script memuat password tunnel, jadi butuh izin ubah
+                rowActions={(r) => bisa('kelola_data.tunnel.update') && <ActionButton icon={Code} label="Script Mikrotik" color="info" loading={loading === r.id} onClick={() => buatScript(r)} />}
                 columns={[
                     { key: 'nama_tunnel', label: 'Nama Tunnel', render: (r) => <>{r.nama_tunnel}<br /><small className="f-light">{r.protokol} · {r.server}</small></> },
                     { key: 'username', label: 'User' },

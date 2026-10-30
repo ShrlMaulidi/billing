@@ -1,8 +1,17 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 // Toast global sederhana: notify('Pesan', 'success' | 'danger' | 'info' | 'warning', durasiMs)
 export const notify = (message, type = 'success', duration = 3500) => window.dispatchEvent(new CustomEvent('app:toast', { detail: { message, type, duration } }));
+
+/**
+ * Cek permission user (spatie) untuk menampilkan menu/tombol, mis. bisa('pelanggan.data.create').
+ * Hanya untuk tampilan: server tetap memeriksa permission di setiap route.
+ */
+export function useBisa() {
+    const { auth } = usePage().props;
+    return (izin) => !!auth.user?.super_admin || (auth.permissions ?? []).includes(izin);
+}
 
 // Placeholder untuk aksi yang belum terhubung ke database
 export const dummy = (what = 'Aksi') => notify(`${what} belum tersedia — fitur belum terhubung ke database`, 'warning');
