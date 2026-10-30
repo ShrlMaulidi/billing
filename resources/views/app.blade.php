@@ -14,7 +14,7 @@
     @inertiaHead
 </head>
 <body>
-    <script>try { if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-only'); } catch (e) {}</script>
+    <script nonce="{{ Vite::cspNonce() }}">try { if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-only'); } catch (e) {}</script>
     @inertia
 </body>
 </html>

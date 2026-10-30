@@ -160,6 +160,10 @@ export function Field({ field, value, onChange, error, values }) {
         case 'static':
             control = <div className="form-control-plaintext">{render ? render(values) : value}</div>;
             break;
+        case 'custom':
+            // Kontrol buatan halaman sendiri, mis. dropdown yang memuat pilihan dari server
+            control = render({ value, onChange, values, invalid: !!error });
+            break;
         case 'textarea':
             control = <Input type="textarea" rows={field.rows ?? 3} {...common} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />;
             break;
@@ -176,7 +180,8 @@ export function Field({ field, value, onChange, error, values }) {
     );
 }
 
-// Modal form berbasis skema field. Logika simpan masih dummy (onSubmit menerima values).
+// Modal form berbasis skema field (onSubmit menerima values).
+// field.resets: daftar field yang dikosongkan saat field ini berubah (mis. ganti cabang → kosongkan router).
 export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmit, size = 'lg', submitLabel = 'Simpan', children }) {
     const [values, setValues] = useState(initial);
     const [errors, setErrors] = useState({});
@@ -220,7 +225,7 @@ export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmi
                     <div className="row">
                         {visible.map((f) => (
                             <div key={f.name} className={f.col ?? (fields.length > 4 ? 'col-md-6' : 'col-12')}>
-                                <Field field={f} value={values[f.name]} values={values} error={errors[f.name]} onChange={(v) => setValues((s) => ({ ...s, [f.name]: v }))} />
+                                <Field field={f} value={values[f.name]} values={values} error={errors[f.name]} onChange={(v) => setValues((s) => ({ ...s, ...Object.fromEntries((f.resets ?? []).map((k) => [k, ''])), [f.name]: v }))} />
                             </div>
                         ))}
                     </div>

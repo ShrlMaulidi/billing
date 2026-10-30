@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Lokasi;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -45,8 +46,9 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
                 'ip' => $request->ip(),
             ],
-            // Diisi dari tabel cabang setelah menu Cabang terhubung ke database
-            'cabangOptions' => fn () => [],
+            'cabangOptions' => fn () => $request->user()
+                ? Lokasi::orderBy('nama_lokasi')->get(['id', 'nama_lokasi'])->map(fn ($l) => ['value' => $l->id, 'label' => $l->nama_lokasi])
+                : [],
         ];
     }
 }

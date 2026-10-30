@@ -31,7 +31,7 @@ class DashboardController extends Controller
                 'pemasukan_bulan' => 0,
                 'pemasukan_hari' => 0,
             ],
-            'pelangganBaru' => (clone $pelanggan)->with('paket:id,nama_paket,harga')
+            'pelangganBaru' => (clone $pelanggan)->with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi'])
                 ->whereBetween('tgl_registrasi', $this->bulanIni())
                 ->latest('tgl_registrasi')->take(8)->get()
                 ->map->toBaris(),
@@ -47,7 +47,7 @@ class DashboardController extends Controller
     {
         $f = $this->filters($request);
         $kategori = $request->input('kategori', 'total');
-        $query = Pelanggan::with('paket:id,nama_paket,harga')->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
+        $query = Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi'])->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
 
         $rows = match ($kategori) {
             // Status lunas/belum lunas menunggu tabel tagihan

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tunnel;
 use App\Services\Tunnel\TunnelRadius;
+use App\Support\RouterOsScript;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -77,12 +78,12 @@ class TunnelController extends Controller
         $opsi = $request->validate([
             'port_api' => ['nullable', 'integer', 'between:1,65535'],
             'api_user' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
-            'api_password' => ['nullable', 'string', 'max:128'],
+            'api_password' => ['nullable', 'string', 'max:128', 'not_regex:/[\x00-\x1F\x7F]/'],
         ], $this->pesanValidasi(), ['port_api' => 'Port API', 'api_user' => 'Username API', 'api_password' => 'Password API']);
         $port = (int) ($opsi['port_api'] ?? $router?->port_api ?? 8728);
         $gateway = config('services.tunnel.gateway');
 
-        $q = fn ($v) => '"'.addcslashes($v, '"\\$').'"';
+        $q = RouterOsScript::quote(...);
         $izinApi = "/ip firewall filter add chain=input src-address=$gateway protocol=tcp dst-port=$port action=accept comment=\"API billing MSS\"";
         $baris = [
             "# ===== Tunnel billing MSS: {$tunnel->nama_tunnel} =====",
@@ -92,8 +93,8 @@ class TunnelController extends Controller
             '/interface l2tp-client remove [find comment="Tunnel billing MSS"]',
             "/interface l2tp-client add name={$q($tunnel->nama_tunnel)} connect-to={$q($tunnel->server)} user={$q($tunnel->username)} password={$q($tunnel->password)} allow=chap add-default-route=no disabled=no comment=\"Tunnel billing MSS\"",
             '',
-            "# 2. API MikroTik di port $port (samakan dengan Port API di menu Router billing)",
-            "/ip service set api disabled=no port=$port",
+            "# 2. API MikroTik di port $port (samakan dengan Port API di menu Router billing), hanya boleh diakses server billing",
+            "/ip service set api disabled=no port=$port address=$gateway/32",
             '',
             "# 3. Izinkan server billing ($gateway) mengakses API lewat tunnel, ditaruh paling atas",
             '/ip firewall filter remove [find comment="API billing MSS"]',
@@ -124,15 +125,16 @@ class TunnelController extends Controller
         $subnet = config('services.tunnel.subnet');
 
         $data = $request->validate([
-            'nama_tunnel' => ['required', 'string', 'max:100'],
-            'server' => ['required', 'string', 'max:255'],
+            // Nilai-nilai ini masuk ke script RouterOS: tolak karakter kontrol, server hanya domain/IP
+            'nama_tunnel' => ['required', 'string', 'max:100', 'not_regex:/[\x00-\x1F\x7F]/'],
+            'server' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9.-]+$/'],
             'username' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('tunnels')->ignore($tunnel),
                 function (string $attribute, mixed $value, Closure $fail) use ($radius, $tunnel) {
                     if ($radius->dipakaiAkunLain($value, $tunnel)) {
                         $fail('Username sudah dipakai akun RADIUS lain');
                     }
                 }],
-            'password' => [$tunnel ? 'nullable' : 'required', 'string', 'max:128'],
+            'password' => [$tunnel ? 'nullable' : 'required', 'string', 'max:128', 'not_regex:/[\x00-\x1F\x7F]/'],
             'ip_tunnel' => ['required', 'ipv4', Rule::unique('tunnels')->ignore($tunnel),
                 function (string $attribute, mixed $value, Closure $fail) use ($gateway, $subnet) {
                     if ($value === $gateway) {

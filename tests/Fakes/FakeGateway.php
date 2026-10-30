@@ -78,4 +78,32 @@ class FakeGateway implements MikrotikGateway
 
         return $baru;
     }
+
+    /** @var array<string, list<array<string, string>>> Hotspot User & IP Binding di router (PPP Secret ada di) */
+    public array $akun = [
+        'hotspot' => [['name' => 'voucher1', 'profile' => 'HS-1H', 'comment' => 'Warung']],
+        'ip_binding' => [['mac-address' => 'AA:BB:CC:DD:EE:01', 'address' => '192.168.10.5', 'type' => 'bypassed']],
+    ];
+
+    public function accounts(string $jenis): array
+    {
+        $rows = $jenis === 'pppoe' ? array_values($this->secrets) : $this->akun[$jenis];
+
+        return array_map(fn ($row) => [
+            'name' => $row['name'] ?? $row['mac-address'],
+            'profile' => $row['profile'] ?? $row['type'] ?? null,
+            'address' => $row['address'] ?? $row['remote_address'] ?? null,
+            'comment' => $row['comment'] ?? null,
+        ], $rows);
+    }
+
+    public function addAccount(string $jenis, array $attributes): void
+    {
+        if ($jenis === 'pppoe') {
+            $this->secrets[$attributes['name']] = ['id' => '*'.(count($this->secrets) + 1), 'remote_address' => null, 'disabled' => false, 'comment' => null, ...$attributes];
+
+            return;
+        }
+        $this->akun[$jenis][] = $attributes;
+    }
 }

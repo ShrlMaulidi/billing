@@ -4,6 +4,9 @@ namespace App\Services\Mikrotik;
 
 class RouterOsGateway implements MikrotikGateway
 {
+    /** Menu router untuk tiap jenis akun koneksi pelanggan. */
+    private const AKUN = ['pppoe' => '/ppp/secret', 'hotspot' => '/ip/hotspot/user', 'ip_binding' => '/ip/hotspot/ip-binding'];
+
     public function __construct(private RouterOsApi $api) {}
 
     public function info(): array
@@ -54,6 +57,21 @@ class RouterOsGateway implements MikrotikGateway
     public function savePool(string $name, string $ranges): bool
     {
         return $this->upsert('/ip/pool', $name, ['ranges' => $ranges]);
+    }
+
+    public function accounts(string $jenis): array
+    {
+        return array_map(fn ($row) => [
+            'name' => $row['name'] ?? $row['mac-address'] ?? '',
+            'profile' => $row['profile'] ?? $row['type'] ?? null,
+            'address' => $row['address'] ?? $row['remote-address'] ?? null,
+            'comment' => $row['comment'] ?? null,
+        ], $this->api->command(self::AKUN[$jenis].'/print'));
+    }
+
+    public function addAccount(string $jenis, array $attributes): void
+    {
+        $this->api->command(self::AKUN[$jenis].'/add', $attributes);
     }
 
     /** Set bila item bernama $name sudah ada, selain itu add. */

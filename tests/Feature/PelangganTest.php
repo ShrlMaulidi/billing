@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Area;
+use App\Models\Lokasi;
+use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Router;
 use App\Models\Tunnel;
@@ -23,6 +26,12 @@ class PelangganTest extends TestCase
 
     private Router $router;
 
+    private Lokasi $lokasi;
+
+    private Paket $paket;
+
+    private User $sales;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -34,24 +43,135 @@ class PelangganTest extends TestCase
             'nama_router' => 'CCR Pusat', 'mode_koneksi' => 'langsung', 'host' => '203.0.113.10', 'port_api' => 8728,
             'username' => 'billing', 'password' => 'rahasia', 'profile_isolir' => 'ISOLIR',
         ]);
+        $this->lokasi = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $this->paket = Paket::create(['nama_paket' => 'Home 20 Mbps', 'harga' => 200000, 'jenis' => 'bulanan', 'jns_koneksi' => 'pppoe', 'profile_mikrotik' => '20Mbps']);
+        $this->sales = User::factory()->create(['name' => 'Agus Sales', 'role' => 'Sales']);
     }
 
     public function test_store_creates_customer_with_auto_id_and_unique_username_per_router(): void
     {
-        $data = ['nama' => 'Budi Santoso', 'id_lokasi' => 1, 'router_id' => $this->router->id, 'username_pppoe' => 'budi', 'status' => 'aktif'];
-
-        $this->postJson('/pelanggan', $data)->assertOk()->assertJsonPath('message', 'Pelanggan Budi Santoso ditambahkan');
+        $this->postJson('/pelanggan', $this->data())->assertOk()->assertJsonPath('message', 'Pelanggan Budi Santoso ditambahkan');
 
         $p = Pelanggan::firstWhere('username_pppoe', 'budi');
         $this->assertSame(sprintf('P%05d', $p->id), $p->id_pelanggan);
         $this->assertSame('on', $p->status_langganan);
+        $this->assertSame('aktif', $p->status);
+        $this->assertSame(['pascabayar', true, $this->sales->id], [$p->jns_tagihan, $p->ppn, $p->sales_id]);
+        $this->assertSame('MSS Garut', $p->toBaris()['cabang']);
 
-        $this->postJson('/pelanggan', [...$data, 'nama' => 'Budi Lain'])
-            ->assertStatus(422)->assertJsonValidationErrors(['username_pppoe' => 'Username PPPoE sudah dipakai']);
-        // Cabang opsional selama tabel cabang belum ada
-        $this->postJson('/pelanggan', ['nama' => ''])
-            ->assertStatus(422)->assertJsonValidationErrors(['nama', 'router_id', 'username_pppoe', 'status'])
-            ->assertJsonMissingValidationErrors('id_lokasi');
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Budi Lain']))
+            ->assertStatus(422)->assertJsonValidationErrors(['username_pppoe' => 'Username sudah dipakai']);
+    }
+
+    public function test_store_rejects_empty_payload_with_required_field_messages(): void
+    {
+        $this->postJson('/pelanggan', [])->assertStatus(422)->assertJsonValidationErrors([
+            'nama' => 'Nama pelanggan wajib diisi', 'tlp' => 'No. telepon wajib diisi', 'alamat' => 'Alamat wajib diisi',
+            'jns_tagihan' => 'Jenis tagihan wajib diisi', 'id_lokasi' => 'Cabang wajib diisi', 'router_id' => 'Router wajib diisi',
+            'jns_koneksi' => 'Jenis koneksi wajib diisi', 'id_paket' => 'Paket wajib diisi', 'tgl_registrasi' => 'Tanggal registrasi wajib diisi',
+            'tgl_jatuh_tempo' => 'Tanggal jatuh tempo wajib diisi', 'ppn' => 'PPN wajib diisi', 'sales_id' => 'Sales wajib diisi',
+        ])->assertJsonMissingValidationErrors(['nik', 'id_area', 'id_pelanggan']);
+
+        $this->assertDatabaseCount('pelanggan', 0);
+    }
+
+    public function test_store_rejects_router_area_package_and_sales_outside_the_chosen_branch(): void
+    {
+        $lain = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Cimahi']);
+        $routerLain = Router::create([...$this->router->only(['mode_koneksi', 'host', 'port_api', 'username', 'profile_isolir']), 'nama_router' => 'RB Cimahi', 'password' => 'x', 'id_lokasi' => $lain->id]);
+        $areaLain = Area::create(['nama_area' => 'Cimahi Utara', 'id_lokasi' => $lain->id]);
+        $paketLain = Paket::create([...$this->paket->only(['harga', 'jenis', 'jns_koneksi', 'profile_mikrotik']), 'nama_paket' => 'Khusus Cimahi', 'filter_lokasi' => true, 'id_lokasi' => $lain->id]);
+        $bukanSales = User::factory()->create(['role' => 'Admin']);
+
+        $this->postJson('/pelanggan', $this->data([
+            'router_id' => $routerLain->id, 'id_area' => $areaLain->id, 'id_paket' => $paketLain->id, 'sales_id' => $bukanSales->id, 'nik' => '320512',
+        ]))->assertStatus(422)->assertJsonValidationErrors([
+            'router_id' => 'Router tidak ditemukan', 'id_area' => 'Area tidak ditemukan', 'id_paket' => 'Paket tidak ditemukan',
+            'sales_id' => 'Sales tidak ditemukan', 'nik' => 'NIK harus 16 digit angka',
+        ]);
+
+        $this->assertDatabaseCount('pelanggan', 0);
+    }
+
+    public function test_new_pppoe_account_is_created_on_router_with_package_profile(): void
+    {
+        $this->postJson('/pelanggan', $this->data(['mode_akun' => 'baru', 'username_pppoe' => 'budi.baru', 'password_akun' => 'rahasia1']))
+            ->assertOk()->assertJsonPath('message', "Pelanggan Budi Santoso ditambahkan. PPP Secret 'budi.baru' dibuat di router CCR Pusat");
+
+        $p = Pelanggan::firstWhere('username_pppoe', 'budi.baru');
+        $this->assertSame(['comment' => "{$p->id_pelanggan} Budi Santoso", 'name' => 'budi.baru', 'password' => 'rahasia1', 'profile' => '20Mbps', 'service' => 'pppoe'],
+            array_intersect_key($this->gw->secrets['budi.baru'], array_flip(['name', 'password', 'profile', 'comment', 'service'])));
+        $this->assertArrayNotHasKey('password_akun', $p->getAttributes());
+    }
+
+    public function test_new_hotspot_user_and_ip_binding_are_created_on_router(): void
+    {
+        $hotspot = Paket::create([...$this->paket->only(['harga', 'jenis']), 'nama_paket' => 'Hotspot 5M', 'jns_koneksi' => 'hotspot', 'profile_mikrotik' => 'HS-5M']);
+
+        $this->postJson('/pelanggan', $this->data(['jns_koneksi' => 'hotspot', 'mode_akun' => 'baru', 'username_pppoe' => 'warung', 'password_akun' => 'abc', 'id_paket' => $hotspot->id]))
+            ->assertOk()->assertJsonPath('message', "Pelanggan Budi Santoso ditambahkan. Hotspot User 'warung' dibuat di router CCR Pusat");
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Sari', 'jns_koneksi' => 'ip_binding', 'mode_akun' => 'baru', 'mac_address' => 'aa:bb:cc:dd:ee:02', 'ip_address' => '192.168.10.7']))
+            ->assertOk()->assertJsonPath('message', "Pelanggan Sari ditambahkan. IP Binding 'AA:BB:CC:DD:EE:02' dibuat di router CCR Pusat");
+
+        $this->assertSame(['name' => 'warung', 'password' => 'abc', 'profile' => 'HS-5M'], array_intersect_key(end($this->gw->akun['hotspot']), array_flip(['name', 'password', 'profile'])));
+        $this->assertSame(['mac-address' => 'AA:BB:CC:DD:EE:02', 'address' => '192.168.10.7', 'type' => 'bypassed'], array_intersect_key(end($this->gw->akun['ip_binding']), array_flip(['mac-address', 'address', 'type'])));
+        $this->assertDatabaseHas('pelanggan', ['nama' => 'Sari', 'jns_koneksi' => 'ip_binding', 'mac_address' => 'AA:BB:CC:DD:EE:02', 'username_pppoe' => null]);
+    }
+
+    public function test_sync_mode_and_static_connection_do_not_change_router(): void
+    {
+        $secrets = $this->gw->secrets;
+
+        $this->postJson('/pelanggan', $this->data())->assertOk()->assertJsonPath('message', 'Pelanggan Budi Santoso ditambahkan');
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Kantor Desa', 'jns_koneksi' => 'static', 'mode_akun' => null, 'username_pppoe' => 'abaikan', 'ip_address' => '10.20.0.5']))
+            ->assertOk()->assertJsonPath('message', 'Pelanggan Kantor Desa ditambahkan');
+
+        $this->assertSame($secrets, $this->gw->secrets);
+        $this->assertDatabaseHas('pelanggan', ['nama' => 'Kantor Desa', 'jns_koneksi' => 'static', 'ip_address' => '10.20.0.5', 'username_pppoe' => null]);
+    }
+
+    public function test_new_account_failure_keeps_customer_and_returns_warning(): void
+    {
+        $this->postJson('/pelanggan', $this->data(['mode_akun' => 'baru', 'password_akun' => 'x']))
+            ->assertOk()->assertJsonPath('type', 'warning')
+            ->assertJsonPath('message', "Pelanggan Budi Santoso ditambahkan, tetapi akun gagal dibuat di router: PPP Secret 'budi' sudah ada di router CCR Pusat, pilih Sinkronisasi");
+        $this->connector->gagal = RouterOsException::koneksi('Tidak dapat terhubung ke 203.0.113.10:8728');
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Tono', 'username_pppoe' => 'tono.baru', 'mode_akun' => 'baru', 'password_akun' => 'x']))
+            ->assertOk()->assertJsonPath('type', 'warning')
+            ->assertJsonPath('message', 'Pelanggan Tono ditambahkan, tetapi akun gagal dibuat di router: Tidak dapat terhubung ke 203.0.113.10:8728');
+
+        $this->assertDatabaseCount('pelanggan', 2);
+    }
+
+    public function test_router_accounts_endpoint_lists_accounts_for_sync(): void
+    {
+        $this->getJson("/pelanggan/akun-router/{$this->router->id}?jenis=hotspot")
+            ->assertOk()->assertExactJson(['data' => [['name' => 'voucher1', 'profile' => 'HS-1H', 'address' => null, 'comment' => 'Warung']]]);
+        $this->getJson("/pelanggan/akun-router/{$this->router->id}?jenis=static")->assertStatus(422)->assertJsonValidationErrors('jenis');
+
+        $this->connector->gagal = RouterOsException::koneksi('Tidak dapat terhubung ke 203.0.113.10:8728');
+        $this->getJson("/pelanggan/akun-router/{$this->router->id}?jenis=pppoe")
+            ->assertStatus(422)->assertJsonPath('message', 'CCR Pusat: Tidak dapat terhubung ke 203.0.113.10:8728');
+    }
+
+    public function test_router_actions_are_rate_limited_per_user(): void
+    {
+        foreach (range(1, 30) as $_) {
+            $this->getJson("/pelanggan/akun-router/{$this->router->id}?jenis=pppoe")->assertOk();
+        }
+
+        $this->getJson("/pelanggan/akun-router/{$this->router->id}?jenis=pppoe")
+            ->assertTooManyRequests()->assertJsonPath('message', 'Terlalu banyak permintaan ke router, coba lagi sebentar lagi');
+    }
+
+    public function test_on_off_is_rejected_for_non_pppoe_connection(): void
+    {
+        $p = $this->pelanggan('warung', ['jns_koneksi' => 'hotspot']);
+
+        $this->postJson("/pelanggan/{$p->id}/isolir")
+            ->assertStatus(422)->assertJsonPath('message', 'On/Off internet untuk koneksi Hotspot belum tersedia, baru PPPoE');
+
+        $this->assertSame('on', $p->fresh()->status_langganan);
     }
 
     public function test_on_and_off_pages_only_show_matching_active_customers(): void
@@ -197,6 +317,16 @@ class PelangganTest extends TestCase
 
         $this->deleteJson("/mikrotik/tunnel/{$tunnel->id}")->assertStatus(422);
         $this->assertDatabaseHas('tunnels', ['id' => $tunnel->id]);
+    }
+
+    private function data(array $override = []): array
+    {
+        return [
+            'nama' => 'Budi Santoso', 'tlp' => '081234567890', 'nik' => '3205123456789012', 'alamat' => 'Jl. Cikuray 1', 'jns_tagihan' => 'pascabayar',
+            'id_lokasi' => $this->lokasi->id, 'router_id' => $this->router->id, 'jns_koneksi' => 'pppoe', 'mode_akun' => 'sinkron', 'username_pppoe' => 'budi',
+            'id_paket' => $this->paket->id, 'tgl_registrasi' => '2026-10-30', 'tgl_jatuh_tempo' => 10, 'ppn' => true, 'sales_id' => $this->sales->id,
+            ...$override,
+        ];
     }
 
     private function pelanggan(string $username, array $attrs = []): Pelanggan

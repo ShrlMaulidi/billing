@@ -30,6 +30,11 @@ class Router extends Model
         return $this->belongsTo(Tunnel::class);
     }
 
+    public function lokasi(): BelongsTo
+    {
+        return $this->belongsTo(Lokasi::class, 'id_lokasi');
+    }
+
     public function pelanggan(): HasMany
     {
         return $this->hasMany(Pelanggan::class);

@@ -29,6 +29,8 @@ abstract class Controller
         return [
             'required' => ':attribute wajib diisi',
             'required_if' => ':attribute wajib diisi',
+            'required_unless' => ':attribute wajib diisi',
+            'digits' => ':attribute harus :digits digit angka',
             'integer' => ':attribute harus berupa angka',
             'between' => ':attribute harus antara :min dan :max',
             'exists' => ':attribute tidak ditemukan',
@@ -37,6 +39,7 @@ abstract class Controller
             'min' => ':attribute minimal :min',
             'boolean' => ':attribute tidak valid',
             'regex' => 'Format :attribute tidak valid',
+            'not_regex' => ':attribute mengandung karakter yang tidak diizinkan',
             'ip' => ':attribute harus berupa alamat IP yang valid',
             'unique' => ':attribute sudah dipakai',
             'date' => ':attribute tidak valid',

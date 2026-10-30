@@ -156,7 +156,7 @@ class IsolirScript
 
     private function q(string $nilai): string
     {
-        return '"'.addcslashes($nilai, '"\\$').'"';
+        return RouterOsScript::quote($nilai);
     }
 
     /** @param array<int, string> $baris */

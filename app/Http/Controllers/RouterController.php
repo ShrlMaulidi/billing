@@ -15,11 +15,11 @@ class RouterController extends Controller
     public function index(Request $request)
     {
         $f = $this->filters($request);
-        $rows = Router::with('tunnel:id,nama_tunnel,ip_tunnel')->withCount('pelanggan')->orderBy('nama_router')->get()
+        $rows = Router::with(['tunnel:id,nama_tunnel,ip_tunnel', 'lokasi:id,nama_lokasi'])->withCount('pelanggan')->orderBy('nama_router')->get()
             ->when($f['cabang'], fn ($c) => $c->where('id_lokasi', $f['cabang']))
             ->map(fn (Router $r) => [
                 ...$r->toArray(),
-                'cabang' => '-',
+                'cabang' => $r->lokasi?->nama_lokasi ?? '-',
                 'alamat_api' => $r->alamatApi(),
             ])->values();
 
@@ -79,7 +79,7 @@ class RouterController extends Controller
         $data = $request->validate([
             'kode_router' => ['nullable', 'string', 'max:50'],
             'nama_router' => ['required', 'string', 'max:100'],
-            'id_lokasi' => ['nullable', 'integer'],
+            'id_lokasi' => ['nullable', 'integer', 'exists:lokasi,id'],
             'mode_koneksi' => ['required', 'in:langsung,tunnel'],
             'host' => ['required_if:mode_koneksi,langsung', 'nullable', 'string', 'max:255'],
             'tunnel_id' => ['required_if:mode_koneksi,tunnel', 'nullable', 'integer', 'exists:tunnels,id'],

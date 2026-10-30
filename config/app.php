@@ -42,6 +42,12 @@ return [
     'debug' => (bool) env('APP_DEBUG', false),
 
     /*
+    | Content-Security-Policy (lihat App\Http\Middleware\SecurityHeaders). Matikan sementara dengan
+    | APP_CSP=false hanya bila ada aset yang terblokir, lalu perbaiki daftar sumbernya.
+    */
+    'csp' => (bool) env('APP_CSP', true),
+
+    /*
     |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------

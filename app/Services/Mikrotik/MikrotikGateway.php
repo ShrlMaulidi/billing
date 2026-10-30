@@ -29,4 +29,19 @@ interface MikrotikGateway
 
     /** Buat atau perbarui IP Pool; true bila baru dibuat. */
     public function savePool(string $name, string $ranges): bool;
+
+    /**
+     * Akun koneksi di router: pppoe → PPP Secret, hotspot → Hotspot User, ip_binding → Hotspot IP Binding.
+     * name = username (atau MAC address untuk IP Binding), profile = profile (atau type untuk IP Binding).
+     *
+     * @return list<array{name: string, profile: ?string, address: ?string, comment: ?string}>
+     */
+    public function accounts(string $jenis): array;
+
+    /**
+     * Tambah akun koneksi; atribut mengikuti nama field di menu router, mis. ['name' => 'budi', 'password' => '...', 'profile' => '10M'].
+     *
+     * @param  array<string, string>  $attributes
+     */
+    public function addAccount(string $jenis, array $attributes): void;
 }

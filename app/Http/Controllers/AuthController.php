@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -12,8 +13,15 @@ use Inertia\Inertia;
 
 class AuthController extends Controller
 {
-    /** Maksimal percobaan gagal per menit untuk kombinasi username + IP. */
+    /** Maksimal percobaan gagal untuk kombinasi username + IP, lalu dikunci selama JEDA_DETIK. */
     private const MAX_PERCOBAAN = 5;
+
+    private const JEDA_DETIK = 300;
+
+    /** Maksimal percobaan gagal dari satu IP untuk username apa pun (mencegah menebak banyak akun sekaligus). */
+    private const MAX_PERCOBAAN_IP = 20;
+
+    private const JEDA_IP_DETIK = 900;
 
     public function create()
     {
@@ -29,17 +37,29 @@ class AuthController extends Controller
         ], $this->pesanValidasi(), ['username' => 'Username atau email', 'password' => 'Kata sandi']);
 
         $key = Str::lower($data['username']).'|'.$request->ip();
-        if (RateLimiter::tooManyAttempts($key, self::MAX_PERCOBAAN)) {
-            throw ValidationException::withMessages([
-                'username' => 'Terlalu banyak percobaan login. Coba lagi dalam '.RateLimiter::availableIn($key).' detik.',
-            ]);
+        $keyIp = 'login-ip|'.$request->ip();
+        foreach ([$key => self::MAX_PERCOBAAN, $keyIp => self::MAX_PERCOBAAN_IP] as $kunci => $maks) {
+            if (RateLimiter::tooManyAttempts($kunci, $maks)) {
+                throw ValidationException::withMessages([
+                    'username' => 'Terlalu banyak percobaan login. Coba lagi dalam '.RateLimiter::availableIn($kunci).' detik.',
+                ]);
+            }
         }
 
         // Kolom login menerima username maupun email
         $kolom = filter_var($data['username'], FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
         if (! Auth::attempt([$kolom => $data['username'], 'password' => $data['password']], $data['remember'] ?? false)) {
-            RateLimiter::hit($key, 60);
+            RateLimiter::hit($key, self::JEDA_DETIK);
+            RateLimiter::hit($keyIp, self::JEDA_IP_DETIK);
+            Log::warning('Login gagal', ['username' => $data['username'], 'ip' => $request->ip(), 'user_agent' => $request->userAgent()]);
             throw ValidationException::withMessages(['username' => 'Username/email atau kata sandi salah.']);
+        }
+
+        // Role selain staf belum punya akses ke aplikasi
+        if (! $request->user()->bolehMasuk()) {
+            Log::warning('Login ditolak: role tanpa akses', ['username' => $data['username'], 'role' => $request->user()->role, 'ip' => $request->ip()]);
+            Auth::logout();
+            throw ValidationException::withMessages(['username' => 'Akun ini belum memiliki akses ke aplikasi. Hubungi Super Admin.']);
         }
 
         RateLimiter::clear($key);

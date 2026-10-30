@@ -20,21 +20,11 @@ class KelolaDataController extends Controller
 
         return Inertia::render('KelolaData/KartuMember', [
             'filters' => $f,
-            'rows' => Pelanggan::with('paket:id,nama_paket,harga')->where('status', 'aktif')
+            'rows' => Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi'])->where('status', 'aktif')
                 ->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']))
                 ->orderBy('nama')->get()
                 ->map->toBaris(),
         ]);
-    }
-
-    public function cabang(Request $request)
-    {
-        return $this->kosong($request, 'Cabang', ['periodeSekarang' => today()->format('Y-m-01')]);
-    }
-
-    public function area(Request $request)
-    {
-        return $this->kosong($request, 'Area');
     }
 
     public function pajak(Request $request)

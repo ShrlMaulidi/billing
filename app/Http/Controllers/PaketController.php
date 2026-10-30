@@ -19,11 +19,11 @@ class PaketController extends Controller
     public function index(Request $request)
     {
         $f = $this->filters($request);
-        $rows = Paket::with('router:id,nama_router')
+        $rows = Paket::with(['router:id,nama_router', 'lokasi:id,nama_lokasi'])
             ->withCount(['pelanggan as jumlah_pelanggan' => fn ($q) => $q->where('status', 'aktif')])
             ->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']))
             ->orderBy('nama_paket')->get()
-            ->map(fn (Paket $p) => [...$p->toArray(), 'cabang' => '-']);
+            ->map(fn (Paket $p) => [...$p->toArray(), 'cabang' => $p->lokasi?->nama_lokasi ?? '-']);
 
         return Inertia::render('KelolaData/Paket', [
             'filters' => $f,
@@ -109,7 +109,7 @@ class PaketController extends Controller
             'harga' => ['required', 'integer', 'min:0'],
             'jenis' => ['required', 'in:bulanan,non_bulanan'],
             'jns_koneksi' => ['required', 'in:pppoe,hotspot'],
-            'id_lokasi' => ['required_if:filter_lokasi,true', 'nullable', 'integer'],
+            'id_lokasi' => ['required_if:filter_lokasi,true', 'nullable', 'integer', 'exists:lokasi,id'],
             'filter_lokasi' => ['boolean'],
             'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'profile_mikrotik' => ['required', 'string', 'max:100'],

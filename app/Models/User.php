@@ -17,6 +17,19 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    public const SUPER_ADMIN = 'Super Admin';
+
+    /**
+     * Role yang boleh login ke aplikasi. Role lain (Sales, Mitra, Teknisi) baru dipakai sebagai data,
+     * sampai hak aksesnya diatur di menu Hak Akses.
+     */
+    public const ROLE_STAF = [self::SUPER_ADMIN, 'Admin'];
+
+    public function bolehMasuk(): bool
+    {
+        return in_array($this->role, self::ROLE_STAF, true);
+    }
+
     /**
      * Get the attributes that should be cast.
      *

@@ -27,8 +27,6 @@ class KelolaDataTest extends TestCase
             ->has('rows', 1)->where('rows.0.nama', 'Budi')->where('rows.0.paket', '-'));
     }
 
-    #[TestWith(['/kelola-data/cabang', 'KelolaData/Cabang'])]
-    #[TestWith(['/kelola-data/area', 'KelolaData/Area'])]
     #[TestWith(['/kelola-data/pajak', 'KelolaData/Pajak'])]
     #[TestWith(['/kelola-data/rekening', 'KelolaData/Rekening'])]
     #[TestWith(['/kelola-data/notifikasi', 'KelolaData/Notifikasi'])]

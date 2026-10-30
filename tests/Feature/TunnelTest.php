@@ -119,10 +119,30 @@ class TunnelTest extends TestCase
         $script = $res->json('script');
 
         $this->assertStringContainsString('/interface l2tp-client add name="tnl-garut" connect-to="38.44.252.4" user="garut01" password="a\"b\$c" allow=chap', $script);
-        $this->assertStringContainsString('/ip service set api disabled=no port=5964', $script);
+        $this->assertStringContainsString('/ip service set api disabled=no port=5964 address=10.10.10.1/32', $script);
         $this->assertStringContainsString('src-address=10.10.10.1 protocol=tcp dst-port=5964 action=accept', $script);
         // Tanpa password API, user API tidak dibuat
         $this->assertStringNotContainsString('/user add', $script);
+    }
+
+    public function test_script_keeps_stored_values_on_one_line_so_they_cannot_inject_router_commands(): void
+    {
+        $tunnel = Tunnel::create([...$this->data(), 'protokol' => 'L2TP', 'password' => "x\n/system reset-configuration"]);
+
+        $script = $this->postJson("/mikrotik/tunnel/{$tunnel->id}/script")->assertOk()->json('script');
+
+        $this->assertStringContainsString('password="x\0A/system reset-configuration"', $script);
+        $this->assertNotContains('/system reset-configuration', explode("\n", $script));
+    }
+
+    public function test_store_rejects_control_characters_and_non_host_server(): void
+    {
+        $this->postJson('/mikrotik/tunnel', $this->data(['password' => "a\nb", 'server' => 'vpn.mss.net.id; /system reboot']))
+            ->assertStatus(422)->assertJsonValidationErrors([
+                'password' => 'Password mengandung karakter yang tidak diizinkan', 'server' => 'Format Server tunnel tidak valid',
+            ]);
+
+        $this->assertDatabaseCount('tunnels', 0);
     }
 
     public function test_script_with_custom_port_creates_api_user(): void
@@ -132,7 +152,7 @@ class TunnelTest extends TestCase
         $script = $this->postJson('/mikrotik/tunnel/'.Tunnel::first()->id.'/script', ['port_api' => 9000, 'api_user' => 'billing-api', 'api_password' => 'p@ss'])
             ->assertOk()->json('script');
 
-        $this->assertStringContainsString('/ip service set api disabled=no port=9000', $script);
+        $this->assertStringContainsString('/ip service set api disabled=no port=9000 address=10.10.10.1/32', $script);
         $this->assertStringContainsString('/user add name="billing-api" password="p@ss" group="billing-api"', $script);
 
         $this->postJson('/mikrotik/tunnel/'.Tunnel::first()->id.'/script', ['port_api' => 70000, 'api_user' => 'a b'])

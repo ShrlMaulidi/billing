@@ -1,16 +1,18 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Grid, X } from 'react-feather';
-import { MENU } from '../lib/menu';
+import { menuUntuk } from '../lib/menu';
 import Icon from '../Components/Icon';
 
 const NAV_PREFETCH = ['mount', 'hover'];
 
 export default function Sidebar({ closed, onToggle }) {
-    const { url } = usePage();
+    const { url, props } = usePage();
+    const role = props.auth.user?.role;
+    const menu = useMemo(() => menuUntuk(role), [role]);
     const path = url.split('?')[0];
     const isActive = (href) => path === href || path.startsWith(`${href}/`);
-    const groupOf = (p) => MENU.flatMap((g) => g.items).find((i) => i.base && p.startsWith(i.base))?.title;
+    const groupOf = (p) => menu.flatMap((g) => g.items).find((i) => i.base && p.startsWith(i.base))?.title;
     const [open, setOpen] = useState(() => groupOf(path));
     // Buka grup menu halaman aktif juga saat datang dari link lain (mis. kartu Dashboard)
     useEffect(() => {
@@ -39,7 +41,7 @@ export default function Sidebar({ closed, onToggle }) {
                             <li className="back-btn">
                                 <div className="mobile-back text-end" onClick={onToggle}><span>Kembali</span><i className="fa fa-angle-right ps-2" /></div>
                             </li>
-                            {MENU.map((group) => [
+                            {menu.map((group) => [
                                 <li className="sidebar-main-title" key={group.title}><div><h6>{group.title}</h6></div></li>,
                                 ...group.items.map((item) => {
                                     if (!item.children) {

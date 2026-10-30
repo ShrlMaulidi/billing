@@ -1,10 +1,10 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     ArrowDownCircle, ArrowUpCircle, Bell, Box, Circle, CreditCard, Database, GitBranch, List, Map, MapPin, Menu, Percent, Server, Shield,
     ShoppingBag, UploadCloud, UserCheck, Users, UserX, X, Zap,
 } from 'react-feather';
-import { MENU } from '../lib/menu';
+import { MENU, menuUntuk } from '../lib/menu';
 
 // Menu utama di navbar bawah (mobile); label dipersingkat agar muat di layar kecil
 const PRIMARY = [
@@ -24,17 +24,19 @@ const SHEET_ICON = {
 };
 
 // Sisa menu sidebar (selain menu utama), dikelompokkan seperti di sidebar
-const SECTIONS = MENU.flatMap((group) => {
+const sectionsOf = (menu) => menu.flatMap((group) => {
     const singles = group.items.filter((i) => !i.children && !PRIMARY.some((p) => p.href === i.href));
     return [
         ...(singles.length ? [{ title: group.title, items: singles }] : []),
-        ...group.items.filter((i) => i.children).map((i) => ({ title: i.title, items: i.children })),
+        ...group.items.filter((i) => i.children && i.children.length).map((i) => ({ title: i.title, items: i.children })),
     ];
 });
-const SHEET_HREFS = SECTIONS.flatMap((s) => s.items.map((i) => i.href));
 
 export default function MobileNav() {
-    const { url } = usePage();
+    const { url, props } = usePage();
+    const role = props.auth.user?.role;
+    const sections = useMemo(() => sectionsOf(menuUntuk(role)), [role]);
+    const sheetHrefs = sections.flatMap((s) => s.items.map((i) => i.href));
     const path = url.split('?')[0];
     const isActive = (href) => path === href || path.startsWith(`${href}/`);
     const [open, setOpen] = useState(false);
@@ -63,7 +65,7 @@ export default function MobileNav() {
                         );
                     })}
                 </div>
-                <button type="button" className={`mnav-menu ${open || SHEET_HREFS.includes(path) ? 'active' : ''}`} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>
+                <button type="button" className={`mnav-menu ${open || sheetHrefs.includes(path) ? 'active' : ''}`} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>
                     <Menu />
                     <span>Menu</span>
                 </button>
@@ -77,7 +79,7 @@ export default function MobileNav() {
                     <button type="button" className="msheet-close" onClick={() => setOpen(false)} aria-label="Tutup menu"><X size={18} /></button>
                 </div>
                 <div className="msheet-body">
-                    {SECTIONS.map((s) => (
+                    {sections.map((s) => (
                         <section key={s.title}>
                             <div className="msheet-title">{s.title}</div>
                             <div className="msheet-grid">

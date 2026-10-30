@@ -72,6 +72,29 @@ class AuthTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_role_without_app_access_cannot_log_in(): void
+    {
+        User::factory()->create(['username' => 'agus', 'password' => 'rahasia123', 'role' => 'Sales']);
+
+        $this->post('/login', ['username' => 'agus', 'password' => 'rahasia123'])
+            ->assertSessionHasErrors(['username' => 'Akun ini belum memiliki akses ke aplikasi. Hubungi Super Admin.']);
+
+        $this->assertGuest();
+    }
+
+    public function test_one_ip_guessing_many_usernames_is_locked_out(): void
+    {
+        User::factory()->create(['username' => 'superadmin', 'password' => 'rahasia123']);
+
+        foreach (range(1, 20) as $i) {
+            $this->post('/login', ['username' => "tebakan$i", 'password' => 'salah']);
+        }
+        $this->post('/login', ['username' => 'superadmin', 'password' => 'rahasia123'])->assertSessionHasErrors('username');
+
+        $this->assertStringContainsString('Terlalu banyak percobaan login', session('errors')->first('username'));
+        $this->assertGuest();
+    }
+
     public function test_logout_ends_session(): void
     {
         $this->actingAs(User::factory()->create());
@@ -84,10 +107,10 @@ class AuthTest extends TestCase
 
     public function test_shared_props_use_logged_in_user(): void
     {
-        $this->actingAs(User::factory()->create(['name' => 'Sahrul', 'username' => 'sahrul', 'role' => 'Admin Cabang']));
+        $this->actingAs(User::factory()->create(['name' => 'Sahrul', 'username' => 'sahrul', 'role' => 'Admin']));
 
         $this->get('/dashboard')->assertInertia(fn ($page) => $page
-            ->where('auth.user.nama', 'Sahrul')->where('auth.user.username', 'sahrul')->where('auth.user.role', 'Admin Cabang'));
+            ->where('auth.user.nama', 'Sahrul')->where('auth.user.username', 'sahrul')->where('auth.user.role', 'Admin'));
     }
 
     private const FORWARDED = ['X-Forwarded-Proto' => 'https', 'X-Forwarded-Host' => 'billingv2.sahrulmaulidi.online', 'X-Forwarded-Port' => '443'];

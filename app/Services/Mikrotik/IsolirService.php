@@ -37,6 +37,7 @@ class IsolirService
     /** @return string pesan hasil */
     public function isolir(Pelanggan $pelanggan): string
     {
+        $this->pastikanPppoe($pelanggan);
         $router = $this->routerOf($pelanggan);
         $tujuan = $router->profile_isolir;
 
@@ -64,6 +65,7 @@ class IsolirService
      */
     public function aktifkan(Pelanggan $pelanggan, ?string $profile = null): string
     {
+        $this->pastikanPppoe($pelanggan);
         $this->routerOf($pelanggan);
         $tujuan = $profile ?: $pelanggan->profile_asal ?: $pelanggan->paket?->profile_mikrotik;
 
@@ -91,6 +93,45 @@ class IsolirService
             $pelanggan->update(['status_langganan' => 'on', 'profile_asal' => null, 'isolir_at' => null]);
 
             return [$secret['profile'], "{$pelanggan->nama} diaktifkan kembali ({$secret['profile']} → $tujuan)".($diputus ? ', sesi diputus agar login ulang' : '')];
+        });
+    }
+
+    /**
+     * Akun koneksi yang sudah ada di router, untuk pilihan "Sinkronisasi" di form pelanggan.
+     *
+     * @return list<array{name: string, profile: ?string, address: ?string, comment: ?string}>
+     */
+    public function akun(Router $router, string $jenis): array
+    {
+        return $this->onRouter($router, fn (MikrotikGateway $gw) => $gw->accounts($jenis));
+    }
+
+    /**
+     * Pilihan "Buat baru": buat PPP Secret / Hotspot User / IP Binding pelanggan di router-nya,
+     * memakai profile paket pelanggan.
+     *
+     * @return string pesan hasil
+     */
+    public function buatAkun(Pelanggan $pelanggan, ?string $password): string
+    {
+        $router = $this->routerOf($pelanggan);
+        $jenis = $pelanggan->jns_koneksi;
+        $label = ['pppoe' => 'PPP Secret', 'hotspot' => 'Hotspot User', 'ip_binding' => 'IP Binding'][$jenis]
+            ?? throw new RouterOsException('Koneksi '.Pelanggan::KONEKSI[$jenis].' tidak memakai akun di router');
+        $nama = $pelanggan->akunKoneksi();
+
+        return $this->onRouter($router, function (MikrotikGateway $gw) use ($pelanggan, $router, $jenis, $label, $nama, $password) {
+            if (in_array($nama, array_column($gw->accounts($jenis), 'name'), true)) {
+                throw new RouterOsException("$label '$nama' sudah ada di router {$router->nama_router}, pilih Sinkronisasi");
+            }
+            $comment = trim("{$pelanggan->id_pelanggan} {$pelanggan->nama}");
+            $attributes = $jenis === 'ip_binding'
+                ? ['mac-address' => $nama, 'address' => $pelanggan->ip_address, 'type' => 'bypassed', 'comment' => $comment]
+                : ['name' => $nama, 'password' => $password, 'profile' => $pelanggan->paket?->profile_mikrotik, 'comment' => $comment]
+                    + ($jenis === 'pppoe' ? ['service' => 'pppoe'] : []);
+            $gw->addAccount($jenis, array_filter($attributes, fn ($v) => filled($v)));
+
+            return "$label '$nama' dibuat di router {$router->nama_router}";
         });
     }
 
@@ -123,6 +164,14 @@ class IsolirService
     private function routerOf(Pelanggan $pelanggan): Router
     {
         return $pelanggan->router ?? throw new RouterOsException("{$pelanggan->nama} belum dihubungkan ke router, edit data pelanggan dulu");
+    }
+
+    /** Isolir bekerja lewat profile PPP Secret, jadi On/Off baru tersedia untuk PPPoE. */
+    private function pastikanPppoe(Pelanggan $pelanggan): void
+    {
+        if ($pelanggan->jns_koneksi !== 'pppoe') {
+            throw new RouterOsException('On/Off internet untuk koneksi '.Pelanggan::KONEKSI[$pelanggan->jns_koneksi].' belum tersedia, baru PPPoE');
+        }
     }
 
     /** Jalankan aksi isolir/aktifkan sambil mencatat log berhasil maupun gagal. */
