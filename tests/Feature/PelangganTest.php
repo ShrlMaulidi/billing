@@ -217,6 +217,43 @@ class PelangganTest extends TestCase
         $this->assertNull($p->profile_asal);
     }
 
+    public function test_changing_package_moves_router_secret_to_new_profile_and_kicks_session(): void
+    {
+        $p = $this->pelangganDariForm();
+        $paket10 = Paket::create(['nama_paket' => 'Home 10 Mbps', 'harga' => 150000, 'jenis' => 'bulanan', 'jns_koneksi' => 'pppoe', 'profile_mikrotik' => '10Mbps']);
+
+        $this->putJson("/pelanggan/{$p->id}", $this->data(['id_paket' => $paket10->id, 'status' => 'aktif']))
+            ->assertOk()->assertJsonPath('message', 'Data Budi Santoso diperbarui, profile router 20Mbps → 10Mbps, sesi diputus agar login ulang');
+
+        $this->assertSame('10Mbps', $this->gw->secrets['budi']['profile']);
+        $this->assertSame(['budi'], $this->gw->kicked);
+        $this->assertDatabaseHas('isolir_logs', ['pelanggan_id' => $p->id, 'aksi' => 'ganti_paket', 'profile_dari' => '20Mbps', 'profile_ke' => '10Mbps']);
+    }
+
+    public function test_changing_package_of_isolated_customer_keeps_isolir_and_updates_restore_profile(): void
+    {
+        $p = $this->pelangganDariForm();
+        $this->postJson("/pelanggan/{$p->id}/isolir")->assertOk();
+        $paket10 = Paket::create(['nama_paket' => 'Home 10 Mbps', 'harga' => 150000, 'jenis' => 'bulanan', 'jns_koneksi' => 'pppoe', 'profile_mikrotik' => '10Mbps']);
+
+        $this->putJson("/pelanggan/{$p->id}", $this->data(['id_paket' => $paket10->id, 'status' => 'aktif']))->assertOk();
+
+        $this->assertSame('ISOLIR', $this->gw->secrets['budi']['profile']);
+        $this->assertSame('10Mbps', $p->fresh()->profile_asal);
+    }
+
+    public function test_changing_package_reports_warning_when_profile_missing_on_router(): void
+    {
+        $p = $this->pelangganDariForm();
+        $paketBaru = Paket::create(['nama_paket' => 'Home 50 Mbps', 'harga' => 300000, 'jenis' => 'bulanan', 'jns_koneksi' => 'pppoe', 'profile_mikrotik' => '50Mbps']);
+
+        $this->putJson("/pelanggan/{$p->id}", $this->data(['id_paket' => $paketBaru->id, 'status' => 'aktif']))
+            ->assertOk()->assertJsonPath('type', 'warning');
+
+        $this->assertSame($paketBaru->id, $p->fresh()->id_paket);
+        $this->assertSame('20Mbps', $this->gw->secrets['budi']['profile']);
+    }
+
     public function test_off_fails_cleanly_when_isolir_profile_missing(): void
     {
         $p = $this->pelanggan('budi');
@@ -327,6 +364,14 @@ class PelangganTest extends TestCase
             'id_paket' => $this->paket->id, 'tgl_registrasi' => '2026-10-30', 'tgl_jatuh_tempo' => 10, 'ppn' => true, 'sales_id' => $this->sales->id,
             ...$override,
         ];
+    }
+
+    /** Pelanggan PPPoE 'budi' yang disimpan lewat form (cabang, sales, paket 20Mbps lengkap). */
+    private function pelangganDariForm(): Pelanggan
+    {
+        $this->postJson('/pelanggan', $this->data())->assertOk();
+
+        return Pelanggan::where('username_pppoe', 'budi')->firstOrFail();
     }
 
     private function pelanggan(string $username, array $attrs = []): Pelanggan

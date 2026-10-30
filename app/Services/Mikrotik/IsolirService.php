@@ -97,6 +97,38 @@ class IsolirService
     }
 
     /**
+     * Paket pelanggan diganti: PPP Secret dipindah ke profile paket baru lalu sesi diputus agar kecepatan baru berlaku.
+     * Pelanggan yang sedang terisolir tetap di profile isolir; profile paket baru dipakai saat diaktifkan kembali.
+     *
+     * @return string pesan hasil
+     */
+    public function gantiPaket(Pelanggan $pelanggan): string
+    {
+        $this->pastikanPppoe($pelanggan);
+        $this->routerOf($pelanggan);
+        $tujuan = $pelanggan->paket?->profile_mikrotik ?? throw new RouterOsException("Paket {$pelanggan->nama} belum punya profile MikroTik");
+
+        if ($pelanggan->status_langganan === 'off') {
+            $pelanggan->update(['profile_asal' => $tujuan]);
+
+            return "{$pelanggan->nama} sedang terisolir, profile $tujuan dipakai saat diaktifkan kembali";
+        }
+
+        return $this->catat($pelanggan, 'ganti_paket', $tujuan, function (MikrotikGateway $gw) use ($pelanggan, $tujuan) {
+            $secret = $this->secretDiRouter($gw, $pelanggan);
+            if ($secret['profile'] === $tujuan) {
+                return [$secret['profile'], "profile di router sudah $tujuan"];
+            }
+            $this->pastikanProfileAda($gw, $tujuan, 'Profile');
+
+            $gw->setSecretProfile($secret['id'], $tujuan);
+            $diputus = $gw->removeActive($pelanggan->username_pppoe);
+
+            return [$secret['profile'], "profile router {$secret['profile']} → $tujuan".($diputus ? ', sesi diputus agar login ulang' : '')];
+        });
+    }
+
+    /**
      * Akun koneksi yang sudah ada di router, untuk pilihan "Sinkronisasi" di form pelanggan.
      *
      * @return list<array{name: string, profile: ?string, address: ?string, comment: ?string}>

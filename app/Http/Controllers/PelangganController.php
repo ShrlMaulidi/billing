@@ -72,8 +72,18 @@ class PelangganController extends Controller
         $this->pastikanCabang($request, $pelanggan->id_lokasi);
         [$data, $akun] = $this->validated($request, $pelanggan);
         $pelanggan->update($data);
+        $pesan = "Data {$pelanggan->nama} diperbarui";
 
-        return $this->simpanAkun($pelanggan, $akun, "Data {$pelanggan->nama} diperbarui", $mikrotik);
+        // Akun yang sudah ada di router ikut pindah ke profile paket baru ("Buat baru" sudah memakai profile paket)
+        if ($pelanggan->wasChanged('id_paket') && $akun['mode'] === 'sinkron' && $pelanggan->jns_koneksi === 'pppoe') {
+            try {
+                return response()->json(['message' => "$pesan, {$mikrotik->gantiPaket($pelanggan->load('paket'))}"]);
+            } catch (RouterOsException $e) {
+                return response()->json(['message' => "$pesan, tetapi profile di router gagal diganti: {$e->getMessage()}", 'type' => 'warning']);
+            }
+        }
+
+        return $this->simpanAkun($pelanggan, $akun, $pesan, $mikrotik);
     }
 
     public function destroy(Request $request, Pelanggan $pelanggan): JsonResponse
