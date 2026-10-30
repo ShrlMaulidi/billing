@@ -6,6 +6,9 @@ import { ActionButton, StatusBadge } from '../../Components/ui';
 import { waktu } from '../../lib/format';
 import { api, deleteFrom, notify, saveTo } from '../../lib/ui';
 
+// saran ikut dimuat ulang agar IP kosong berikutnya tidak basi setelah tambah/hapus
+const RELOAD = ['rows', 'saran'];
+
 export default function Tunnel({ filters, rows, saran, jaringan }) {
     const [script, setScript] = useState(null); // { id, nama, text, opsi: { port_api, api_user, api_password } }
     const [loading, setLoading] = useState(null);
@@ -29,7 +32,7 @@ export default function Tunnel({ filters, rows, saran, jaringan }) {
             <CrudPage
                 title="Tunnel" rows={rows} filters={filters} filterFields={[]} deleteLabel={(r) => r.nama_tunnel}
                 defaults={{ status: 'aktif', server: saran.server ?? '', ip_tunnel: saran.ip_tunnel ?? '' }}
-                onSave={saveTo('/mikrotik/tunnel')} onDelete={deleteFrom('/mikrotik/tunnel')}
+                onSave={saveTo('/mikrotik/tunnel', RELOAD)} onDelete={deleteFrom('/mikrotik/tunnel', RELOAD)}
                 before={
                     <div className="alert alert-light-primary d-flex gap-2">
                         <Info size={16} className="flex-shrink-0 mt-1" />
