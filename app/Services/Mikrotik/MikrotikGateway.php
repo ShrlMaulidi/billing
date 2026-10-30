@@ -21,7 +21,12 @@ interface MikrotikGateway
      */
     public function profileList(string $jenis): array;
 
-    public function setSecretProfile(string $id, string $profile): void;
+    /**
+     * Ubah atribut PPP Secret, mis. ['profile' => '20Mbps', 'remote-address' => '10.12.10.5'].
+     *
+     * @param  array<string, string>  $attributes
+     */
+    public function setSecret(string $id, array $attributes): void;
 
     /** Putus sesi PPP aktif agar profile baru langsung berlaku; mengembalikan jumlah sesi yang diputus. */
     public function removeActive(string $name): int;

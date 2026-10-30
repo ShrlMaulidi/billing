@@ -46,11 +46,11 @@ class FakeGateway implements MikrotikGateway
         return array_map(fn ($name, $rate) => ['name' => $name, 'rate_limit' => $rate], array_keys($profiles), $profiles);
     }
 
-    public function setSecretProfile(string $id, string $profile): void
+    public function setSecret(string $id, array $attributes): void
     {
         foreach ($this->secrets as $name => $s) {
             if ($s['id'] === $id) {
-                $this->secrets[$name]['profile'] = $profile;
+                $this->secrets[$name] = [...$s, ...array_filter(['profile' => $attributes['profile'] ?? null, 'remote_address' => $attributes['remote-address'] ?? null])];
             }
         }
     }

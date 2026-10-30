@@ -74,12 +74,14 @@ class PelangganController extends Controller
         $pelanggan->update($data);
         $pesan = "Data {$pelanggan->nama} diperbarui";
 
-        // Akun yang sudah ada di router ikut pindah ke profile paket baru ("Buat baru" sudah memakai profile paket)
-        if ($pelanggan->wasChanged('id_paket') && $akun['mode'] === 'sinkron' && $pelanggan->jns_koneksi === 'pppoe') {
+        // PPP Secret yang sudah ada ikut diperbarui saat paket / IP diganti ("Buat baru" sudah memakai data terbaru)
+        $gantiPaket = $pelanggan->wasChanged('id_paket');
+        $gantiIp = $pelanggan->wasChanged('ip_address');
+        if (($gantiPaket || $gantiIp) && $akun['mode'] === 'sinkron' && $pelanggan->jns_koneksi === 'pppoe') {
             try {
-                return response()->json(['message' => "$pesan, {$mikrotik->gantiPaket($pelanggan->load('paket'))}"]);
+                return response()->json(['message' => "$pesan, {$mikrotik->perbaruiSecret($pelanggan->load('paket'), $gantiPaket, $gantiIp)}"]);
             } catch (RouterOsException $e) {
-                return response()->json(['message' => "$pesan, tetapi profile di router gagal diganti: {$e->getMessage()}", 'type' => 'warning']);
+                return response()->json(['message' => "$pesan, tetapi akun di router gagal diperbarui: {$e->getMessage()}", 'type' => 'warning']);
             }
         }
 
@@ -181,7 +183,9 @@ class PelangganController extends Controller
                 Rule::requiredIf($request->input('mode_akun') === 'baru' && in_array($request->input('jns_koneksi'), ['pppoe', 'hotspot'], true))],
             'mac_address' => ['nullable', 'required_if:jns_koneksi,ip_binding', 'regex:/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/',
                 Rule::unique('pelanggan')->where('router_id', $router)->ignore($pelanggan)],
-            'ip_address' => ['nullable', 'required_if:jns_koneksi,static', 'ip'],
+            // PPPoE: remote address PPP Secret (IP pelanggan), tidak boleh dipakai pelanggan lain di router yang sama
+            'ip_address' => ['nullable', 'required_if:jns_koneksi,static,pppoe', 'ip',
+                Rule::unique('pelanggan')->where('router_id', $router)->ignore($pelanggan)],
             // Paket untuk semua cabang, atau khusus cabang ini
             'id_paket' => ['required', 'integer', Rule::exists('paket', 'id')->where(fn ($q) => $q->where('filter_lokasi', false)->orWhere('id_lokasi', $lokasi))],
             'tgl_registrasi' => ['required', 'date'],
@@ -203,7 +207,7 @@ class PelangganController extends Controller
         // Simpan hanya identitas akun yang dipakai jenis koneksinya
         $data['username_pppoe'] = in_array($data['jns_koneksi'], ['pppoe', 'hotspot'], true) ? $data['username_pppoe'] : null;
         $data['mac_address'] = $data['jns_koneksi'] === 'ip_binding' ? strtoupper($data['mac_address']) : null;
-        $data['ip_address'] = in_array($data['jns_koneksi'], ['static', 'ip_binding'], true) ? ($data['ip_address'] ?? null) : null;
+        $data['ip_address'] = in_array($data['jns_koneksi'], ['static', 'ip_binding', 'pppoe'], true) ? ($data['ip_address'] ?? null) : null;
         if (empty($data['status'])) {
             unset($data['status']);
         }

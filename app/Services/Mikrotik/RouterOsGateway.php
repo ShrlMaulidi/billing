@@ -44,9 +44,9 @@ class RouterOsGateway implements MikrotikGateway
         return array_values(array_map(fn ($row) => ['name' => $row['name'], 'rate_limit' => $row['rate-limit'] ?? null], $rows));
     }
 
-    public function setSecretProfile(string $id, string $profile): void
+    public function setSecret(string $id, array $attributes): void
     {
-        $this->api->command('/ppp/secret/set', ['.id' => $id, 'profile' => $profile]);
+        $this->api->command('/ppp/secret/set', ['.id' => $id, ...$attributes]);
     }
 
     public function removeActive(string $name): int

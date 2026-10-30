@@ -167,6 +167,10 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
                     { name: 'ip_address', label: 'IP Address', placeholder: '192.168.10.20', help: 'Opsional', show: (v) => v.jns_koneksi === 'ip_binding' },
                     { name: 'ip_address', label: 'IP Address', required: true, placeholder: '192.168.10.20', show: (v) => v.jns_koneksi === 'static' },
                     {
+                        name: 'ip_address', label: 'Remote Address (IP Pelanggan)', required: true, placeholder: '10.12.10.5', show: (v) => v.jns_koneksi === 'pppoe',
+                        help: 'Diisi ke Remote Address PPP Secret di router; satu IP hanya untuk satu pelanggan per router',
+                    },
+                    {
                         name: 'id_paket', label: 'Paket Langganan', type: 'select', required: true, help: 'Sesuai cabang; profile paket dipakai saat akun dibuat & saat On',
                         options: (v) => sesuaiCabang(paketOptions, v).filter((o) => !['pppoe', 'hotspot'].includes(v.jns_koneksi) || o.jns_koneksi === v.jns_koneksi),
                     },

@@ -50,7 +50,7 @@ class IsolirService
             }
             $this->pastikanProfileAda($gw, $tujuan, 'Profile isolir');
 
-            $gw->setSecretProfile($secret['id'], $tujuan);
+            $gw->setSecret($secret['id'], ['profile' => $tujuan]);
             $diputus = $gw->removeActive($pelanggan->username_pppoe);
             $pelanggan->update(['profile_asal' => $secret['profile'], 'status_langganan' => 'off', 'isolir_at' => now()]);
 
@@ -88,7 +88,7 @@ class IsolirService
             }
             $this->pastikanProfileAda($gw, $tujuan, 'Profile');
 
-            $gw->setSecretProfile($secret['id'], $tujuan);
+            $gw->setSecret($secret['id'], ['profile' => $tujuan]);
             $diputus = $gw->removeActive($pelanggan->username_pppoe);
             $pelanggan->update(['status_langganan' => 'on', 'profile_asal' => null, 'isolir_at' => null]);
 
@@ -97,34 +97,48 @@ class IsolirService
     }
 
     /**
-     * Paket pelanggan diganti: PPP Secret dipindah ke profile paket baru lalu sesi diputus agar kecepatan baru berlaku.
-     * Pelanggan yang sedang terisolir tetap di profile isolir; profile paket baru dipakai saat diaktifkan kembali.
+     * Data pelanggan diedit: PPP Secret ikut diperbarui lalu sesi diputus agar langsung berlaku.
+     * Ganti paket → profile paket baru; pelanggan yang sedang terisolir tetap di profile isolir dan
+     * profile paket baru dipakai saat diaktifkan kembali. Ganti IP → remote address secret.
      *
      * @return string pesan hasil
      */
-    public function gantiPaket(Pelanggan $pelanggan): string
+    public function perbaruiSecret(Pelanggan $pelanggan, bool $gantiPaket, bool $gantiIp): string
     {
         $this->pastikanPppoe($pelanggan);
         $this->routerOf($pelanggan);
-        $tujuan = $pelanggan->paket?->profile_mikrotik ?? throw new RouterOsException("Paket {$pelanggan->nama} belum punya profile MikroTik");
-
-        if ($pelanggan->status_langganan === 'off') {
-            $pelanggan->update(['profile_asal' => $tujuan]);
-
-            return "{$pelanggan->nama} sedang terisolir, profile $tujuan dipakai saat diaktifkan kembali";
+        $profile = null;
+        if ($gantiPaket) {
+            $profile = $pelanggan->paket?->profile_mikrotik ?? throw new RouterOsException("Paket {$pelanggan->nama} belum punya profile MikroTik");
+            if ($pelanggan->status_langganan === 'off') {
+                $pelanggan->update(['profile_asal' => $profile]);
+                $profile = null;
+            }
         }
 
-        return $this->catat($pelanggan, 'ganti_paket', $tujuan, function (MikrotikGateway $gw) use ($pelanggan, $tujuan) {
+        return $this->catat($pelanggan, $gantiPaket ? 'ganti_paket' : 'ganti_ip', $profile, function (MikrotikGateway $gw) use ($pelanggan, $profile, $gantiIp) {
             $secret = $this->secretDiRouter($gw, $pelanggan);
-            if ($secret['profile'] === $tujuan) {
-                return [$secret['profile'], "profile di router sudah $tujuan"];
+            $perubahan = array_filter([
+                'profile' => $profile !== $secret['profile'] ? $profile : null,
+                'remote-address' => $gantiIp && $pelanggan->ip_address !== $secret['remote_address'] ? $pelanggan->ip_address : null,
+            ]);
+            if (! $perubahan) {
+                $catatan = $pelanggan->status_langganan === 'off' ? 'sedang terisolir, profile paket baru dipakai saat diaktifkan kembali' : 'akun di router sudah sesuai';
+
+                return [$secret['profile'], $catatan];
             }
-            $this->pastikanProfileAda($gw, $tujuan, 'Profile');
+            if (isset($perubahan['profile'])) {
+                $this->pastikanProfileAda($gw, $profile, 'Profile');
+            }
 
-            $gw->setSecretProfile($secret['id'], $tujuan);
+            $gw->setSecret($secret['id'], $perubahan);
             $diputus = $gw->removeActive($pelanggan->username_pppoe);
+            $hasil = array_filter([
+                isset($perubahan['profile']) ? "profile router {$secret['profile']} → $profile" : null,
+                isset($perubahan['remote-address']) ? "remote address {$perubahan['remote-address']}" : null,
+            ]);
 
-            return [$secret['profile'], "profile router {$secret['profile']} → $tujuan".($diputus ? ', sesi diputus agar login ulang' : '')];
+            return [$secret['profile'], implode(', ', $hasil).($diputus ? ', sesi diputus agar login ulang' : '')];
         });
     }
 
@@ -160,7 +174,7 @@ class IsolirService
             $attributes = $jenis === 'ip_binding'
                 ? ['mac-address' => $nama, 'address' => $pelanggan->ip_address, 'type' => 'bypassed', 'comment' => $comment]
                 : ['name' => $nama, 'password' => $password, 'profile' => $pelanggan->paket?->profile_mikrotik, 'comment' => $comment]
-                    + ($jenis === 'pppoe' ? ['service' => 'pppoe'] : []);
+                    + ($jenis === 'pppoe' ? ['service' => 'pppoe', 'remote-address' => $pelanggan->ip_address] : []);
             $gw->addAccount($jenis, array_filter($attributes, fn ($v) => filled($v)));
 
             return "$label '$nama' dibuat di router {$router->nama_router}";

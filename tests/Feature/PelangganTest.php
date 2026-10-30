@@ -99,8 +99,8 @@ class PelangganTest extends TestCase
             ->assertOk()->assertJsonPath('message', "Pelanggan Budi Santoso ditambahkan. PPP Secret 'budi.baru' dibuat di router CCR Pusat");
 
         $p = Pelanggan::firstWhere('username_pppoe', 'budi.baru');
-        $this->assertSame(['comment' => "{$p->id_pelanggan} Budi Santoso", 'name' => 'budi.baru', 'password' => 'rahasia1', 'profile' => '20Mbps', 'service' => 'pppoe'],
-            array_intersect_key($this->gw->secrets['budi.baru'], array_flip(['name', 'password', 'profile', 'comment', 'service'])));
+        $this->assertSame(['comment' => "{$p->id_pelanggan} Budi Santoso", 'name' => 'budi.baru', 'password' => 'rahasia1', 'profile' => '20Mbps', 'service' => 'pppoe', 'remote-address' => '10.12.10.5'],
+            array_intersect_key($this->gw->secrets['budi.baru'], array_flip(['name', 'password', 'profile', 'comment', 'service', 'remote-address'])));
         $this->assertArrayNotHasKey('password_akun', $p->getAttributes());
     }
 
@@ -136,7 +136,7 @@ class PelangganTest extends TestCase
             ->assertOk()->assertJsonPath('type', 'warning')
             ->assertJsonPath('message', "Pelanggan Budi Santoso ditambahkan, tetapi akun gagal dibuat di router: PPP Secret 'budi' sudah ada di router CCR Pusat, pilih Sinkronisasi");
         $this->connector->gagal = RouterOsException::koneksi('Tidak dapat terhubung ke 203.0.113.10:8728');
-        $this->postJson('/pelanggan', $this->data(['nama' => 'Tono', 'username_pppoe' => 'tono.baru', 'mode_akun' => 'baru', 'password_akun' => 'x']))
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Tono', 'username_pppoe' => 'tono.baru', 'ip_address' => '10.12.10.6', 'mode_akun' => 'baru', 'password_akun' => 'x']))
             ->assertOk()->assertJsonPath('type', 'warning')
             ->assertJsonPath('message', 'Pelanggan Tono ditambahkan, tetapi akun gagal dibuat di router: Tidak dapat terhubung ke 203.0.113.10:8728');
 
@@ -228,6 +228,22 @@ class PelangganTest extends TestCase
         $this->assertSame('10Mbps', $this->gw->secrets['budi']['profile']);
         $this->assertSame(['budi'], $this->gw->kicked);
         $this->assertDatabaseHas('isolir_logs', ['pelanggan_id' => $p->id, 'aksi' => 'ganti_paket', 'profile_dari' => '20Mbps', 'profile_ke' => '10Mbps']);
+    }
+
+    public function test_pppoe_remote_address_is_required_unique_per_router_and_updated_on_router(): void
+    {
+        $this->postJson('/pelanggan', $this->data(['ip_address' => null]))
+            ->assertStatus(422)->assertJsonValidationErrors(['ip_address' => 'IP address wajib diisi']);
+
+        $p = $this->pelangganDariForm();
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Sari', 'username_pppoe' => 'sari']))
+            ->assertStatus(422)->assertJsonValidationErrors(['ip_address' => 'IP address sudah dipakai']);
+
+        $this->putJson("/pelanggan/{$p->id}", $this->data(['ip_address' => '10.12.10.9', 'status' => 'aktif']))
+            ->assertOk()->assertJsonPath('message', 'Data Budi Santoso diperbarui, remote address 10.12.10.9, sesi diputus agar login ulang');
+
+        $this->assertSame('10.12.10.9', $this->gw->secrets['budi']['remote_address']);
+        $this->assertSame('20Mbps', $this->gw->secrets['budi']['profile']);
     }
 
     public function test_changing_package_of_isolated_customer_keeps_isolir_and_updates_restore_profile(): void
@@ -360,7 +376,7 @@ class PelangganTest extends TestCase
     {
         return [
             'nama' => 'Budi Santoso', 'tlp' => '081234567890', 'nik' => '3205123456789012', 'alamat' => 'Jl. Cikuray 1', 'jns_tagihan' => 'pascabayar',
-            'id_lokasi' => $this->lokasi->id, 'router_id' => $this->router->id, 'jns_koneksi' => 'pppoe', 'mode_akun' => 'sinkron', 'username_pppoe' => 'budi',
+            'id_lokasi' => $this->lokasi->id, 'router_id' => $this->router->id, 'jns_koneksi' => 'pppoe', 'mode_akun' => 'sinkron', 'username_pppoe' => 'budi', 'ip_address' => '10.12.10.5',
             'id_paket' => $this->paket->id, 'tgl_registrasi' => '2026-10-30', 'tgl_jatuh_tempo' => 10, 'ppn' => true, 'sales_id' => $this->sales->id,
             ...$override,
         ];
