@@ -105,13 +105,38 @@ class TunnelTest extends TestCase
             ->missing('rows.1.password'));
     }
 
-    public function test_script_dials_l2tp_with_escaped_credentials(): void
+    public function test_script_dials_l2tp_with_escaped_credentials_and_opens_api_port_of_linked_router(): void
     {
         $this->postJson('/mikrotik/tunnel', $this->data(['password' => 'a"b$c']))->assertOk();
+        $tunnel = Tunnel::first();
+        Router::create([
+            'nama_router' => 'RB Garut', 'mode_koneksi' => 'tunnel', 'tunnel_id' => $tunnel->id, 'port_api' => 5964,
+            'username' => 'apibilling', 'password' => 'x', 'profile_isolir' => 'ISOLIR',
+        ]);
 
-        $script = $this->getJson('/mikrotik/tunnel/'.Tunnel::first()->id.'/script')->assertOk()->json('script');
+        $res = $this->postJson("/mikrotik/tunnel/{$tunnel->id}/script")->assertOk()
+            ->assertJsonPath('opsi', ['port_api' => 5964, 'api_user' => 'apibilling']);
+        $script = $res->json('script');
 
         $this->assertStringContainsString('/interface l2tp-client add name="tnl-garut" connect-to="38.44.252.4" user="garut01" password="a\"b\$c" allow=chap', $script);
+        $this->assertStringContainsString('/ip service set api disabled=no port=5964', $script);
+        $this->assertStringContainsString('src-address=10.10.10.1 protocol=tcp dst-port=5964 action=accept', $script);
+        // Tanpa password API, user API tidak dibuat
+        $this->assertStringNotContainsString('/user add', $script);
+    }
+
+    public function test_script_with_custom_port_creates_api_user(): void
+    {
+        $this->postJson('/mikrotik/tunnel', $this->data())->assertOk();
+
+        $script = $this->postJson('/mikrotik/tunnel/'.Tunnel::first()->id.'/script', ['port_api' => 9000, 'api_user' => 'billing-api', 'api_password' => 'p@ss'])
+            ->assertOk()->json('script');
+
+        $this->assertStringContainsString('/ip service set api disabled=no port=9000', $script);
+        $this->assertStringContainsString('/user add name="billing-api" password="p@ss" group="billing-api"', $script);
+
+        $this->postJson('/mikrotik/tunnel/'.Tunnel::first()->id.'/script', ['port_api' => 70000, 'api_user' => 'a b'])
+            ->assertStatus(422)->assertJsonValidationErrors(['port_api', 'api_user']);
     }
 
     private function data(array $attrs = []): array

@@ -7,18 +7,21 @@ import { waktu } from '../../lib/format';
 import { api, deleteFrom, notify, saveTo } from '../../lib/ui';
 
 export default function Tunnel({ filters, rows, saran, jaringan }) {
-    const [script, setScript] = useState(null); // { nama, text }
+    const [script, setScript] = useState(null); // { id, nama, text, opsi: { port_api, api_user, api_password } }
     const [loading, setLoading] = useState(null);
-    const lihatScript = async (r) => {
+    // Opsi kosong = port & user diambil dari router yang memakai tunnel (atau default)
+    const buatScript = async (r, opsi = {}) => {
         setLoading(r.id);
         try {
-            setScript({ nama: r.nama_tunnel, text: (await api('GET', `/mikrotik/tunnel/${r.id}/script`)).script });
+            const res = await api('POST', `/mikrotik/tunnel/${r.id}/script`, opsi);
+            setScript({ id: r.id, nama: r.nama_tunnel, text: res.script, opsi: { api_password: '', ...res.opsi, ...opsi } });
         } catch (err) {
             notify(err.message, 'danger', 7000);
         } finally {
             setLoading(null);
         }
     };
+    const ubahOpsi = (key) => (e) => setScript((s) => ({ ...s, opsi: { ...s.opsi, [key]: e.target.value } }));
     const salin = () => navigator.clipboard?.writeText(script.text).then(() => notify('Script disalin'), () => notify('Gagal menyalin, salin manual', 'danger'));
 
     return (
@@ -36,7 +39,7 @@ export default function Tunnel({ filters, rows, saran, jaringan }) {
                         </span>
                     </div>
                 }
-                rowActions={(r) => <ActionButton icon={Code} label="Script Mikrotik" color="info" loading={loading === r.id} onClick={() => lihatScript(r)} />}
+                rowActions={(r) => <ActionButton icon={Code} label="Script Mikrotik" color="info" loading={loading === r.id} onClick={() => buatScript(r)} />}
                 columns={[
                     { key: 'nama_tunnel', label: 'Nama Tunnel', render: (r) => <>{r.nama_tunnel}<br /><small className="f-light">{r.protokol} · {r.server}</small></> },
                     { key: 'username', label: 'User' },
@@ -64,7 +67,27 @@ export default function Tunnel({ filters, rows, saran, jaringan }) {
             <Modal isOpen={!!script} toggle={() => setScript(null)} size="lg" centered>
                 <ModalHeader toggle={() => setScript(null)}>Script Mikrotik · {script?.nama}</ModalHeader>
                 <ModalBody>
-                    <p className="f-light mb-2">Tempel di <strong>New Terminal</strong> Winbox router turunan:</p>
+                    {script && (
+                        <form className="row g-2 align-items-end mb-3" onSubmit={(e) => { e.preventDefault(); buatScript({ id: script.id, nama_tunnel: script.nama }, script.opsi); }}>
+                            <div className="col-sm-3">
+                                <label className="form-label mb-1">Port API</label>
+                                <input type="number" className="form-control" min={1} max={65535} value={script.opsi.port_api ?? ''} onChange={ubahOpsi('port_api')} />
+                            </div>
+                            <div className="col-sm-3">
+                                <label className="form-label mb-1">Username API</label>
+                                <input className="form-control" value={script.opsi.api_user ?? ''} onChange={ubahOpsi('api_user')} />
+                            </div>
+                            <div className="col-sm-3">
+                                <label className="form-label mb-1">Password API</label>
+                                <input type="password" className="form-control" placeholder="Opsional" value={script.opsi.api_password} onChange={ubahOpsi('api_password')} autoComplete="new-password" />
+                            </div>
+                            <div className="col-sm-3">
+                                <Button color="info" className="w-100" disabled={loading === script.id}>Perbarui Script</Button>
+                            </div>
+                            <small className="f-light">Isi Password API bila ingin sekalian membuat user API khusus billing di router. Port & user API harus sama dengan isian di menu Router.</small>
+                        </form>
+                    )}
+                    <p className="f-light mb-2">Tempel di <strong>New Terminal</strong> Winbox router mitra:</p>
                     <pre className="bg-light p-3 rounded mb-0" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: 12 }}>{script?.text}</pre>
                 </ModalBody>
                 <ModalFooter>

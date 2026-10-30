@@ -67,18 +67,55 @@ class TunnelController extends Controller
         return response()->json(['message' => "Tunnel {$tunnel->nama_tunnel} dihapus"]);
     }
 
-    /** Script untuk ditempel di terminal router turunan agar dial tunnel ke server. */
-    public function script(Tunnel $tunnel): JsonResponse
+    /**
+     * Template script untuk New Terminal router mitra: dial tunnel, aktifkan API di port pilihan,
+     * izinkan server billing di firewall, dan (opsional) buat user API. Aman di-paste ulang.
+     */
+    public function script(Request $request, Tunnel $tunnel): JsonResponse
     {
-        $q = fn ($v) => '"'.addcslashes($v, '"\\$').'"';
+        $router = $tunnel->routers()->orderBy('id')->first();
+        $opsi = $request->validate([
+            'port_api' => ['nullable', 'integer', 'between:1,65535'],
+            'api_user' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'api_password' => ['nullable', 'string', 'max:128'],
+        ], $this->pesanValidasi(), ['port_api' => 'Port API', 'api_user' => 'Username API', 'api_password' => 'Password API']);
+        $port = (int) ($opsi['port_api'] ?? $router?->port_api ?? 8728);
+        $gateway = config('services.tunnel.gateway');
 
-        return response()->json(['script' => implode("\n", [
-            "# Tunnel {$tunnel->nama_tunnel} (L2TP) — jalankan di New Terminal router turunan",
+        $q = fn ($v) => '"'.addcslashes($v, '"\\$').'"';
+        $izinApi = "/ip firewall filter add chain=input src-address=$gateway protocol=tcp dst-port=$port action=accept comment=\"API billing MSS\"";
+        $baris = [
+            "# ===== Tunnel billing MSS: {$tunnel->nama_tunnel} =====",
+            '# Paste di New Terminal router mitra. Aman di-paste ulang (konfigurasi lama dari billing dihapus dulu).',
+            '',
+            '# 1. Tunnel L2TP ke server billing',
+            '/interface l2tp-client remove [find comment="Tunnel billing MSS"]',
             "/interface l2tp-client add name={$q($tunnel->nama_tunnel)} connect-to={$q($tunnel->server)} user={$q($tunnel->username)} password={$q($tunnel->password)} allow=chap add-default-route=no disabled=no comment=\"Tunnel billing MSS\"",
             '',
-            "# Pastikan API aktif agar billing bisa terhubung lewat IP tunnel ({$tunnel->ip_tunnel})",
-            '/ip service set api disabled=no port=8728',
-        ])]);
+            "# 2. API MikroTik di port $port (samakan dengan Port API di menu Router billing)",
+            "/ip service set api disabled=no port=$port",
+            '',
+            "# 3. Izinkan server billing ($gateway) mengakses API lewat tunnel, ditaruh paling atas",
+            '/ip firewall filter remove [find comment="API billing MSS"]',
+            "{ :local r [/ip firewall filter find where dynamic=no]; :if ([:len \$r] > 0) do={ $izinApi place-before=[:pick \$r 0] } else={ $izinApi } }",
+        ];
+        if (! empty($opsi['api_user']) && ! empty($opsi['api_password'])) {
+            array_push($baris, '',
+                '# 4. User API khusus billing (isi Username/Password API yang sama di menu Router)',
+                ':if ([:len [/user group find name="billing-api"]] = 0) do={ /user group add name="billing-api" policy=read,write,api,test }',
+                "/user remove [find name={$q($opsi['api_user'])}]",
+                "/user add name={$q($opsi['api_user'])} password={$q($opsi['api_password'])} group=\"billing-api\" comment=\"API billing MSS\"",
+            );
+        }
+        array_push($baris, '',
+            '# Cek: interface harus R (running) dan mendapat IP '.$tunnel->ip_tunnel,
+            '/interface l2tp-client print where comment="Tunnel billing MSS"',
+        );
+
+        return response()->json([
+            'script' => implode("\n", $baris),
+            'opsi' => ['port_api' => $port, 'api_user' => $opsi['api_user'] ?? $router?->username ?? 'billing-api'],
+        ]);
     }
 
     private function validated(Request $request, TunnelRadius $radius, ?Tunnel $tunnel = null): array

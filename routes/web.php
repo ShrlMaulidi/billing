@@ -70,7 +70,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/tunnel', [TunnelController::class, 'store'])->name('tunnel.store');
         Route::put('/tunnel/{tunnel}', [TunnelController::class, 'update'])->name('tunnel.update');
         Route::delete('/tunnel/{tunnel}', [TunnelController::class, 'destroy'])->name('tunnel.destroy');
-        Route::get('/tunnel/{tunnel}/script', [TunnelController::class, 'script'])->name('tunnel.script');
+        // POST: password user API ikut dikirim, jangan sampai tercatat di URL/log
+        Route::post('/tunnel/{tunnel}/script', [TunnelController::class, 'script'])->name('tunnel.script');
 
     });
 
