@@ -67,24 +67,37 @@ class PaketController extends Controller
         return response()->json(['message' => $pesan], $berhasil ? 200 : 422);
     }
 
+    /** Dropdown "Sinkronisasi": profile yang sudah ada di router terpilih, dimuat langsung dari MikroTik. */
+    public function profileRouter(Request $request, Router $router, IsolirService $isolir): JsonResponse
+    {
+        $jenis = $request->validate(['jenis' => ['required', 'in:pppoe,hotspot']])['jenis'];
+
+        try {
+            return response()->json(['data' => $isolir->profilePaket($router, $jenis)]);
+        } catch (RouterOsException $e) {
+            return response()->json(['message' => "{$router->nama_router}: {$e->getMessage()}"], 422);
+        }
+    }
+
     /** Data tetap tersimpan walau sinkron gagal; kegagalan dikembalikan sebagai peringatan. */
     private function simpanDanSinkron(Paket $paket, string $pesan, IsolirService $isolir): JsonResponse
     {
-        if (! $paket->buat_profile) {
-            return response()->json(['message' => $pesan]);
-        }
         [$berhasil, $hasil] = $this->sinkronSemua($paket, $isolir);
 
         return response()->json(['message' => "$pesan. $hasil", 'type' => $berhasil ? 'success' : 'warning']);
     }
 
     /**
-     * Sinkron ke router paket, atau ke semua router bila paket tidak dibatasi router.
+     * Buat baru: profile dibuat/diperbarui di router paket, atau di semua router bila paket tidak dibatasi router.
+     * Sinkronisasi: profile yang sudah ada di router hanya dicocokkan (rate limit disalin), router tidak diubah.
      *
      * @return array{0: bool, 1: string}
      */
     private function sinkronSemua(Paket $paket, IsolirService $isolir): array
     {
+        if (! $paket->buat_profile && $paket->router) {
+            return $this->cocokkanProfile($paket, $paket->router, $isolir);
+        }
         $routers = $paket->router_id ? Router::whereKey($paket->router_id)->get() : Router::orderBy('nama_router')->get();
         if ($routers->isEmpty()) {
             return [false, 'Belum ada router untuk menyinkronkan profile'];
@@ -104,6 +117,24 @@ class PaketController extends Controller
         return [! $gagal, implode('; ', [...$berhasil, ...$gagal])];
     }
 
+    /** @return array{0: bool, 1: string} */
+    private function cocokkanProfile(Paket $paket, Router $router, IsolirService $isolir): array
+    {
+        try {
+            $profile = collect($isolir->profilePaket($router, $paket->jns_koneksi))->firstWhere('name', $paket->profile_mikrotik);
+            if (! $profile) {
+                throw new RouterOsException("profile {$paket->profile_mikrotik} tidak ada di router");
+            }
+        } catch (RouterOsException $e) {
+            $paket->update(['sync_error' => "{$router->nama_router}: {$e->getMessage()}"]);
+
+            return [false, $paket->sync_error];
+        }
+        $paket->update(['rate_limit' => $profile['rate_limit'], 'synced_at' => now(), 'sync_error' => null]);
+
+        return [true, "{$router->nama_router}: profile {$paket->profile_mikrotik} terhubung"];
+    }
+
     /** Paket untuk semua cabang hanya bisa diubah user semua cabang. */
     private function pastikanCabangPaket(Request $request, Paket $paket): void
     {
@@ -121,7 +152,8 @@ class PaketController extends Controller
             'id_lokasi' => ['required_if:filter_lokasi,true', 'nullable', 'integer', 'exists:lokasi,id', ...$this->aturanCabangSendiri($request)],
             // User cabang hanya boleh membuat paket khusus cabangnya
             'filter_lokasi' => ['boolean', ...($request->user()->id_lokasi ? ['accepted'] : [])],
-            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
+            // Sinkronisasi memilih profile dari router tertentu
+            'router_id' => ['required_if:buat_profile,false', 'nullable', 'integer', 'exists:routers,id'],
             'profile_mikrotik' => ['required', 'string', 'max:100'],
             // Format rate-limit Mikrotik: rx/tx, boleh dengan burst, mis. 10M/10M atau 10M/10M 20M/20M 8M/8M 16/16
             'rate_limit' => ['nullable', 'string', 'max:100', 'regex:/^[0-9kKmMgG\/ ]+$/'],
@@ -137,6 +169,10 @@ class PaketController extends Controller
             'local_address' => 'Local address', 'nama_pool' => 'Nama pool', 'range_pool' => 'Range IP pool',
         ]);
 
+        // Sinkronisasi memakai profile router apa adanya: pengaturan profile diambil dari router, bukan dari form
+        if (empty($data['buat_profile'])) {
+            $data = [...$data, 'rate_limit' => null, 'local_address' => null, 'buat_pool' => false];
+        }
         if (empty($data['buat_pool'])) {
             $data['nama_pool'] = null;
             $data['range_pool'] = null;

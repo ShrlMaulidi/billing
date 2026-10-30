@@ -54,6 +54,17 @@ class RouterOsApiTest extends TestCase
         $this->assertSame(['/ip/hotspot/user/profile/add', '=name=HS-1D', '=rate-limit=5M/5M'], $this->sentSentence());
     }
 
+    public function test_gateway_lists_hotspot_profiles_with_rate_limit(): void
+    {
+        $this->reply(['!re', '=.id=*1', '=name=default'], ['!re', '=.id=*2', '=name=HS-1D', '=rate-limit=5M/5M'], ['!done']);
+
+        $this->assertSame(
+            [['name' => 'default', 'rate_limit' => null], ['name' => 'HS-1D', 'rate_limit' => '5M/5M']],
+            (new RouterOsGateway($this->api))->profileList('hotspot'),
+        );
+        $this->assertSame(['/ip/hotspot/user/profile/print'], $this->sentSentence());
+    }
+
     public function test_command_sends_attributes_and_query_and_parses_rows(): void
     {
         $this->reply(['!re', '=.id=*1', '=name=budi', '=comment=a=b'], ['!re', '=.id=*2', '=name=sari'], ['!done']);

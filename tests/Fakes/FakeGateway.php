@@ -34,6 +34,18 @@ class FakeGateway implements MikrotikGateway
         return $this->profiles;
     }
 
+    /** @var array<string, ?string> Hotspot User Profile di router: nama => rate-limit */
+    public array $hotspotProfiles = ['default' => null, 'HS-1H' => '2M/2M'];
+
+    public function profileList(string $jenis): array
+    {
+        $profiles = $jenis === 'hotspot'
+            ? $this->hotspotProfiles
+            : array_combine($this->profiles, array_map(fn ($name) => $this->savedProfiles[$name]['attributes']['rate-limit'] ?? ($name === '20Mbps' ? '20M/20M' : null), $this->profiles));
+
+        return array_map(fn ($name, $rate) => ['name' => $name, 'rate_limit' => $rate], array_keys($profiles), $profiles);
+    }
+
     public function setSecretProfile(string $id, string $profile): void
     {
         foreach ($this->secrets as $name => $s) {

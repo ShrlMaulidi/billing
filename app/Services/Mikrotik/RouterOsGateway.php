@@ -4,6 +4,9 @@ namespace App\Services\Mikrotik;
 
 class RouterOsGateway implements MikrotikGateway
 {
+    /** Menu router untuk profile paket tiap jenis koneksi. */
+    private const PROFILE = ['pppoe' => '/ppp/profile', 'hotspot' => '/ip/hotspot/user/profile'];
+
     /** Menu router untuk tiap jenis akun koneksi pelanggan. */
     private const AKUN = ['pppoe' => '/ppp/secret', 'hotspot' => '/ip/hotspot/user', 'ip_binding' => '/ip/hotspot/ip-binding'];
 
@@ -34,6 +37,13 @@ class RouterOsGateway implements MikrotikGateway
         return array_values(array_filter(array_map(fn ($row) => $row['name'] ?? null, $this->api->command('/ppp/profile/print'))));
     }
 
+    public function profileList(string $jenis): array
+    {
+        $rows = array_filter($this->api->command(self::PROFILE[$jenis].'/print'), fn ($row) => isset($row['name']));
+
+        return array_values(array_map(fn ($row) => ['name' => $row['name'], 'rate_limit' => $row['rate-limit'] ?? null], $rows));
+    }
+
     public function setSecretProfile(string $id, string $profile): void
     {
         $this->api->command('/ppp/secret/set', ['.id' => $id, 'profile' => $profile]);
@@ -51,7 +61,7 @@ class RouterOsGateway implements MikrotikGateway
 
     public function saveProfile(string $jenis, string $name, array $attributes): bool
     {
-        return $this->upsert($jenis === 'hotspot' ? '/ip/hotspot/user/profile' : '/ppp/profile', $name, $attributes);
+        return $this->upsert(self::PROFILE[$jenis], $name, $attributes);
     }
 
     public function savePool(string $name, string $ranges): bool

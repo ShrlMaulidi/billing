@@ -79,6 +79,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/pelanggan/{pelanggan}/aktifkan', [PelangganController::class, 'aktifkan'])->middleware('permission:pelanggan.off.update')->name('pelanggan.aktifkan');
         Route::get('/pelanggan/akun-router/{router}', [PelangganController::class, 'akunRouter'])->middleware('permission:pelanggan.data.create|pelanggan.data.update')->name('pelanggan.akun-router');
         Route::post('/paket/{paket}/sinkron', [PaketController::class, 'sinkron'])->middleware('permission:kelola_data.paket.update')->name('paket.sinkron');
+        Route::get('/paket/profile-router/{router}', [PaketController::class, 'profileRouter'])->middleware('permission:kelola_data.paket.create|kelola_data.paket.update')->name('paket.profile-router');
         // Daftar profile dipakai saat menyalakan pelanggan yang profile asalnya tidak diketahui
         Route::get('/mikrotik/router/{router}/profiles', [RouterController::class, 'profiles'])->middleware('permission:pelanggan.off.update|kelola_data.router.view')->name('mikrotik.router.profiles');
     });

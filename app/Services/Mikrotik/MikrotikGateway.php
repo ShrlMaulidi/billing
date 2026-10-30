@@ -14,6 +14,13 @@ interface MikrotikGateway
     /** @return array<int, string> nama PPP profile */
     public function profiles(): array;
 
+    /**
+     * Profile paket yang ada di router ($jenis pppoe → PPP Profile, hotspot → Hotspot User Profile).
+     *
+     * @return list<array{name: string, rate_limit: ?string}>
+     */
+    public function profileList(string $jenis): array;
+
     public function setSecretProfile(string $id, string $profile): void;
 
     /** Putus sesi PPP aktif agar profile baru langsung berlaku; mengembalikan jumlah sesi yang diputus. */

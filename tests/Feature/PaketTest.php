@@ -55,12 +55,38 @@ class PaketTest extends TestCase
             ->where('rows.0.profile_mikrotik', 'UP-30M')->where('rows.0.router', null));
     }
 
-    public function test_package_is_saved_without_touching_router_when_auto_profile_is_off(): void
+    public function test_router_profile_dropdown_lists_existing_profiles_without_isolir_profile(): void
     {
-        $this->postJson('/paket', $this->data(['buat_profile' => false]))
-            ->assertOk()->assertJsonPath('message', 'Paket Ultra 30 Mbps ditambahkan');
+        $this->getJson("/paket/profile-router/{$this->router->id}?jenis=pppoe")->assertOk()->assertExactJson(['data' => [
+            ['name' => 'default', 'rate_limit' => null], ['name' => '10Mbps', 'rate_limit' => null], ['name' => '20Mbps', 'rate_limit' => '20M/20M'],
+        ]]);
+        $this->getJson("/paket/profile-router/{$this->router->id}?jenis=hotspot")->assertOk()->assertJsonPath('data.1', ['name' => 'HS-1H', 'rate_limit' => '2M/2M']);
+    }
+
+    public function test_sync_mode_links_existing_router_profile_without_changing_router(): void
+    {
+        $this->postJson('/paket', $this->data(['buat_profile' => false, 'router_id' => null]))
+            ->assertStatus(422)->assertJsonValidationErrors(['router_id' => 'Router wajib diisi']);
+
+        $this->postJson('/paket', $this->data(['buat_profile' => false, 'router_id' => $this->router->id, 'profile_mikrotik' => '20Mbps']))
+            ->assertOk()->assertJsonPath('type', 'success')
+            ->assertJsonPath('message', 'Paket Ultra 30 Mbps ditambahkan. CCR Pusat: profile 20Mbps terhubung');
 
         $this->assertSame([], $this->gw->savedProfiles);
+        $paket = Paket::firstWhere('nama_paket', 'Ultra 30 Mbps');
+        // Pengaturan profile mengikuti router, bukan isian form
+        $this->assertSame('20M/20M', $paket->rate_limit);
+        $this->assertNull($paket->local_address);
+        $this->assertNotNull($paket->synced_at);
+    }
+
+    public function test_sync_mode_warns_when_profile_is_missing_on_router(): void
+    {
+        $this->postJson('/paket', $this->data(['buat_profile' => false, 'router_id' => $this->router->id, 'profile_mikrotik' => 'ISOLIR']))
+            ->assertOk()->assertJsonPath('type', 'warning')
+            ->assertJsonPath('message', 'Paket Ultra 30 Mbps ditambahkan. CCR Pusat: profile ISOLIR tidak ada di router');
+
+        $this->assertSame('CCR Pusat: profile ISOLIR tidak ada di router', Paket::firstWhere('nama_paket', 'Ultra 30 Mbps')->sync_error);
     }
 
     public function test_router_failure_keeps_package_and_returns_warning(): void

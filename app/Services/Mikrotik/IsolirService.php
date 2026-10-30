@@ -168,6 +168,18 @@ class IsolirService
     }
 
     /**
+     * Profile paket yang sudah ada di router untuk pilihan "Sinkronisasi" di form paket, tanpa profile isolir.
+     *
+     * @return list<array{name: string, rate_limit: ?string}>
+     */
+    public function profilePaket(Router $router, string $jenis): array
+    {
+        $rows = $this->onRouter($router, fn (MikrotikGateway $gw) => $gw->profileList($jenis));
+
+        return array_values(array_filter($rows, fn ($row) => $row['name'] !== $router->profile_isolir));
+    }
+
+    /**
      * Buat/perbarui profile paket (beserta IP pool bila diisi) di router, agar profile tujuan saat On selalu tersedia.
      *
      * @return string pesan hasil
