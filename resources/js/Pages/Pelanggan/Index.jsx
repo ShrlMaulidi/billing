@@ -62,25 +62,32 @@ function RemoteAddress({ routerId, username, value, onChange, invalid }) {
         return () => { batal = true; };
     }, [routerId, muatUlang]);
 
+    // Default: pool yang namanya mengandung "ppp", selain itu pool pertama
+    const [poolDipilih, setPoolDipilih] = useState('');
+    const pool = state.pools.find((p) => p.name === poolDipilih) ?? state.pools.find((p) => /ppp/i.test(p.name)) ?? state.pools[0];
     const pemakai = value && state.terpakai[value];
+    const bentrok = !!pemakai && pemakai !== username;
+
     return (
         <>
-            <Input value={value ?? ''} onChange={(e) => onChange(e.target.value.trim())} invalid={invalid || (!!pemakai && pemakai !== username)}
-                placeholder="10.12.10.5" list="ip-kosong-router" autoComplete="off" />
+            <div className="input-group">
+                {state.pools.length > 0 && (
+                    <Input type="select" className="form-select" style={{ maxWidth: '40%' }} value={pool?.name ?? ''} onChange={(e) => setPoolDipilih(e.target.value)} title="IP Pool di router">
+                        {state.pools.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </Input>
+                )}
+                <Input value={value ?? ''} onChange={(e) => onChange(e.target.value.trim())} invalid={invalid || bentrok} placeholder="10.12.10.5" list="ip-kosong-router" autoComplete="off" />
+                {pool && <Button type="button" color="primary" outline disabled={!pool.kosong[0]} onClick={() => onChange(pool.kosong[0])}>IP kosong</Button>}
+            </div>
             <datalist id="ip-kosong-router">
-                {state.pools.flatMap((p) => p.kosong.map((ip) => <option key={`${p.name}-${ip}`} value={ip}>{p.name}</option>))}
+                {pool?.kosong.map((ip) => <option key={ip} value={ip} />)}
             </datalist>
-            {pemakai && pemakai !== username && <div className="text-danger small mt-1">IP sudah dipakai akun PPPoE '{pemakai}' di router</div>}
-            <div className="form-text">
-                {!routerId && 'Pilih router untuk melihat IP kosong di pool'}
-                {state.loading && <><Spinner size="sm" className="me-1" />Membaca IP pool router...</>}
-                {state.error && <span className="text-danger">{state.error} <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => setMuatUlang((n) => n + 1)}>Coba lagi</button></span>}
-                {routerId && !state.loading && !state.error && (state.pools.length === 0 ? 'Router belum punya IP pool, isi IP manual' : state.pools.map((p) => (
-                    <div key={p.name}>
-                        Pool <strong>{p.name}</strong> ({p.ranges}): {p.jumlah_kosong} IP kosong
-                        {p.kosong[0] && <> · <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => onChange(p.kosong[0])}>pakai {p.kosong[0]}</button></>}
-                    </div>
-                )))}
+            <div className={`small mt-1 ${bentrok ? 'text-danger' : 'f-light'}`}>
+                {bentrok && `IP sudah dipakai akun PPPoE '${pemakai}' di router`}
+                {!bentrok && !routerId && 'Pilih router untuk melihat IP kosong di pool'}
+                {!bentrok && state.loading && <><Spinner size="sm" className="me-1" />Membaca IP pool router...</>}
+                {!bentrok && state.error && <span className="text-danger">{state.error} <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => setMuatUlang((n) => n + 1)}>Coba lagi</button></span>}
+                {!bentrok && routerId && !state.loading && !state.error && (pool ? `${pool.jumlah_kosong} IP kosong · ${pool.ranges}` : 'Router belum punya IP pool, isi IP manual')}
             </div>
         </>
     );
@@ -207,7 +214,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
                     { name: 'ip_address', label: 'IP Address', required: true, placeholder: '192.168.10.20', show: (v) => v.jns_koneksi === 'static' },
                     {
                         name: 'ip_address', label: 'Remote Address (IP Pelanggan)', type: 'custom', required: true, render: renderRemoteAddress, show: (v) => v.jns_koneksi === 'pppoe',
-                        help: 'Diisi ke Remote Address PPP Secret di router; IP yang sudah dipakai di router atau billing ditolak',
+                        help: 'IP yang sudah dipakai di router atau billing ditolak',
                     },
                     {
                         name: 'id_paket', label: 'Paket Langganan', type: 'select', required: true, help: 'Sesuai cabang; profile paket dipakai saat akun dibuat & saat On',
