@@ -63,14 +63,27 @@ class PelangganTest extends TestCase
             ->assertStatus(422)->assertJsonValidationErrors(['username_pppoe' => 'Username sudah dipakai']);
     }
 
+    public function test_sales_is_optional_and_an_inactive_sales_is_kept_on_edit(): void
+    {
+        $this->postJson('/pelanggan', $this->data(['sales_id' => null]))->assertOk();
+        $p = Pelanggan::firstWhere('username_pppoe', 'budi');
+        $this->assertNull($p->sales_id);
+
+        $p->update(['sales_id' => $this->sales->id]);
+        $this->sales->update(['status' => 'nonaktif']);
+        $this->putJson("/pelanggan/{$p->id}", $this->data(['nama' => 'Budi Baru', 'status' => 'aktif', 'mode_akun' => 'sinkron']))->assertOk();
+
+        $this->assertSame(['Budi Baru', $this->sales->id], [$p->fresh()->nama, $p->fresh()->sales_id]);
+    }
+
     public function test_store_rejects_empty_payload_with_required_field_messages(): void
     {
         $this->postJson('/pelanggan', [])->assertStatus(422)->assertJsonValidationErrors([
             'nama' => 'Nama pelanggan wajib diisi', 'tlp' => 'No. telepon wajib diisi', 'alamat' => 'Alamat wajib diisi',
             'jns_tagihan' => 'Jenis tagihan wajib diisi', 'id_lokasi' => 'Cabang wajib diisi', 'router_id' => 'Router wajib diisi',
             'jns_koneksi' => 'Jenis koneksi wajib diisi', 'id_paket' => 'Paket wajib diisi', 'tgl_registrasi' => 'Tanggal registrasi wajib diisi',
-            'tgl_jatuh_tempo' => 'Tanggal jatuh tempo wajib diisi', 'ppn' => 'PPN wajib diisi', 'sales_id' => 'Sales wajib diisi',
-        ])->assertJsonMissingValidationErrors(['nik', 'id_area', 'id_pelanggan']);
+            'tgl_jatuh_tempo' => 'Tanggal jatuh tempo wajib diisi', 'ppn' => 'PPN wajib diisi',
+        ])->assertJsonMissingValidationErrors(['nik', 'id_area', 'id_pelanggan', 'sales_id']);
 
         $this->assertDatabaseCount('pelanggan', 0);
     }
@@ -181,9 +194,12 @@ class PelangganTest extends TestCase
         $this->pelanggan('lama', ['status' => 'berhenti', 'status_langganan' => 'off']);
 
         $this->get('/pelanggan')->assertInertia(fn ($page) => $page->component('Pelanggan/Index')->where('status', null)->has('rows', 3)
-            ->where('jumlah', ['semua' => 3, 'on' => 1, 'off' => 1]));
+            ->where('jumlah', ['semua' => 3, 'on' => 1, 'off' => 1, 'lunas' => 0, 'belum_lunas' => 0]));
         $this->get('/pelanggan/on')->assertInertia(fn ($page) => $page->where('status', 'on')->has('rows', 1)->where('rows.0.username_pppoe', 'budi'));
         $this->get('/pelanggan/off')->assertInertia(fn ($page) => $page->where('status', 'off')->has('rows', 1)->where('rows.0.username_pppoe', 'sari'));
+        // Belum ada tabel tagihan: halaman lunas / belum lunas tampil kosong, bukan semua pelanggan
+        $this->get('/pelanggan/lunas')->assertOk()->assertInertia(fn ($page) => $page->where('status', 'lunas')->has('rows', 0));
+        $this->get('/pelanggan/belum-lunas')->assertOk()->assertInertia(fn ($page) => $page->where('status', 'belum_lunas')->has('rows', 0));
         $this->get('/dashboard')->assertInertia(fn ($page) => $page->where('kpi.total', 2)->where('kpi.on', 1)->where('kpi.off', 1));
     }
 

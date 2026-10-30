@@ -27,29 +27,6 @@ class KelolaDataController extends Controller
         ]);
     }
 
-    public function pajak(Request $request)
-    {
-        $f = $this->filters($request);
-        // Tahun yang bisa diatur tarifnya: tahun lalu s/d tahun depan
-        $tahun = today()->year;
-        $tahunOptions = [$tahun - 1, $tahun, $tahun + 1];
-        if (! in_array($f['tahun'], $tahunOptions)) {
-            $f['tahun'] = $tahun;
-        }
-
-        return Inertia::render('KelolaData/Pajak', [
-            'filters' => $f,
-            'rows' => [],
-            'tahunOptions' => $tahunOptions,
-            'periodeSekarang' => today()->format('Y-m-01'),
-        ]);
-    }
-
-    public function rekening(Request $request)
-    {
-        return $this->kosong($request, 'Rekening');
-    }
-
     public function notifikasi(Request $request)
     {
         return $this->kosong($request, 'Notifikasi', ['wagw' => ['devices' => [], 'sent' => 0, 'outbox' => 0, 'failed' => 0]]);

@@ -17,7 +17,7 @@ export default function CabangDetail({ filters, lokasi, rekap, pelanggan, pembay
             <PageHeader title={lokasi.nama_lokasi} crumbs={[{ label: 'Dashboard Cabang', href: '/dashboard-cabang' }]} />
             <div className="container-fluid">
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <div><span className="badge badge-light-primary me-2">{lokasi.kode_lokasi}</span><span className="f-light">{lokasi.alamat_lokasi} · Mitra: {lokasi.nama_mitra}</span></div>
+                    <div><span className="badge badge-light-primary me-2">{lokasi.kode_lokasi}</span><span className="f-light">{lokasi.alamat_lokasi} · Mitra: {lokasi.nama_mitra || '-'}</span></div>
                     <FilterBar filters={filters} fields={['bulan', 'tahun']} />
                 </div>
                 <div className="row">

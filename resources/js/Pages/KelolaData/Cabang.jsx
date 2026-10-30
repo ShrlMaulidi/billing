@@ -5,8 +5,11 @@ import { StatusBadge } from '../../Components/ui';
 import { angka, periode, persen, rupiah } from '../../lib/format';
 import { deleteFrom, saveTo, useBisa } from '../../lib/ui';
 
-// Tarif bulan berjalan belum ada sampai Pengaturan Pajak terhubung ke database
+// Cabang lama yang belum punya tarif di Pengaturan Pajak tampil '-'
 const kosong = (v) => v === null || v === undefined;
+const TIPE = [{ value: 'persentase', label: 'Persentase' }, { value: 'nominal', label: 'Nominal' }];
+// Tarif awal hanya diisi saat tambah cabang; setelah itu diubah per bulan di Pengaturan Pajak
+const baru = (v) => !v.id;
 
 export default function Cabang({ filters, rows, periodeSekarang }) {
     const bisa = useBisa();
@@ -14,7 +17,10 @@ export default function Cabang({ filters, rows, periodeSekarang }) {
     return (
         <CrudPage
             title="Cabang / Lokasi" entity="Cabang" rows={rows} filters={filters} filterFields={[]}
-            defaults={{ status: 'aktif', terima_cash: true }}
+            defaults={{
+                status: 'aktif', terima_cash: true,
+                ppn_persen: 0, pph_persen: 0, bhp_persen: 0, uso_persen: 0, admin_fee_tipe: 'nominal', admin_fee: 0, metode_bagi_hasil: 'persentase', nilai_bagi_hasil: 0,
+            }}
             deleteLabel={(r) => r.nama_lokasi}
             onSave={saveTo('/cabang')} onDelete={deleteFrom('/cabang')}
             canAdd={bisa('kelola_data.cabang.create')} canEdit={bisa('kelola_data.cabang.update')} canDelete={bisa('kelola_data.cabang.delete')}
@@ -45,8 +51,25 @@ export default function Cabang({ filters, rows, periodeSekarang }) {
                 { name: 'group_wa', label: 'ID Grup WA Notifikasi', placeholder: '1203630xxxx@g.us' },
                 { name: 'status', label: 'Status', type: 'radio', required: true, options: [{ value: 'aktif', label: 'Aktif' }, { value: 'tidak_aktif', label: 'Tidak Aktif' }] },
                 { name: 'terima_cash', label: 'Cabang menerima pembayaran cash', type: 'switch' },
+                { name: 'judul_pajak', type: 'static', col: 'col-12', show: baru, render: () => <h6 className="border-top pt-3 mb-0">Pajak &amp; Bagi Hasil</h6> },
+                { name: 'ppn_persen', label: 'PPN (%)', type: 'number', required: true, show: baru },
+                { name: 'pph_persen', label: 'PPh 25 (%)', type: 'number', required: true, show: baru },
+                { name: 'bhp_persen', label: 'BHP (%)', type: 'number', required: true, show: baru },
+                { name: 'uso_persen', label: 'USO (%)', type: 'number', required: true, show: baru },
+                { name: 'admin_fee_tipe', label: 'Tipe Admin Fee', type: 'radio', options: TIPE, show: baru },
+                { name: 'admin_fee', label: 'Admin Fee (%)', type: 'number', required: true, show: (v) => baru(v) && v.admin_fee_tipe === 'persentase' },
+                { name: 'admin_fee', label: 'Admin Fee (Rp)', type: 'currency', required: true, show: (v) => baru(v) && v.admin_fee_tipe !== 'persentase' },
+                { name: 'metode_bagi_hasil', label: 'Metode Bagi Hasil', type: 'radio', options: TIPE, show: baru },
+                { name: 'nilai_bagi_hasil', label: 'Nilai Bagi Hasil (%)', type: 'number', required: true, show: (v) => baru(v) && v.metode_bagi_hasil !== 'nominal' },
+                { name: 'nilai_bagi_hasil', label: 'Nilai Bagi Hasil (Rp)', type: 'currency', required: true, show: (v) => baru(v) && v.metode_bagi_hasil === 'nominal' },
             ]}
-            formExtra={() => <div className="alert alert-light-warning mb-0 mt-2">Pajak dan bagi hasil cabang diatur per bulan di menu <strong>Pengaturan Pajak</strong>.</div>}
+            formExtra={(v) => (
+                <div className="alert alert-light-warning mb-0 mt-2">
+                    {baru(v)
+                        ? <>Tarif di atas otomatis berlaku untuk <strong>Januari–Desember {periodeSekarang.slice(0, 4)}</strong>. Setelah disimpan, tarif tiap bulan bisa diubah di menu <strong>Pengaturan Pajak</strong>.</>
+                        : <>Pajak dan bagi hasil cabang diubah per bulan di menu <strong>Pengaturan Pajak</strong>.</>}
+                </div>
+            )}
         />
     );
 }

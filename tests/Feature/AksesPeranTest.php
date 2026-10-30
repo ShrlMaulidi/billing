@@ -40,6 +40,7 @@ class AksesPeranTest extends TestCase
 
         $this->get('/dashboard')->assertOk();
         $this->get('/pelanggan')->assertOk();
+        $this->get('/pelanggan/belum-lunas')->assertOk();
         $this->get('/kelola-data/paket')->assertOk();
         $this->get('/kelola-data/router')->assertForbidden();
         // Router tetap bisa dipakai lewat menu pelanggan, tanpa melihat kredensialnya
@@ -56,6 +57,7 @@ class AksesPeranTest extends TestCase
         $this->deleteJson("/pelanggan/{$pelanggan->id}")->assertForbidden();
         $this->postJson("/pelanggan/{$pelanggan->id}/isolir")->assertForbidden();
         $this->get('/kelola-data/router')->assertForbidden();
+        $this->get('/pelanggan/belum-lunas')->assertForbidden();
 
         $this->assertModelExists($pelanggan);
     }

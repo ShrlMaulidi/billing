@@ -44,4 +44,20 @@ class Lokasi extends Model
     {
         return $this->hasMany(Paket::class, 'id_lokasi');
     }
+
+    public function rekening(): HasMany
+    {
+        return $this->hasMany(Rekening::class, 'id_lokasi');
+    }
+
+    public function pembayaran(): HasMany
+    {
+        return $this->hasMany(Pembayaran::class, 'id_lokasi');
+    }
+
+    /** Tarif pajak & bagi hasil per bulan. */
+    public function pajak(): HasMany
+    {
+        return $this->hasMany(PajakCabang::class, 'id_lokasi');
+    }
 }

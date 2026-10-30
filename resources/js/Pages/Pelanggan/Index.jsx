@@ -1,15 +1,21 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Info, Power, WifiOff } from 'react-feather';
+import { Clock, DollarSign, FileText, Info, Power, WifiOff } from 'react-feather';
 import { Button, Input, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from 'reactstrap';
 import CrudPage from '../../Components/CrudPage';
+import { FormPembayaran, kunciPeriode, RiwayatPembayaran } from '../../Components/Pembayaran';
 import Select from '../../Components/Select';
 import { ActionButton, ConfirmDialog, StatusBadge } from '../../Components/ui';
 import { rupiah, tanggal, waktu } from '../../lib/format';
 import { api, deleteFrom, notify, reloadData, saveTo, useBisa } from '../../lib/ui';
 
 const RELOAD = ['rows', 'jumlah'];
-const JUDUL = { on: 'Pelanggan On', off: 'Pelanggan Off' };
+const JUDUL = { on: 'Pelanggan On', off: 'Pelanggan Off', lunas: 'Pelanggan Lunas', belum_lunas: 'Pelanggan Belum Lunas' };
+// Tombol filter cepat: [status, label, path]
+const TAB = [['', 'Semua', ''], ['on', 'On', '/on'], ['off', 'Off', '/off'], ['lunas', 'Lunas', '/lunas'], ['belum_lunas', 'Belum Lunas', '/belum-lunas']];
+const TAGIHAN = ['lunas', 'belum_lunas'];
+// Tombol Input & Riwayat Pembayaran tampil di Data Pelanggan & Pelanggan Belum Lunas
+const HALAMAN_BAYAR = [null, 'belum_lunas'];
 const KONEKSI = { pppoe: 'PPPoE', hotspot: 'Hotspot', static: 'Static', ip_binding: 'IP Binding' };
 // Jenis koneksi yang punya akun di router (Sinkronisasi / Buat baru)
 const AKUN = { pppoe: 'PPP Secret', hotspot: 'Hotspot User', ip_binding: 'IP Binding' };
@@ -97,7 +103,7 @@ function RemoteAddress({ routerId, username, value, onChange, invalid }) {
  * Data pelanggan (database). Halaman Pelanggan On punya tombol Off (isolir),
  * halaman Pelanggan Off punya tombol On (kembali ke profile asal).
  */
-export default function PelangganIndex({ filters, status, rows, jumlah, areaOptions, routerOptions, paketOptions, salesOptions }) {
+export default function PelangganIndex({ filters, status, rows, jumlah, periode, tahunBayar, areaOptions, routerOptions, paketOptions, salesOptions, rekeningOptions }) {
     const { cabangOptions } = usePage().props;
     const bisa = useBisa();
     // Saat edit, akun dianggap sudah ada di router (pilih "Buat baru" untuk membuat ulang)
@@ -107,6 +113,24 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
     const [busy, setBusy] = useState(null);
     const [confirm, setConfirm] = useState(null); // { p, aksi }
     const [pilihProfile, setPilihProfile] = useState(null); // { p, options, value }
+    const [bayar, setBayar] = useState(null); // target FormPembayaran
+    const [riwayat, setRiwayat] = useState(null); // pelanggan yang riwayat pembayarannya dibuka
+    const halamanBayar = HALAMAN_BAYAR.includes(status ?? null);
+    // Halaman Pelanggan Lunas hanya untuk kwitansi & pembatalan pembayaran periode terpilih
+    const lunas = status === 'lunas';
+
+    // Periode bawaan: bulan filter (default bulan berjalan), maju ke bulan pertama yang belum dibayar
+    const bukaBayar = (p) => {
+        const lunas = new Set(p.periode_lunas);
+        let [tahun, bulan] = [Number(periode.slice(0, 4)), Number(periode.slice(5, 7))];
+        for (let i = 0; i < 120 && lunas.has(kunciPeriode(tahun, bulan)); i++) {
+            [tahun, bulan] = bulan === 12 ? [tahun + 1, 1] : [tahun, bulan + 1];
+        }
+        setBayar({
+            judul: `Input Pembayaran · ${p.id_pelanggan ?? p.nama}`, nama: p.nama, paket: p.paket, harga: p.harga, id_lokasi: p.id_lokasi, terima_cash: p.terima_cash,
+            lunas, initial: { bulan, tahun, metode: p.terima_cash ? 'cash' : '', diskon_tipe: '', diskon_nilai: '' }, method: 'POST', url: `/pelanggan/${p.id}/bayar`,
+        });
+    };
 
     const jalankan = async (p, aksi, profile) => {
         setBusy(p.id);
@@ -136,34 +160,47 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
     return (
         <>
             <CrudPage
-                title={JUDUL[status] ?? 'Data Pelanggan'} entity="Pelanggan" crumbs={['Pelanggan']} rows={formRows} filters={filters}
-                deleteLabel={(r) => r.nama}
+                title={JUDUL[status] ?? 'Data Pelanggan'} entity={lunas ? 'Pembayaran' : 'Pelanggan'} crumbs={['Pelanggan']} rows={formRows} filters={filters}
+                deleteLabel={(r) => (lunas ? `pembayaran ${r.pembayaran_periode?.no_invoice} atas nama ${r.nama}` : r.nama)}
                 defaults={{ jns_tagihan: 'prabayar', id_lokasi: filters.cabang ?? '', jns_koneksi: 'pppoe', mode_akun: 'sinkron', tgl_registrasi: new Date().toISOString().slice(0, 10), ppn: false }}
-                onSave={saveTo('/pelanggan', RELOAD)} onDelete={deleteFrom('/pelanggan', RELOAD)}
-                canAdd={bisa('pelanggan.data.create')} canEdit={bisa('pelanggan.data.update')} canDelete={bisa('pelanggan.data.delete')}
+                onSave={saveTo('/pelanggan', RELOAD)}
+                onDelete={lunas ? (r) => deleteFrom('/pembayaran', RELOAD)(r.pembayaran_periode) : deleteFrom('/pelanggan', RELOAD)}
+                canAdd={!lunas && bisa('pelanggan.data.create')} canEdit={!lunas && bisa('pelanggan.data.update')}
+                canDelete={lunas ? bisa('pelanggan.pembayaran.delete') : bisa('pelanggan.data.delete')}
                 before={
                     <>
                         {[
                             [!cabangOptions.length, <>Belum ada cabang. Tambahkan dulu di <Link href="/kelola-data/cabang" className="fw-semibold">Kelola Data › Cabang</Link>.</>],
                             [!routerOptions.length, <>Belum ada router. Tambahkan dulu di <Link href="/kelola-data/router" className="fw-semibold">Kelola Data › Router</Link> agar pelanggan bisa di-On/Off.</>],
-                            [!salesOptions.length, <>Belum ada user aktif dengan role <strong>Sales</strong>. Tambahkan di <Link href="/user/manajemen" className="fw-semibold">User › Manajemen User</Link>.</>],
                         ].filter(([tampil]) => tampil).map(([, pesan], i) => (
                             <div key={i} className="alert alert-light-warning d-flex gap-2 align-items-center">
                                 <Info size={16} className="flex-shrink-0" />
                                 <span>{pesan}</span>
                             </div>
                         ))}
-                        <div className="btn-group mb-3">
-                            {[['', 'Semua', jumlah.semua], ['on', 'On', jumlah.on], ['off', 'Off', jumlah.off]].map(([s, label, n]) => (
-                                <Link key={label} href={`/pelanggan${s ? `/${s}` : ''}`} data={filters.cabang ? { cabang: filters.cabang } : {}} prefetch
+                        <div className="btn-group flex-wrap mb-3">
+                            {TAB.map(([s, label, path]) => (
+                                <Link key={label} href={`/pelanggan${path}`} data={filters.cabang ? { cabang: filters.cabang } : {}} prefetch
                                     className={`btn btn-sm ${(status ?? '') === s ? 'btn-primary' : 'btn-outline-primary'}`}>
-                                    {label} <span className="ms-1 opacity-75">{n}</span>
+                                    {label} <span className="ms-1 opacity-75">{jumlah[s || 'semua']}</span>
                                 </Link>
                             ))}
                         </div>
                     </>
                 }
-                rowActions={status && bisa(`pelanggan.${status}.update`) ? (p) => (status === 'on'
+                filterFields={TAGIHAN.includes(status) ? ['bulan', 'tahun', 'cabang'] : ['cabang']}
+                rowActions={lunas ? (p) => bisa('pelanggan.pembayaran.view') && (
+                    <ActionButton icon={FileText} label={`Kwitansi ${p.pembayaran_periode?.no_invoice ?? ''}`} href={`/pembayaran/${p.pembayaran_periode?.id}/kwitansi`} />
+                ) : halamanBayar ? (p) => (
+                    <>
+                        {bisa('pelanggan.pembayaran.create') && (
+                            <ActionButton icon={DollarSign} color="success"
+                                label={p.status !== 'aktif' ? 'Pelanggan berhenti' : !p.harga ? 'Paket gratis / belum ada paket' : 'Input Pembayaran'}
+                                disabled={p.status !== 'aktif' || !p.harga} onClick={() => bukaBayar(p)} />
+                        )}
+                        {bisa('pelanggan.pembayaran.view') && <ActionButton icon={Clock} color="info" label="Riwayat Pembayaran" onClick={() => setRiwayat(p)} />}
+                    </>
+                ) : ['on', 'off'].includes(status) && bisa(`pelanggan.${status}.update`) ? (p) => (status === 'on'
                     ? <ActionButton icon={WifiOff} label={p.jns_koneksi === 'pppoe' ? 'Off (Isolir)' : 'Off baru tersedia untuk PPPoE'} color="danger" loading={busy === p.id} disabled={!!busy || p.jns_koneksi !== 'pppoe'} onClick={() => setConfirm({ p, aksi: 'isolir' })} />
                     : <ActionButton icon={Power} label={p.jns_koneksi === 'pppoe' ? 'On (Aktifkan)' : 'On baru tersedia untuk PPPoE'} color="success" loading={busy === p.id} disabled={!!busy || p.jns_koneksi !== 'pppoe'} onClick={() => klikOn(p)} />) : undefined}
                 columns={[
@@ -223,10 +260,13 @@ export default function PelangganIndex({ filters, status, rows, jumlah, areaOpti
                     { name: 'tgl_registrasi', label: 'Tanggal Registrasi', type: 'date', required: true },
                     { name: 'tgl_jatuh_tempo', label: 'Tanggal Jatuh Tempo', type: 'number', required: true, help: 'Tanggal 1–31 setiap bulan' },
                     { name: 'ppn', label: 'PPN', type: 'radio', required: true, options: [{ value: true, label: 'Iya' }, { value: false, label: 'Tidak' }] },
-                    { name: 'sales_id', label: 'Sales', type: 'select', required: true, options: (v) => sesuaiCabang(salesOptions, v) },
+                    { name: 'sales_id', label: 'Sales', type: 'select', options: (v) => sesuaiCabang(salesOptions, v), help: 'Opsional · sales yang membawa pelanggan ini' },
                     { name: 'status', label: 'Status', type: 'radio', required: true, options: [{ value: 'aktif', label: 'Aktif' }, { value: 'berhenti', label: 'Berhenti' }], show: (v) => !!v.id },
                 ]}
             />
+
+            <FormPembayaran target={bayar} onClose={() => setBayar(null)} onSaved={() => reloadData(RELOAD)} rekeningOptions={rekeningOptions} tahunBayar={tahunBayar} />
+            <RiwayatPembayaran pelanggan={riwayat} onClose={() => setRiwayat(null)} onChanged={() => reloadData(RELOAD)} rekeningOptions={rekeningOptions} tahunBayar={tahunBayar} />
 
             <ConfirmDialog
                 isOpen={!!confirm}

@@ -9,10 +9,6 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
-/**
- * Daftar permission & role bawaan. Aman dijalankan berulang (dipanggil deploy.sh): permission baru ditambahkan,
- * role yang sudah ada tidak diubah agar pengaturan dari menu Hak Akses tidak tertimpa.
- */
 class HakAksesSeeder extends Seeder
 {
     public function run(): void

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Area;
 use App\Models\Lokasi;
+use App\Models\PajakCabang;
 use App\Models\Pelanggan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,6 +29,30 @@ class CabangTest extends TestCase
         $this->get('/kelola-data/cabang')->assertOk()->assertInertia(fn ($page) => $page->component('KelolaData/Cabang')
             ->has('rows', 1)->where('rows.0.nama_mitra', 'Rifky Hidayat')->where('rows.0.jumlah_area', 0)
             ->where('cabangOptions', [['value' => $lokasi->id, 'label' => 'MSS Garut']]));
+    }
+
+    public function test_store_applies_initial_tax_to_every_month_of_the_current_year(): void
+    {
+        $this->travelTo('2026-10-15');
+
+        $this->postJson('/cabang', $this->data(['ppn_persen' => 11, 'metode_bagi_hasil' => 'persentase', 'nilai_bagi_hasil' => 30]))->assertOk();
+
+        $lokasi = Lokasi::firstWhere('kode_lokasi', 'C001');
+        $this->assertSame(
+            array_map(fn ($b) => sprintf('2026-%02d-01', $b), range(1, 12)),
+            $lokasi->pajak()->orderBy('periode')->pluck('periode')->all(),
+        );
+        $this->assertSame(12, PajakCabang::where(['ppn_persen' => 11, 'nilai_bagi_hasil' => 30])->count());
+        $this->get('/kelola-data/cabang')->assertInertia(fn ($page) => $page->where('rows.0.ppn_persen', 11)->where('rows.0.nilai_bagi_hasil', 30));
+    }
+
+    public function test_store_rejects_percentage_profit_share_above_100_and_creates_nothing(): void
+    {
+        $this->postJson('/cabang', $this->data(['metode_bagi_hasil' => 'persentase', 'nilai_bagi_hasil' => 150]))
+            ->assertStatus(422)->assertJsonValidationErrors(['nilai_bagi_hasil' => 'Nilai bagi hasil harus antara 0 dan 100']);
+
+        $this->assertDatabaseCount('lokasi', 0);
+        $this->assertDatabaseCount('pajak_cabang', 0);
     }
 
     public function test_store_rejects_duplicate_code(): void
@@ -94,7 +119,9 @@ class CabangTest extends TestCase
     {
         return [
             'kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut', 'alamat_lokasi' => 'Jl. Ciledug 10', 'tlp_lokasi' => '0262123456',
-            'status' => 'aktif', 'terima_cash' => false, ...$override,
+            'status' => 'aktif', 'terima_cash' => false,
+            'ppn_persen' => 11, 'pph_persen' => 0.5, 'bhp_persen' => 0, 'uso_persen' => 0, 'admin_fee_tipe' => 'nominal', 'admin_fee' => 2500,
+            'metode_bagi_hasil' => 'persentase', 'nilai_bagi_hasil' => 20, ...$override,
         ];
     }
 }

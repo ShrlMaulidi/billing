@@ -1,8 +1,8 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ArrowDownCircle, ArrowUpCircle, Bell, Box, Circle, CreditCard, Database, GitBranch, List, Map, MapPin, Menu, Percent, Server, Shield,
-    ShoppingBag, UploadCloud, UserCheck, Users, UserX, X, Zap,
+    ArrowDownCircle, ArrowUpCircle, Bell, Box, CheckCircle, Circle, CreditCard, Database, GitBranch, List, Map, MapPin, Menu, Percent, Server, Shield,
+    ShoppingBag, UploadCloud, UserCheck, Users, UserX, X, XCircle, Zap,
 } from 'react-feather';
 import { MENU, menuUntuk } from '../lib/menu';
 import { useBisa } from '../lib/ui';
@@ -16,7 +16,7 @@ const PRIMARY = [
 ];
 
 const SHEET_ICON = {
-    '/pelanggan': Users, '/pelanggan/on': UserCheck, '/pelanggan/off': UserX,
+    '/pelanggan': Users, '/pelanggan/on': UserCheck, '/pelanggan/off': UserX, '/pelanggan/lunas': CheckCircle, '/pelanggan/belum-lunas': XCircle,
     '/kelola-data/kartu-member': CreditCard, '/kelola-data/cabang': MapPin, '/kelola-data/area': Map, '/kelola-data/pajak': Percent,
     '/kelola-data/paket': Box, '/kelola-data/router': Server, '/kelola-data/rekening': Database, '/kelola-data/notifikasi': Bell,
     '/kelola-data/pph': UploadCloud, '/kelola-data/tunnel': GitBranch, '/transaksi/penarikan-saldo': ArrowUpCircle,

@@ -7,8 +7,11 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HakAksesController;
 use App\Http\Controllers\IsolirController;
 use App\Http\Controllers\KelolaDataController;
+use App\Http\Controllers\PajakController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PelangganController;
+use App\Http\Controllers\PembayaranController;
+use App\Http\Controllers\RekeningController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\SistemController;
 use App\Http\Controllers\TransaksiController;
@@ -43,11 +46,12 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('kelola-data')->name('kelola-data.')->controller(KelolaDataController::class)->group(function () {
         Route::get('/kartu-member', 'kartuMember')->middleware('permission:kelola_data.kartu_member.view')->name('kartu-member');
-        Route::get('/pajak', 'pajak')->middleware('permission:kelola_data.pajak.view')->name('pajak');
-        Route::get('/rekening', 'rekening')->middleware('permission:kelola_data.rekening.view')->name('rekening');
         Route::get('/notifikasi', 'notifikasi')->middleware('permission:kelola_data.notifikasi.view')->name('notifikasi');
         Route::get('/pph', 'pph')->middleware('permission:kelola_data.pph.view')->name('pph');
     });
+
+    // Pengaturan pajak per cabang per bulan; mengubah tarif & bagi hasil hanya untuk user semua cabang (lihat grup semua_cabang)
+    Route::get('/kelola-data/pajak', [PajakController::class, 'index'])->middleware('permission:kelola_data.pajak.view')->name('kelola-data.pajak');
 
     // Cabang & area (database)
     Route::get('/kelola-data/cabang', [CabangController::class, 'index'])->middleware('permission:kelola_data.cabang.view')->name('kelola-data.cabang');
@@ -62,10 +66,24 @@ Route::middleware('auth')->group(function () {
     // Data pelanggan (database) — akun koneksi di Mikrotik & On/Off internet lewat isolir PPPoE
     Route::get('/pelanggan', [PelangganController::class, 'index'])->middleware('permission:pelanggan.data.view')->name('pelanggan.index');
     Route::get('/pelanggan/on', [PelangganController::class, 'index'])->defaults('status', 'on')->middleware('permission:pelanggan.on.view')->name('pelanggan.on');
+    // Lunas / belum lunas dihitung dari pembayaran pada periode filter (default bulan berjalan)
+    Route::get('/pelanggan/lunas', [PelangganController::class, 'index'])->defaults('status', 'lunas')->middleware('permission:pelanggan.lunas.view')->name('pelanggan.lunas');
+    Route::get('/pelanggan/belum-lunas', [PelangganController::class, 'index'])->defaults('status', 'belum_lunas')->middleware('permission:pelanggan.belum_lunas.view')->name('pelanggan.belum-lunas');
     Route::get('/pelanggan/off', [PelangganController::class, 'index'])->defaults('status', 'off')->middleware('permission:pelanggan.off.view')->name('pelanggan.off');
     Route::post('/pelanggan', [PelangganController::class, 'store'])->middleware('permission:pelanggan.data.create')->name('pelanggan.store');
     Route::put('/pelanggan/{pelanggan}', [PelangganController::class, 'update'])->middleware('permission:pelanggan.data.update')->name('pelanggan.update');
     Route::delete('/pelanggan/{pelanggan}', [PelangganController::class, 'destroy'])->middleware('permission:pelanggan.data.delete')->name('pelanggan.destroy');
+    Route::post('/pelanggan/{pelanggan}/bayar', [PembayaranController::class, 'store'])->middleware('permission:pelanggan.pembayaran.create')->name('pelanggan.bayar');
+    Route::get('/pelanggan/{pelanggan}/pembayaran', [PembayaranController::class, 'index'])->middleware('permission:pelanggan.pembayaran.view')->name('pelanggan.pembayaran');
+    Route::get('/pembayaran/{pembayaran}/kwitansi', [PembayaranController::class, 'kwitansi'])->middleware('permission:pelanggan.pembayaran.view')->name('pembayaran.kwitansi');
+    Route::put('/pembayaran/{pembayaran}', [PembayaranController::class, 'update'])->middleware('permission:pelanggan.pembayaran.update')->name('pembayaran.update');
+    Route::delete('/pembayaran/{pembayaran}', [PembayaranController::class, 'destroy'])->middleware('permission:pelanggan.pembayaran.delete')->name('pembayaran.destroy');
+
+    // Rekening tujuan transfer (pilihan metode pembayaran)
+    Route::get('/kelola-data/rekening', [RekeningController::class, 'index'])->middleware('permission:kelola_data.rekening.view')->name('kelola-data.rekening');
+    Route::post('/rekening', [RekeningController::class, 'store'])->middleware('permission:kelola_data.rekening.create')->name('rekening.store');
+    Route::put('/rekening/{rekening}', [RekeningController::class, 'update'])->middleware('permission:kelola_data.rekening.update')->name('rekening.update');
+    Route::delete('/rekening/{rekening}', [RekeningController::class, 'destroy'])->middleware('permission:kelola_data.rekening.delete')->name('rekening.destroy');
 
     // Paket langganan (database) — profile paket bisa disinkronkan ke Mikrotik
     Route::get('/kelola-data/paket', [PaketController::class, 'index'])->middleware('permission:kelola_data.paket.view')->name('kelola-data.paket');
@@ -109,6 +127,9 @@ Route::middleware('auth')->group(function () {
 
     // Menu global (tidak terikat cabang): hanya untuk user semua cabang
     Route::middleware('semua_cabang')->group(function () {
+        // Bagi hasil menentukan setoran cabang, jadi user cabang tidak boleh mengubah tarifnya sendiri
+        Route::put('/pajak/{lokasi}', [PajakController::class, 'update'])->middleware('permission:kelola_data.pajak.update')->name('pajak.update');
+
         // Template script isolir (Static/PPPoE/Hotspot) + isi halaman isolir
         Route::get('/kelola-data/template-isolir', [IsolirController::class, 'index'])->middleware('permission:kelola_data.template_isolir.view')->name('kelola-data.template-isolir');
         Route::put('/isolir/pengaturan', [IsolirController::class, 'simpanPengaturan'])->middleware('permission:kelola_data.template_isolir.update')->name('isolir.pengaturan');

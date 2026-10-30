@@ -16,6 +16,8 @@ export const MENU = [
                     { title: 'Data Pelanggan', href: '/pelanggan', izin: 'pelanggan.data.view' },
                     { title: 'Pelanggan On', href: '/pelanggan/on', izin: 'pelanggan.on.view' },
                     { title: 'Pelanggan Off', href: '/pelanggan/off', izin: 'pelanggan.off.view' },
+                    { title: 'Pelanggan Lunas', href: '/pelanggan/lunas', izin: 'pelanggan.lunas.view' },
+                    { title: 'Pelanggan Belum Lunas', href: '/pelanggan/belum-lunas', izin: 'pelanggan.belum_lunas.view' },
                 ],
             },
             {

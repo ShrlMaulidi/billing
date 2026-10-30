@@ -10,7 +10,7 @@ import { angka, periode, rupiah, tanggal, waktu } from '../../lib/format';
 
 export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik }) {
     // Data Pelanggan & On/Off membuka menu Pelanggan (data asli, ada tombol Tambah); kategori lain ke daftar dashboard
-    const MENU_PELANGGAN = { total: '/pelanggan', on: '/pelanggan/on', off: '/pelanggan/off' };
+    const MENU_PELANGGAN = { total: '/pelanggan', on: '/pelanggan/on', off: '/pelanggan/off', lunas: '/pelanggan/lunas', belum_lunas: '/pelanggan/belum-lunas' };
     const target = (kategori) => (MENU_PELANGGAN[kategori]
         ? [MENU_PELANGGAN[kategori], { cabang: filters.cabang ?? undefined }]
         : ['/dashboard/pelanggan', { kategori, cabang: filters.cabang ?? undefined }]);

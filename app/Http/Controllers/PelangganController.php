@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Area;
 use App\Models\Paket;
 use App\Models\Pelanggan;
+use App\Models\Pembayaran;
+use App\Models\Rekening;
 use App\Models\Router;
 use App\Models\User;
 use App\Services\Mikrotik\IsolirService;
@@ -12,6 +14,7 @@ use App\Services\Mikrotik\RouterOsException;
 use App\Support\IpPool;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -22,6 +25,9 @@ use Inertia\Inertia;
  */
 class PelangganController extends Controller
 {
+    /** Halaman pelanggan berdasarkan status pembayaran tagihan pada periode filter. */
+    private const STATUS_TAGIHAN = ['lunas', 'belum_lunas'];
+
     public function index(Request $request, ?string $status = null)
     {
         $f = $this->filters($request);
@@ -30,10 +36,26 @@ class PelangganController extends Controller
         $cabangDanUmum = fn ($q) => $q->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $cabangUser));
         $base = Pelanggan::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
 
-        $rows = (clone $base)->with(['router:id,nama_router,profile_isolir', 'paket:id,nama_paket,harga,profile_mikrotik', 'lokasi:id,nama_lokasi'])
-            ->when($status, fn ($q) => $q->where('status', 'aktif')->where('status_langganan', $status))
+        $periode = $this->periode($f);
+
+        $rows = (clone $base)
+            ->with([
+                'router:id,nama_router,profile_isolir', 'paket:id,nama_paket,harga,profile_mikrotik', 'lokasi:id,nama_lokasi,terima_cash',
+                'pembayaran:id,pelanggan_id,periode,no_invoice',
+            ])
+            ->when($status === 'lunas', fn ($q) => $q->lunas($periode))
+            ->when($status === 'belum_lunas', fn ($q) => $q->belumLunas($periode))
+            ->when(in_array($status, ['on', 'off'], true), fn ($q) => $q->where('status', 'aktif')->where('status_langganan', $status))
             ->orderBy('nama')->get()
-            ->map(fn (Pelanggan $p) => [...$p->toBaris(), 'profile_paket' => $p->paket?->profile_mikrotik]);
+            ->map(fn (Pelanggan $p) => [
+                ...Arr::except($p->toBaris(), ['pembayaran']),
+                'profile_paket' => $p->paket?->profile_mikrotik,
+                'terima_cash' => $p->lokasi?->terima_cash ?? true,
+                // Periode yang sudah dibayar, ditandai di form pembayaran
+                'periode_lunas' => $p->pembayaran->pluck('periode')->sort()->values(),
+                // Pembayaran periode filter: untuk kwitansi & pembatalan di halaman Pelanggan Lunas
+                'pembayaran_periode' => $p->pembayaran->firstWhere('periode', $periode)?->only(['id', 'no_invoice']),
+            ]);
 
         return Inertia::render('Pelanggan/Index', [
             'filters' => $f,
@@ -43,7 +65,14 @@ class PelangganController extends Controller
                 'semua' => (clone $base)->count(),
                 'on' => (clone $base)->where('status', 'aktif')->where('status_langganan', 'on')->count(),
                 'off' => (clone $base)->where('status', 'aktif')->where('status_langganan', 'off')->count(),
+                'lunas' => (clone $base)->lunas($periode)->count(),
+                'belum_lunas' => (clone $base)->belumLunas($periode)->count(),
             ],
+            'periode' => $periode,
+            'tahunBayar' => Pembayaran::tahunBayar(),
+            // Rekening cabang ini atau semua cabang (id_lokasi null)
+            'rekeningOptions' => Rekening::when($cabangUser, $cabangDanUmum)->orderBy('nama_rekening')->get()
+                ->map(fn (Rekening $r) => ['value' => (string) $r->id, 'label' => $r->label(), 'id_lokasi' => $r->id_lokasi]),
             // id_lokasi dkk. dipakai form untuk menyaring pilihan sesuai cabang & jenis koneksi
             'areaOptions' => Area::when($cabangUser, fn ($q) => $q->where('id_lokasi', $cabangUser))->orderBy('nama_area')->get()->map(fn ($a) => ['value' => $a->id, 'label' => $a->nama_area, 'id_lokasi' => $a->id_lokasi]),
             'routerOptions' => Router::when($cabangUser, $cabangDanUmum)->orderBy('nama_router')->get()->map(fn ($r) => ['value' => $r->id, 'label' => $r->nama_router, 'id_lokasi' => $r->id_lokasi]),
@@ -240,7 +269,8 @@ class PelangganController extends Controller
             'tgl_registrasi' => ['required', 'date'],
             'tgl_jatuh_tempo' => ['required', 'integer', 'between:1,31'],
             'ppn' => ['required', 'boolean'],
-            'sales_id' => ['required', 'integer', Rule::in(User::role('Sales')->where('status', 'aktif')->pluck('id'))],
+            // Opsional: penanda pelanggan dibawa sales siapa. Sales lama yang sudah nonaktif tetap boleh dipertahankan saat edit
+            'sales_id' => ['nullable', 'integer', Rule::in(User::role('Sales')->where('status', 'aktif')->pluck('id')->push($pelanggan?->sales_id)->filter())],
             'status' => [$pelanggan ? 'required' : 'nullable', 'in:aktif,berhenti'],
         ], $this->pesanValidasi(), [
             'id_pelanggan' => 'ID pelanggan', 'nama' => 'Nama pelanggan', 'tlp' => 'No. telepon', 'nik' => 'NIK', 'alamat' => 'Alamat',

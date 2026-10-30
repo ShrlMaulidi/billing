@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Attributes\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Pelanggan. Akun koneksi di router: username_pppoe untuk PPPoE & Hotspot, ip_address untuk Static,
@@ -54,6 +58,29 @@ class Pelanggan extends Model
     public function sales(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sales_id');
+    }
+
+    public function pembayaran(): HasMany
+    {
+        return $this->hasMany(Pembayaran::class);
+    }
+
+    /** Pelanggan aktif yang sudah membayar tagihan periode (Y-m-01). */
+    #[Scope]
+    protected function lunas(Builder $query, string $periode): void
+    {
+        $query->where('status', 'aktif')->whereHas('pembayaran', fn ($q) => $q->where('periode', $periode));
+    }
+
+    /** Pelanggan aktif berpaket berbayar, sudah terdaftar pada periode itu, tetapi belum membayar. */
+    #[Scope]
+    protected function belumLunas(Builder $query, string $periode): void
+    {
+        $bulanBerikutnya = Carbon::parse($periode)->addMonth()->toDateString();
+        $query->where('status', 'aktif')
+            ->whereHas('paket', fn ($q) => $q->where('harga', '>', 0))
+            ->where(fn ($q) => $q->whereNull('tgl_registrasi')->orWhere('tgl_registrasi', '<', $bulanBerikutnya))
+            ->whereDoesntHave('pembayaran', fn ($q) => $q->where('periode', $periode));
     }
 
     /** Identitas akun di router sesuai jenis koneksi (username, IP, atau MAC). */

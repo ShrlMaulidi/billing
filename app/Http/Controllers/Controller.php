@@ -52,6 +52,7 @@ abstract class Controller
             'required_unless' => ':attribute wajib diisi',
             'digits' => ':attribute harus :digits digit angka',
             'integer' => ':attribute harus berupa angka',
+            'numeric' => ':attribute harus berupa angka',
             'between' => ':attribute harus antara :min dan :max',
             'exists' => ':attribute tidak ditemukan',
             'in' => ':attribute tidak valid',
