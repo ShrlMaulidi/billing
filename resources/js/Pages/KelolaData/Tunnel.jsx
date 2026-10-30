@@ -88,7 +88,8 @@ export default function Tunnel({ filters, rows, saran, jaringan }) {
                         </form>
                     )}
                     <p className="f-light mb-2">Tempel di <strong>New Terminal</strong> Winbox router mitra:</p>
-                    <pre className="bg-light p-3 rounded mb-0" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: 12 }}>{script?.text}</pre>
+                    {/* Gaya terminal: warna eksplisit agar terbaca di tema terang maupun gelap */}
+                    <pre className="p-3 rounded mb-0" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: 12, background: '#1e1e2d', color: '#e4e6ef' }}>{script?.text}</pre>
                 </ModalBody>
                 <ModalFooter>
                     <Button color="light" onClick={() => setScript(null)}>Tutup</Button>
