@@ -40,4 +40,12 @@ return [
         'timeout' => env('MIKROTIK_TIMEOUT', 5),
     ],
 
+    'tunnel' => [
+        // Server L2TP (xl2tpd di VPS) yang di-dial router turunan; default = host APP_URL
+        'server' => env('TUNNEL_SERVER', parse_url((string) env('APP_URL'), PHP_URL_HOST)),
+        // Jaringan di dalam tunnel: gateway = IP VPS, sisanya untuk router turunan
+        'subnet' => env('TUNNEL_SUBNET', '10.10.10.0/24'),
+        'gateway' => env('TUNNEL_GATEWAY', '10.10.10.1'),
+    ],
+
 ];
