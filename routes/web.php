@@ -69,11 +69,15 @@ Route::middleware('auth')->group(function () {
     // Lunas / belum lunas dihitung dari pembayaran pada periode filter (default bulan berjalan)
     Route::get('/pelanggan/lunas', [PelangganController::class, 'index'])->defaults('status', 'lunas')->middleware('permission:pelanggan.lunas.view')->name('pelanggan.lunas');
     Route::get('/pelanggan/belum-lunas', [PelangganController::class, 'index'])->defaults('status', 'belum_lunas')->middleware('permission:pelanggan.belum_lunas.view')->name('pelanggan.belum-lunas');
+    Route::get('/pelanggan/berhenti', [PelangganController::class, 'index'])->defaults('status', 'berhenti')->middleware('permission:pelanggan.berhenti.view')->name('pelanggan.berhenti');
+    Route::get('/pelanggan/prorate', [PelangganController::class, 'index'])->defaults('status', 'prorate')->middleware('permission:pelanggan.prorate.view')->name('pelanggan.prorate');
     Route::get('/pelanggan/off', [PelangganController::class, 'index'])->defaults('status', 'off')->middleware('permission:pelanggan.off.view')->name('pelanggan.off');
     Route::post('/pelanggan', [PelangganController::class, 'store'])->middleware('permission:pelanggan.data.create')->name('pelanggan.store');
     Route::put('/pelanggan/{pelanggan}', [PelangganController::class, 'update'])->middleware('permission:pelanggan.data.update')->name('pelanggan.update');
     Route::delete('/pelanggan/{pelanggan}', [PelangganController::class, 'destroy'])->middleware('permission:pelanggan.data.delete')->name('pelanggan.destroy');
     Route::post('/pelanggan/{pelanggan}/bayar', [PembayaranController::class, 'store'])->middleware('permission:pelanggan.pembayaran.create')->name('pelanggan.bayar');
+    Route::post('/pembayaran/massal', [PembayaranController::class, 'massal'])->middleware('permission:pelanggan.pembayaran.create')->name('pembayaran.massal');
+    Route::get('/pelanggan/{pelanggan}/tagihan', [PembayaranController::class, 'tagihan'])->middleware('permission:pelanggan.belum_lunas.view|pelanggan.prorate.view')->name('pelanggan.tagihan');
     Route::get('/pelanggan/{pelanggan}/pembayaran', [PembayaranController::class, 'index'])->middleware('permission:pelanggan.pembayaran.view')->name('pelanggan.pembayaran');
     Route::get('/pembayaran/{pembayaran}/kwitansi', [PembayaranController::class, 'kwitansi'])->middleware('permission:pelanggan.pembayaran.view')->name('pembayaran.kwitansi');
     Route::put('/pembayaran/{pembayaran}', [PembayaranController::class, 'update'])->middleware('permission:pelanggan.pembayaran.update')->name('pembayaran.update');

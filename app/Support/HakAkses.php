@@ -27,6 +27,8 @@ class HakAkses
         'pelanggan.off' => ['Pelanggan › Pelanggan Off (Ubah = nyalakan kembali)', '/pelanggan/off', ['view', 'update']],
         'pelanggan.lunas' => ['Pelanggan › Pelanggan Lunas', '/pelanggan/lunas', ['view']],
         'pelanggan.belum_lunas' => ['Pelanggan › Pelanggan Belum Lunas', '/pelanggan/belum-lunas', ['view']],
+        'pelanggan.berhenti' => ['Pelanggan › Pelanggan Berhenti', '/pelanggan/berhenti', ['view']],
+        'pelanggan.prorate' => ['Pelanggan › Tagihan Prorate', '/pelanggan/prorate', ['view']],
         'pelanggan.pembayaran' => ['Pelanggan › Pembayaran (Lihat = riwayat & kwitansi, Tambah = input, Ubah = edit, Hapus = batalkan)', '/pelanggan', self::CRUD],
         'kelola_data.kartu_member' => ['Kelola Data › Kartu Member', '/kelola-data/kartu-member', ['view', 'export']],
         'kelola_data.cabang' => ['Kelola Data › Cabang / Lokasi', '/kelola-data/cabang', self::CRUD],

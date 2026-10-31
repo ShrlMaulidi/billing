@@ -18,6 +18,8 @@ export const MENU = [
                     { title: 'Pelanggan Off', href: '/pelanggan/off', izin: 'pelanggan.off.view' },
                     { title: 'Pelanggan Lunas', href: '/pelanggan/lunas', izin: 'pelanggan.lunas.view' },
                     { title: 'Pelanggan Belum Lunas', href: '/pelanggan/belum-lunas', izin: 'pelanggan.belum_lunas.view' },
+                    { title: 'Pelanggan Berhenti', href: '/pelanggan/berhenti', izin: 'pelanggan.berhenti.view' },
+                    { title: 'Tagihan Prorate', href: '/pelanggan/prorate', izin: 'pelanggan.prorate.view' },
                 ],
             },
             {

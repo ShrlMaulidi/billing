@@ -143,6 +143,41 @@ class PelangganTest extends TestCase
         $this->assertDatabaseHas('pelanggan', ['nama' => 'Kantor Desa', 'jns_koneksi' => 'static', 'ip_address' => '10.20.0.5', 'username_pppoe' => null]);
     }
 
+    public function test_delete_moves_customer_to_stopped_and_only_stopped_customer_can_be_deleted_permanently(): void
+    {
+        $p = $this->pelangganDariForm();
+
+        $this->deleteJson("/pelanggan/{$p->id}", ['permanen' => true])->assertStatus(422);
+        $this->deleteJson("/pelanggan/{$p->id}")->assertOk()->assertJsonPath('message', 'Pelanggan Budi Santoso dipindahkan ke Pelanggan Berhenti');
+        $this->assertSame('berhenti', $p->fresh()->status);
+
+        // Klik hapus kedua dari menu biasa tidak menghapus permanen
+        $this->deleteJson("/pelanggan/{$p->id}")->assertStatus(422);
+        $this->assertModelExists($p);
+
+        $this->deleteJson("/pelanggan/{$p->id}", ['permanen' => true])->assertOk()->assertJsonPath('message', 'Pelanggan Budi Santoso dihapus permanen');
+        $this->assertModelMissing($p);
+    }
+
+    public function test_due_date_is_limited_to_days_1_to_27(): void
+    {
+        $this->postJson('/pelanggan', $this->data(['tgl_jatuh_tempo' => 28]))
+            ->assertStatus(422)->assertJsonValidationErrors('tgl_jatuh_tempo');
+        $this->postJson('/pelanggan', $this->data(['tgl_jatuh_tempo' => 27]))->assertOk();
+
+        $this->assertDatabaseHas('pelanggan', ['username_pppoe' => 'budi', 'tgl_jatuh_tempo' => 27]);
+    }
+
+    public function test_sync_mode_customer_is_saved_while_router_is_unreachable(): void
+    {
+        $this->connector->gagal = RouterOsException::koneksi('Tidak dapat terhubung ke 203.0.113.10:8728');
+
+        $this->postJson('/pelanggan', $this->data(['username_pppoe' => 'belum.ada']))
+            ->assertOk()->assertJsonPath('message', 'Pelanggan Budi Santoso ditambahkan');
+
+        $this->assertDatabaseHas('pelanggan', ['username_pppoe' => 'belum.ada', 'ip_address' => '10.12.10.5', 'router_id' => $this->router->id]);
+    }
+
     public function test_new_account_failure_keeps_customer_and_returns_warning(): void
     {
         $this->postJson('/pelanggan', $this->data(['mode_akun' => 'baru', 'password_akun' => 'x']))
@@ -193,8 +228,10 @@ class PelangganTest extends TestCase
         $this->pelanggan('sari', ['status_langganan' => 'off', 'profile_asal' => '10Mbps']);
         $this->pelanggan('lama', ['status' => 'berhenti', 'status_langganan' => 'off']);
 
-        $this->get('/pelanggan')->assertInertia(fn ($page) => $page->component('Pelanggan/Index')->where('status', null)->has('rows', 3)
-            ->where('jumlah', ['semua' => 3, 'on' => 1, 'off' => 1, 'lunas' => 0, 'belum_lunas' => 0]));
+        // Pelanggan berhenti hanya tampil di menu Pelanggan Berhenti
+        $this->get('/pelanggan')->assertInertia(fn ($page) => $page->component('Pelanggan/Index')->where('status', null)->has('rows', 2)
+            ->where('rows.0.username_pppoe', 'budi')->where('rows.1.username_pppoe', 'sari')
+            ->where('jumlah', ['semua' => 2, 'on' => 1, 'off' => 1, 'lunas' => 0, 'belum_lunas' => 0, 'berhenti' => 1, 'prorate' => 0]));
         $this->get('/pelanggan/on')->assertInertia(fn ($page) => $page->where('status', 'on')->has('rows', 1)->where('rows.0.username_pppoe', 'budi'));
         $this->get('/pelanggan/off')->assertInertia(fn ($page) => $page->where('status', 'off')->has('rows', 1)->where('rows.0.username_pppoe', 'sari'));
         // Belum ada tabel tagihan: halaman lunas / belum lunas tampil kosong, bukan semua pelanggan
@@ -412,7 +449,7 @@ class PelangganTest extends TestCase
     private function data(array $override = []): array
     {
         return [
-            'nama' => 'Budi Santoso', 'tlp' => '081234567890', 'nik' => '3205123456789012', 'alamat' => 'Jl. Cikuray 1', 'jns_tagihan' => 'pascabayar',
+            'nama' => 'Budi Santoso', 'tlp' => '081234567890', 'nik' => '3205123456789012', 'alamat' => 'Jl. Cikuray 1', 'jns_tagihan' => 'pascabayar', 'skema_tagihan' => 'full',
             'id_lokasi' => $this->lokasi->id, 'router_id' => $this->router->id, 'jns_koneksi' => 'pppoe', 'mode_akun' => 'sinkron', 'username_pppoe' => 'budi', 'ip_address' => '10.12.10.5',
             'id_paket' => $this->paket->id, 'tgl_registrasi' => '2026-10-30', 'tgl_jatuh_tempo' => 10, 'ppn' => true, 'sales_id' => $this->sales->id,
             ...$override,

@@ -15,6 +15,7 @@ use App\Support\IpPool;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -37,24 +38,50 @@ class PelangganController extends Controller
         $base = Pelanggan::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
 
         $periode = $this->periode($f);
+        // Kandidat Tagihan Prorate; syarat "sudah muncul & belum dibayar" dicek di PHP lewat prorateBelumDibayar()
+        $kandidatProrate = fn ($q) => $q->where('status', 'aktif')->where('skema_tagihan', 'prorate')->whereNotNull('tgl_registrasi')
+            ->whereHas('paket', fn ($p) => $p->where('harga', '>', 0));
 
         $rows = (clone $base)
             ->with([
-                'router:id,nama_router,profile_isolir', 'paket:id,nama_paket,harga,profile_mikrotik', 'lokasi:id,nama_lokasi,terima_cash',
-                'pembayaran:id,pelanggan_id,periode,no_invoice',
+                'router:id,nama_router,profile_isolir', 'paket:id,nama_paket,harga,profile_mikrotik', 'lokasi:id,nama_lokasi,terima_cash', 'area:id,nama_area',
+                'pembayaran:id,pelanggan_id,periode,jns_tagihan,no_invoice,harga,is_prorate,diskon,jml_bayar',
             ])
             ->when($status === 'lunas', fn ($q) => $q->lunas($periode))
             ->when($status === 'belum_lunas', fn ($q) => $q->belumLunas($periode))
             ->when(in_array($status, ['on', 'off'], true), fn ($q) => $q->where('status', 'aktif')->where('status_langganan', $status))
+            ->when($status === 'berhenti', fn ($q) => $q->where('status', 'berhenti'))
+            // Data Pelanggan hanya pelanggan aktif; yang berhenti pindah ke menu Pelanggan Berhenti
+            ->when($status === null, fn ($q) => $q->where('status', '!=', 'berhenti'))
+            ->when($status === 'prorate', $kandidatProrate)
             ->orderBy('nama')->get()
+            ->when($status === 'prorate', fn ($c) => $c->filter->prorateBelumDibayar()->values())
             ->map(fn (Pelanggan $p) => [
                 ...Arr::except($p->toBaris(), ['pembayaran']),
+                'area' => $p->area?->nama_area,
                 'profile_paket' => $p->paket?->profile_mikrotik,
                 'terima_cash' => $p->lokasi?->terima_cash ?? true,
                 // Periode yang sudah dibayar, ditandai di form pembayaran
                 'periode_lunas' => $p->pembayaran->pluck('periode')->sort()->values(),
-                // Pembayaran periode filter: untuk kwitansi & pembatalan di halaman Pelanggan Lunas
-                'pembayaran_periode' => $p->pembayaran->firstWhere('periode', $periode)?->only(['id', 'no_invoice']),
+                // Periode terbaru yang sudah dibayar (kolom Pembayaran Terakhir)
+                'pembayaran_terakhir' => $p->pembayaran->max('periode'),
+                // Bulan pembayaran dari pembayaran terakhir (pascabayar = bulan setelah pemakaian)
+                'periode_pembayaran_terakhir' => $p->pembayaran->sortByDesc('periode')->first()?->periodePembayaran(),
+                // Periode pemakaian yang ditagih di bulan filter (pascabayar = bulan sebelumnya)
+                'periode_tagihan' => $p->periodePemakaian($periode),
+                // Nominal tagihan periode itu: prorate untuk bulan registrasi pelanggan berskema prorate, selain itu harga paket
+                'tagihan' => $p->tagihanUntuk($p->periodePemakaian($periode)),
+                'tagihan_prorate' => $p->periodePemakaian($periode) === $p->periodeProrate(),
+                // Pembayaran tagihan bulan filter: untuk kwitansi & pembatalan di halaman Pelanggan Lunas
+                'pembayaran_periode' => $p->pembayaran->firstWhere('periode', $p->periodePemakaian($periode))
+                    ?->only(['id', 'no_invoice', 'harga', 'is_prorate', 'diskon', 'jml_bayar']),
+                'prorate' => $p->periodeProrate() ? [
+                    'periode' => $p->periodeProrate(),
+                    'hari' => $p->hariProrate(),
+                    'hari_bulan' => $p->tgl_registrasi->daysInMonth,
+                    'nominal' => $p->tagihanUntuk($p->periodeProrate()),
+                    'muncul' => $p->prorateMuncul(),
+                ] : null,
             ]);
 
         return Inertia::render('Pelanggan/Index', [
@@ -62,11 +89,14 @@ class PelangganController extends Controller
             'status' => $status,
             'rows' => $rows,
             'jumlah' => [
-                'semua' => (clone $base)->count(),
+                'semua' => (clone $base)->where('status', '!=', 'berhenti')->count(),
                 'on' => (clone $base)->where('status', 'aktif')->where('status_langganan', 'on')->count(),
                 'off' => (clone $base)->where('status', 'aktif')->where('status_langganan', 'off')->count(),
                 'lunas' => (clone $base)->lunas($periode)->count(),
                 'belum_lunas' => (clone $base)->belumLunas($periode)->count(),
+                'berhenti' => (clone $base)->where('status', 'berhenti')->count(),
+                'prorate' => (clone $base)->tap($kandidatProrate)->with('pembayaran:id,pelanggan_id,periode')
+                    ->get(['id', 'status', 'jns_tagihan', 'skema_tagihan', 'tgl_registrasi'])->filter->prorateBelumDibayar()->count(),
             ],
             'periode' => $periode,
             'tahunBayar' => Pembayaran::tahunBayar(),
@@ -78,7 +108,7 @@ class PelangganController extends Controller
             'routerOptions' => Router::when($cabangUser, $cabangDanUmum)->orderBy('nama_router')->get()->map(fn ($r) => ['value' => $r->id, 'label' => $r->nama_router, 'id_lokasi' => $r->id_lokasi]),
             'paketOptions' => Paket::when($cabangUser, fn ($q) => $q->where(fn ($q) => $q->where('filter_lokasi', false)->orWhere('id_lokasi', $cabangUser)))
                 ->orderBy('nama_paket')->get()->map(fn ($p) => [
-                    'value' => $p->id, 'label' => "{$p->nama_paket} ({$p->profile_mikrotik})",
+                    'value' => $p->id, 'label' => "{$p->nama_paket} ({$p->profile_mikrotik}) · Rp".number_format($p->harga, 0, ',', '.'),
                     'id_lokasi' => $p->filter_lokasi ? $p->id_lokasi : null, 'jns_koneksi' => $p->jns_koneksi,
                 ]),
             'salesOptions' => User::role('Sales')->where('status', 'aktif')->when($cabangUser, $cabangDanUmum)->orderBy('name')->get()
@@ -121,12 +151,34 @@ class PelangganController extends Controller
         return $this->simpanAkun($pelanggan, $akun, $pesan, $mikrotik);
     }
 
+    /**
+     * Hapus bertahap: pelanggan aktif dipindah ke Pelanggan Berhenti; hapus permanen hanya untuk pelanggan berhenti
+     * dan harus diminta eksplisit (permanen=1, dari menu Pelanggan Berhenti) agar klik ganda tidak langsung menghapus.
+     * Riwayat pembayaran tetap tersimpan. Akun di router tidak diubah.
+     */
     public function destroy(Request $request, Pelanggan $pelanggan): JsonResponse
     {
         $this->pastikanCabang($request, $pelanggan->id_lokasi);
-        $pelanggan->delete();
 
-        return response()->json(['message' => "Pelanggan {$pelanggan->nama} dihapus"]);
+        if (! $request->boolean('permanen')) {
+            if ($pelanggan->status === 'berhenti') {
+                return response()->json(['message' => "Pelanggan {$pelanggan->nama} sudah berhenti. Hapus permanen dari menu Pelanggan Berhenti"], 422);
+            }
+            $pelanggan->update(['status' => 'berhenti']);
+
+            return response()->json(['message' => "Pelanggan {$pelanggan->nama} dipindahkan ke Pelanggan Berhenti"]);
+        }
+
+        if ($pelanggan->status !== 'berhenti') {
+            return response()->json(['message' => "Pelanggan {$pelanggan->nama} masih aktif. Pindahkan ke Pelanggan Berhenti dulu sebelum dihapus permanen"], 422);
+        }
+        $pelanggan->delete();
+        Log::warning('Pelanggan dihapus permanen', [
+            ...$pelanggan->only(['id', 'id_pelanggan', 'nama', 'username_pppoe', 'id_lokasi']),
+            'oleh' => $request->user()->username, 'ip' => $request->ip(),
+        ]);
+
+        return response()->json(['message' => "Pelanggan {$pelanggan->nama} dihapus permanen"]);
     }
 
     /** Daftar akun di router untuk dropdown "Sinkronisasi" (PPP Secret / Hotspot User / IP Binding). */
@@ -248,6 +300,7 @@ class PelangganController extends Controller
             'nik' => ['nullable', 'digits:16'],
             'alamat' => ['required', 'string', 'max:500'],
             'jns_tagihan' => ['required', 'in:prabayar,pascabayar'],
+            'skema_tagihan' => ['required', Rule::in(array_keys(Pelanggan::SKEMA_TAGIHAN))],
             'id_lokasi' => ['required', 'integer', 'exists:lokasi,id', ...$this->aturanCabangSendiri($request)],
             'id_area' => ['nullable', 'integer', Rule::exists('area', 'id')->where('id_lokasi', $lokasi)],
             // Router milik cabang ini, atau router yang belum diberi cabang
@@ -267,14 +320,14 @@ class PelangganController extends Controller
             // Paket untuk semua cabang, atau khusus cabang ini
             'id_paket' => ['required', 'integer', Rule::exists('paket', 'id')->where(fn ($q) => $q->where('filter_lokasi', false)->orWhere('id_lokasi', $lokasi))],
             'tgl_registrasi' => ['required', 'date'],
-            'tgl_jatuh_tempo' => ['required', 'integer', 'between:1,31'],
+            'tgl_jatuh_tempo' => ['required', 'integer', 'between:1,'.Pelanggan::JATUH_TEMPO_MAKS],
             'ppn' => ['required', 'boolean'],
             // Opsional: penanda pelanggan dibawa sales siapa. Sales lama yang sudah nonaktif tetap boleh dipertahankan saat edit
             'sales_id' => ['nullable', 'integer', Rule::in(User::role('Sales')->where('status', 'aktif')->pluck('id')->push($pelanggan?->sales_id)->filter())],
             'status' => [$pelanggan ? 'required' : 'nullable', 'in:aktif,berhenti'],
         ], $this->pesanValidasi(), [
             'id_pelanggan' => 'ID pelanggan', 'nama' => 'Nama pelanggan', 'tlp' => 'No. telepon', 'nik' => 'NIK', 'alamat' => 'Alamat',
-            'jns_tagihan' => 'Jenis tagihan', 'id_lokasi' => 'Cabang', 'id_area' => 'Area', 'router_id' => 'Router', 'jns_koneksi' => 'Jenis koneksi',
+            'jns_tagihan' => 'Jenis tagihan', 'skema_tagihan' => 'Skema tagihan', 'id_lokasi' => 'Cabang', 'id_area' => 'Area', 'router_id' => 'Router', 'jns_koneksi' => 'Jenis koneksi',
             'mode_akun' => 'Akun MikroTik', 'username_pppoe' => 'Username', 'password_akun' => 'Password', 'mac_address' => 'MAC address',
             'ip_address' => 'IP address', 'id_paket' => 'Paket', 'tgl_registrasi' => 'Tanggal registrasi', 'tgl_jatuh_tempo' => 'Tanggal jatuh tempo',
             'ppn' => 'PPN', 'sales_id' => 'Sales', 'status' => 'Status',

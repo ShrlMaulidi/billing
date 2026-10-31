@@ -10,10 +10,11 @@ import { ActionButton, ActionGroup, ConfirmDialog, FormModal } from './ui';
 /**
  * Pola Kelola Data: List → Form Tambah/Edit (modal) → Hapus (konfirmasi).
  * Simpan/hapus dummy kecuali diberi onSave(values, row) / onDelete(row).
+ * deleteMessage(row): isi konfirmasi hapus pengganti pesan bawaan.
  */
 export default function CrudPage({
     title, crumbs = ['Kelola Data'], entity, rows, columns, fields, filters, filterFields = ['cabang'], defaults = {},
-    rowActions, headerActions, modalSize, tableProps = {}, canAdd = true, canEdit = true, canDelete = true, deleteLabel, before, after, formExtra,
+    rowActions, headerActions, modalSize, tableProps = {}, canAdd = true, canEdit = true, canDelete = true, deleteLabel, deleteMessage, before, after, formExtra,
     onSave, onDelete,
 }) {
     const [form, setForm] = useState(null); // { row } | null
@@ -70,7 +71,7 @@ export default function CrudPage({
                 isOpen={!!del}
                 toggle={() => setDel(null)}
                 title={`Hapus ${name}`}
-                message={<>Yakin ingin menghapus <strong>{del && (deleteLabel ? deleteLabel(del) : del.nama ?? del.id)}</strong>? Tindakan ini akan tercatat di Logs.</>}
+                message={del && deleteMessage ? deleteMessage(del) : <>Yakin ingin menghapus <strong>{del && (deleteLabel ? deleteLabel(del) : del.nama ?? del.id)}</strong>? Tindakan ini akan tercatat di Logs.</>}
                 confirmLabel="Hapus"
                 onConfirm={() => (onDelete ? onDelete(del) : dummy(`Penghapusan ${name}`))}
             />
