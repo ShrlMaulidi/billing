@@ -39,7 +39,7 @@ class IsolirController extends Controller
             'pengaturan' => Pengaturan::ambil(self::PENGATURAN),
             'opsi' => $opsi,
             'script' => (new IsolirScript($opsi))->semua(),
-            'routerOptions' => $router->map(fn ($r) => ['value' => $r->id, 'label' => "{$r->nama_router} ({$r->profile_isolir})", 'profile_isolir' => $r->profile_isolir]),
+            'routerOptions' => $router->map(fn ($r) => ['value' => $r->id, 'label' => $r->nama_router, 'profile_isolir' => $r->profile_isolir]),
         ]);
     }
 
