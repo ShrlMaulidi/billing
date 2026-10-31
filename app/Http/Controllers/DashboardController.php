@@ -13,13 +13,15 @@ use Illuminate\Support\Collection;
 use Inertia\Inertia;
 
 /**
- * Data pelanggan, cabang, tarif pajak, dan pembayaran diambil dari database. Setoran, pengeluaran, dan WAGW belum punya tabel,
+ * Data pelanggan, cabang, tarif pajak, dan pembayaran diambil dari database. Setoran, penarikan, pengeluaran, dan WAGW belum punya tabel,
  * sehingga nilainya kosong/0 sampai modul tersebut terhubung ke database.
  */
 class DashboardController extends Controller
 {
     /** Kolom rekap cabang yang masih 0 sampai modul tagihan, payment gateway, setoran, penarikan, dan pengeluaran punya tabel. */
     private const NOMINAL_REKAP = ['lunas', 'belum_lunas', 'total_pg', 'sudah_setor', 'total_wd', 'pengeluaran'];
+
+    private const PAYMENT_GATEWAY = ['tripay', 'xendit', 'pakar_digital'];
 
     public function index(Request $request)
     {
@@ -103,14 +105,40 @@ class DashboardController extends Controller
         ]);
     }
 
+    /** Pemasukan bulan filter (menurut tanggal bayar) per metode & rekening. User cabang (mis. Mitra) hanya melihat cabangnya sendiri. */
     public function income(Request $request)
     {
+        $f = $this->filters($request);
+        $periode = Carbon::parse($this->periode($f));
+        $pembayaran = Pembayaran::with(['pelanggan:id,id_pelanggan', 'lokasi:id,nama_lokasi', 'rekening', 'petugas:id,name'])
+            ->when($f['cabang'], fn ($q, $id) => $q->where('id_lokasi', $id))
+            ->whereBetween('paid_at', [$periode->copy()->startOfDay(), $periode->copy()->endOfMonth()])
+            ->latest('paid_at')->get();
+
         return Inertia::render('IncomeSummary/Index', [
-            'filters' => $this->filters($request),
-            'total' => ['total' => 0, 'jumlah' => 0],
-            'metode' => collect(['cash', 'transfer', 'tripay', 'xendit', 'pakar_digital'])->map(fn ($m) => ['metode' => $m, 'total' => 0, 'jumlah' => 0]),
-            'rekening' => [],
-            'pembayaran' => [],
+            'filters' => $f,
+            'total' => ['total' => (int) $pembayaran->sum('jml_bayar'), 'jumlah' => $pembayaran->count()],
+            // Payment gateway belum punya pengaturan per cabang: kartunya hanya muncul bila ada transaksi lewat gateway tersebut
+            'metode' => collect(['cash', 'transfer', ...$pembayaran->whereIn('metode', self::PAYMENT_GATEWAY)->pluck('metode')->unique()->sort()])->map(fn ($m) => [
+                'metode' => $m,
+                'total' => (int) $pembayaran->where('metode', $m)->sum('jml_bayar'),
+                'jumlah' => $pembayaran->where('metode', $m)->count(),
+            ]),
+            'rekening' => $pembayaran->where('metode', 'transfer')->groupBy(fn (Pembayaran $p) => $p->rekening?->label() ?? '-')
+                ->map(fn ($list, $label) => ['rekening' => $label, 'jumlah' => $list->count(), 'total' => (int) $list->sum('jml_bayar')])
+                ->sortByDesc('total')->values(),
+            'pembayaran' => $pembayaran->map(fn (Pembayaran $p) => [
+                'no_invoice' => $p->no_invoice,
+                'id_pelanggan' => $p->pelanggan?->id_pelanggan ?? '-',
+                'nama' => $p->nama_pelanggan,
+                'cabang' => $p->lokasi?->nama_lokasi ?? '-',
+                'periode' => $p->periode,
+                'jml_bayar' => $p->jml_bayar,
+                'metode' => $p->metode,
+                'rekening' => $p->rekening?->label(),
+                'paid_at' => $p->paid_at,
+                'petugas' => $p->petugas?->name ?? '-',
+            ]),
         ]);
     }
 

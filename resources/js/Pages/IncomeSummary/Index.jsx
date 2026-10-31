@@ -10,6 +10,7 @@ import { angka, METODE, periode, rupiah, waktu } from '../../lib/format';
 
 const ICON = { cash: DollarSign, transfer: CreditCard, tripay: Zap, xendit: Layers, pakar_digital: Smartphone };
 const COLOR = { cash: 'success', transfer: 'primary', tripay: 'warning', xendit: 'info', pakar_digital: 'secondary' };
+const WARNA_GRAFIK = { cash: '#54ba4a', transfer: '#7366ff', tripay: '#ffaa05', xendit: '#16c7f9', pakar_digital: '#f73164' };
 
 export default function IncomeSummary({ filters, total, metode, rekening, pembayaran }) {
     const [drawer, setDrawer] = useState(null); // { metode, rekening? , title }
@@ -34,7 +35,7 @@ export default function IncomeSummary({ filters, total, metode, rekening, pembay
                             <CardBody>
                                 <Chart type="donut" height={260} series={metode.map((m) => m.total)} options={{
                                     labels: metode.map((m) => METODE[m.metode]), legend: { position: 'bottom' },
-                                    colors: ['#54ba4a', '#7366ff', '#ffaa05', '#16c7f9', '#f73164'], tooltip: { y: { formatter: rupiah } }, dataLabels: { enabled: false },
+                                    colors: metode.map((m) => WARNA_GRAFIK[m.metode]), tooltip: { y: { formatter: rupiah } }, dataLabels: { enabled: false },
                                 }} />
                             </CardBody>
                         </Card>

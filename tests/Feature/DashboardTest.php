@@ -128,7 +128,37 @@ class DashboardTest extends TestCase
     public function test_income_summary_is_empty_until_payments_exist(): void
     {
         $this->get('/income-summary')->assertOk()->assertInertia(fn ($page) => $page->component('IncomeSummary/Index')
-            ->where('total', ['total' => 0, 'jumlah' => 0])->has('metode', 5)->where('metode.0.total', 0)->has('rekening', 0)->has('pembayaran', 0));
+            ->where('total', ['total' => 0, 'jumlah' => 0])->has('metode', 2)->where('metode.0.total', 0)->has('rekening', 0)->has('pembayaran', 0));
+    }
+
+    public function test_income_summary_totals_payments_and_branch_user_only_sees_own_branch(): void
+    {
+        $garut = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $cimahi = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Cimahi']);
+        $bca = Rekening::create(['nama_rekening' => 'BCA', 'atas_nama' => 'MSS', 'no_rekening' => '111']);
+        $this->bayar($garut, 150000, 'cash');
+        $this->bayar($garut, 200000, 'transfer', $bca);
+        $this->bayar($cimahi, 300000, 'transfer', $bca);
+        $this->bayar($cimahi, 50000, 'xendit');
+        $this->bayar($garut, 999000, 'cash', paidAt: '2026-09-30 23:00:00');
+
+        $this->get('/income-summary')->assertInertia(fn ($page) => $page
+            ->where('total', ['total' => 700000, 'jumlah' => 4])
+            ->has('metode', 3)->where('metode.2', ['metode' => 'xendit', 'total' => 50000, 'jumlah' => 1])
+            ->where('metode.0', ['metode' => 'cash', 'total' => 150000, 'jumlah' => 1])
+            ->where('metode.1', ['metode' => 'transfer', 'total' => 500000, 'jumlah' => 2])
+            ->where('rekening', [['rekening' => 'BCA · 111 a.n. MSS', 'jumlah' => 2, 'total' => 500000]])
+            ->has('pembayaran', 4));
+
+        $mitra = User::factory()->peran('Mitra')->create(['id_lokasi' => $garut->id]);
+        $mitra->givePermissionTo('income_summary.view');
+        $this->actingAs($mitra);
+        $this->get("/income-summary?cabang={$cimahi->id}")->assertInertia(fn ($page) => $page
+            ->where('filters.cabang', $garut->id)
+            ->where('total', ['total' => 350000, 'jumlah' => 2])
+            ->has('metode', 2)
+            ->where('rekening.0.total', 200000)
+            ->has('pembayaran', 2)->where('pembayaran.0.cabang', 'MSS Garut')->where('pembayaran.1.cabang', 'MSS Garut'));
     }
 
     private function bayar(Lokasi $lokasi, int $nominal, string $metode, ?Rekening $rekening = null, string $paidAt = '2026-10-10 09:00:00'): Pembayaran
