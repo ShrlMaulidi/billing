@@ -3,10 +3,12 @@
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CabangController;
+use App\Http\Controllers\CekTagihanController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HakAksesController;
 use App\Http\Controllers\IsolirController;
 use App\Http\Controllers\KelolaDataController;
+use App\Http\Controllers\LandingController;
 use App\Http\Controllers\PajakController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PelangganController;
@@ -19,7 +21,11 @@ use App\Http\Controllers\TunnelController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/login');
+// Halaman pertama: company profile (tanpa login)
+Route::get('/', LandingController::class)->name('landing');
+// Cek tagihan pelanggan tanpa login; pencarian lewat POST agar nomor HP tidak tercatat di URL
+Route::get('/cek-tagihan', [CekTagihanController::class, 'index'])->name('cek-tagihan');
+Route::post('/cek-tagihan', [CekTagihanController::class, 'cari'])->middleware('throttle:cek-tagihan')->name('cek-tagihan.cari');
 // Tujuan redirect web proxy router untuk pelanggan terisolir (tanpa login)
 Route::get('/isolir', [IsolirController::class, 'halaman'])->name('isolir');
 Route::middleware('guest')->group(function () {
@@ -109,7 +115,10 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('transaksi')->name('transaksi.')->controller(TransaksiController::class)->group(function () {
         Route::get('/penarikan-saldo', 'penarikan')->middleware('permission:transaksi.penarikan.view')->name('penarikan');
+        Route::post('/penarikan-saldo', 'ajukanPenarikan')->middleware('permission:transaksi.penarikan.create')->name('penarikan.store');
+        Route::get('/penarikan-saldo/{penarikan}/bukti', 'buktiPenarikan')->middleware('permission:transaksi.penarikan.view')->name('penarikan.bukti');
         Route::get('/setor-kewajiban', 'setor')->middleware('permission:transaksi.setor.view')->name('setor');
+        Route::get('/setor-kewajiban/{setoran}/bukti', 'buktiSetoran')->middleware('permission:transaksi.setor.view')->name('setor.bukti');
         Route::get('/pengeluaran', 'pengeluaran')->middleware('permission:transaksi.pengeluaran.view')->name('pengeluaran');
     });
 
@@ -131,6 +140,17 @@ Route::middleware('auth')->group(function () {
 
     // Menu global (tidak terikat cabang): hanya untuk user semua cabang
     Route::middleware('semua_cabang')->group(function () {
+        // Setoran mitra hanya diinput / dibatalkan user pusat; mitra hanya melihat setoran cabangnya
+        Route::post('/transaksi/setor-kewajiban', [TransaksiController::class, 'simpanSetoran'])->middleware('permission:transaksi.setor.create')->name('transaksi.setor.store');
+        Route::delete('/transaksi/setor-kewajiban/{setoran}', [TransaksiController::class, 'hapusSetoran'])->middleware('permission:transaksi.setor.delete')->name('transaksi.setor.destroy');
+
+        // Persetujuan penarikan saldo: user cabang (mitra) tidak boleh menyetujui penarikannya sendiri
+        Route::prefix('transaksi/penarikan-saldo/{penarikan}')->name('transaksi.penarikan.')->controller(TransaksiController::class)
+            ->middleware('permission:transaksi.penarikan.approve')->group(function () {
+                Route::post('/setujui', 'setujuiPenarikan')->name('setujui');
+                Route::post('/tolak', 'tolakPenarikan')->name('tolak');
+            });
+
         // Bagi hasil menentukan setoran cabang, jadi user cabang tidak boleh mengubah tarifnya sendiri
         Route::put('/pajak/{lokasi}', [PajakController::class, 'update'])->middleware('permission:kelola_data.pajak.update')->name('pajak.update');
 

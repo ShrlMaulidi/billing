@@ -41,16 +41,21 @@ export function useNavLoading() {
 }
 
 /**
- * Request JSON ke backend (CSRF lewat cookie XSRF-TOKEN).
+ * Request JSON ke backend (CSRF lewat cookie XSRF-TOKEN). data berupa FormData dikirim sebagai multipart (untuk upload file).
  * Gagal → melempar { status, message, errors } agar bisa ditampilkan di form / toast.
  */
 export async function api(method, url, data) {
     const xsrf = document.cookie.split('; ').find((c) => c.startsWith('XSRF-TOKEN='))?.slice(11);
+    const multipart = data instanceof FormData;
     const res = await fetch(url, {
         method,
         credentials: 'same-origin',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-XSRF-TOKEN': decodeURIComponent(xsrf ?? '') },
-        body: data === undefined ? undefined : JSON.stringify(data),
+        headers: {
+            Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-XSRF-TOKEN': decodeURIComponent(xsrf ?? ''),
+            // Multipart: Content-Type (beserta boundary) diisi browser sendiri
+            ...(multipart ? {} : { 'Content-Type': 'application/json' }),
+        },
+        body: data === undefined ? undefined : multipart ? data : JSON.stringify(data),
     });
     if (res.status === 401 || res.status === 419) {
         window.location.href = '/login';

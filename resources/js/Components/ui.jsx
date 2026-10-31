@@ -155,7 +155,7 @@ export function Field({ field, value, onChange, error, values }) {
             );
             break;
         case 'file':
-            control = <FileUpload value={value} onChange={onChange} accept={field.accept} />;
+            control = <FileUpload value={value} onChange={onChange} accept={field.accept} hint={field.hint} />;
             break;
         case 'static':
             control = <div className="form-control-plaintext">{render ? render(values) : value}</div>;

@@ -26,7 +26,7 @@ export default function Login() {
             <Head title="Login" />
             <div className="auth-page">
                 <header className="auth-topbar">
-                    <a href="/login" className="auth-brand">
+                    <a href="/" className="auth-brand">
                         <img src="/cuba/images/logo/logo.png" alt="MSS" />
                         <span>Billing</span>
                     </a>

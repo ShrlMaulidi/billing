@@ -136,13 +136,13 @@ class AuthTest extends TestCase
     {
         // cloudflared / reverse proxy di jaringan lokal: redirect memakai https + domain asli
         $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])->withHeaders(self::FORWARDED)
-            ->get('/')->assertRedirect('https://billingv2.sahrulmaulidi.online/login');
+            ->get('/dashboard')->assertRedirect('https://billingv2.sahrulmaulidi.online/login');
     }
 
     public function test_forwarded_headers_from_public_ip_are_ignored(): void
     {
         $location = $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])->withHeaders(self::FORWARDED)
-            ->get('/')->assertRedirect()->headers->get('Location');
+            ->get('/dashboard')->assertRedirect()->headers->get('Location');
 
         $this->assertStringStartsNotWith('https://', $location);
         $this->assertStringNotContainsString('billingv2', $location);

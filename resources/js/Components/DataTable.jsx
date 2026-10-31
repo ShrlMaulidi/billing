@@ -148,3 +148,4 @@ export default function DataTable({
 
 // Helper footer: jumlahkan kolom numerik tertentu
 export const sumFooter = (keys, format) => (col, rows) => (keys.includes(col.key) ? format(rows.reduce((s, r) => s + (Number(r[col.key]) || 0), 0)) : null);
+

@@ -179,29 +179,17 @@ class PembayaranController extends Controller
         abort_unless(in_array($f['tahun'], Pembayaran::tahunBayar(), true) && $f['bulan'] >= 1 && $f['bulan'] <= 12, 404);
         $pelanggan->load(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi']);
 
-        $bulanTagihan = $this->periode($f);
-        $periode = $pelanggan->periodePemakaian($bulanTagihan);
-        $awal = Carbon::parse($bulanTagihan);
-        // Jatuh tempo lama di atas tanggal 27 dipotong ke akhir bulan
-        $jatuhTempo = $pelanggan->tgl_jatuh_tempo ? $awal->copy()->day(min($pelanggan->tgl_jatuh_tempo, $awal->daysInMonth))->toDateString() : null;
+        $invoice = $pelanggan->invoice($this->periode($f));
 
         return Inertia::render('Pelanggan/Tagihan', [
             'tagihan' => [
-                'no_tagihan' => sprintf('TGH%s-%05d', $awal->format('Ym'), $pelanggan->id),
+                ...$invoice,
                 ...$pelanggan->only(['id', 'id_pelanggan', 'nama', 'alamat', 'tlp', 'jns_tagihan']),
-                'nama_paket' => $pelanggan->paket?->nama_paket,
-                'harga_paket' => $pelanggan->paket?->harga,
-                'periode_pembayaran' => $bulanTagihan,
-                'periode' => $periode,
-                'nominal' => $pelanggan->tagihanUntuk($periode),
-                'is_prorate' => $periode === $pelanggan->periodeProrate(),
-                'hari_prorate' => $periode === $pelanggan->periodeProrate() ? "{$pelanggan->hariProrate()}/{$pelanggan->tgl_registrasi->daysInMonth}" : null,
-                'jatuh_tempo' => $jatuhTempo,
                 'cabang' => $pelanggan->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
                 'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $pelanggan->id_lokasi))
                     ->orderBy('nama_rekening')->get()->map->only(['nama_rekening', 'no_rekening', 'atas_nama']),
                 // Sudah dibayar: tampil LUNAS dengan tautan kwitansi
-                'pembayaran_id' => $pelanggan->pembayaran()->where('periode', $periode)->value('id'),
+                'pembayaran_id' => $pelanggan->pembayaran()->where('periode', $invoice['periode'])->value('id'),
             ],
         ]);
     }

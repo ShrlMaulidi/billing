@@ -148,6 +148,60 @@ class Pelanggan extends Model
         return (int) min($harga, ceil($harga * $hari / $this->tgl_registrasi->daysInMonth / 1000) * 1000);
     }
 
+    /**
+     * Isi invoice untuk satu bulan tagihan (Y-m-01): pemakaian bulan itu (prabayar) atau bulan sebelumnya (pascabayar),
+     * nominal penuh/prorate, dan jatuh tempo. Dipakai invoice dashboard & cek tagihan publik. Muat relasi paket lebih dulu.
+     *
+     * @return array{no_tagihan: string, nama_paket: ?string, harga_paket: ?int, periode_pembayaran: string, periode: string, nominal: ?int, is_prorate: bool, hari_prorate: ?string, jatuh_tempo: ?string}
+     */
+    public function invoice(string $bulanTagihan): array
+    {
+        $awal = Carbon::parse($bulanTagihan);
+        $periode = $this->periodePemakaian($bulanTagihan);
+        $prorate = $periode === $this->periodeProrate();
+
+        return [
+            'no_tagihan' => sprintf('TGH%s-%05d', $awal->format('Ym'), $this->id),
+            'nama_paket' => $this->paket?->nama_paket,
+            'harga_paket' => $this->paket?->harga,
+            'periode_pembayaran' => $bulanTagihan,
+            'periode' => $periode,
+            'nominal' => $this->tagihanUntuk($periode),
+            'is_prorate' => $prorate,
+            'hari_prorate' => $prorate ? "{$this->hariProrate()}/{$this->tgl_registrasi->daysInMonth}" : null,
+            // Jatuh tempo lama di atas tanggal 27 dipotong ke akhir bulan
+            'jatuh_tempo' => $this->tgl_jatuh_tempo ? $awal->copy()->day(min($this->tgl_jatuh_tempo, $awal->daysInMonth))->toDateString() : null,
+        ];
+    }
+
+    /**
+     * Invoice yang sudah muncul tetapi belum dibayar dalam beberapa bulan tagihan terakhir (aturan sama dengan scope belumLunas).
+     * Muat relasi paket & pembayaran lebih dulu.
+     *
+     * @return list<array<string, mixed>> isi invoice(), bulan terlama dulu
+     */
+    public function tagihanBelumDibayar(int $jumlahBulan = 12): array
+    {
+        if ($this->status !== 'aktif' || ! $this->paket || $this->paket->harga <= 0) {
+            return [];
+        }
+        $dibayar = $this->pembayaran->pluck('periode')->all();
+        $hasil = [];
+        foreach (range($jumlahBulan - 1, 0) as $mundur) {
+            $bulanTagihan = today()->startOfMonth()->subMonths($mundur)->format('Y-m-d');
+            $pemakaian = $this->periodePemakaian($bulanTagihan);
+            // Tagihan baru muncul untuk pemakaian sejak bulan registrasi
+            if ($this->tgl_registrasi && $this->tgl_registrasi->toDateString() >= Carbon::parse($pemakaian)->addMonth()->toDateString()) {
+                continue;
+            }
+            if (! in_array($pemakaian, $dibayar, true)) {
+                $hasil[] = $this->invoice($bulanTagihan);
+            }
+        }
+
+        return $hasil;
+    }
+
     /** Tagihan prorate sudah muncul tetapi belum dibayar. Muat relasi pembayaran lebih dulu. */
     public function prorateBelumDibayar(): bool
     {

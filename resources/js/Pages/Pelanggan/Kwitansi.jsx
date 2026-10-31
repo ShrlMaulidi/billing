@@ -31,7 +31,7 @@ export default function Kwitansi({ kwitansi: k }) {
                     {/* Kop: logo & nama usaha | judul, tanggal bayar, status */}
                     <div className="d-flex flex-wrap justify-content-between gap-4 mb-4">
                         <div>
-                            <img src="/cuba/images/logo/logo.png" alt="MSS" style={{ height: 64 }} />
+                            <img src="/cuba/images/logo/logo.png" alt="MSS" className="inv-logo" />
                             <h4 className="mt-2 mb-0 fw-bold">{k.cabang?.nama_lokasi ?? 'MSS Billing'}</h4>
                             <div className="inv-accent fw-semibold">Internet Service Provider</div>
                         </div>
@@ -63,7 +63,7 @@ export default function Kwitansi({ kwitansi: k }) {
                     <div className="table-responsive">
                         <table className="inv-table">
                             <thead>
-                                <tr><th>Untuk Pembayaran</th><th className="text-end">Harga</th><th className="text-center">Qty</th><th className="text-end">Total</th></tr>
+                                <tr><th>Untuk Pembayaran</th><th className="text-end inv-col-opt">Harga</th><th className="text-center inv-col-opt">Qty</th><th className="text-end">Total</th></tr>
                             </thead>
                             <tbody>
                                 <tr>
@@ -74,8 +74,8 @@ export default function Kwitansi({ kwitansi: k }) {
                                             {k.is_prorate && <><br />Tagihan prorate (bulan registrasi)</>}
                                         </div>
                                     </td>
-                                    <td className="text-end text-nowrap">{rupiah(k.harga)}</td>
-                                    <td className="text-center">1</td>
+                                    <td className="text-end text-nowrap inv-col-opt">{rupiah(k.harga)}</td>
+                                    <td className="text-center inv-col-opt">1</td>
                                     <td className="text-end text-nowrap fw-semibold">{rupiah(k.harga)}</td>
                                 </tr>
                             </tbody>

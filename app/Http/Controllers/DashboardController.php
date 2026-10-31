@@ -3,24 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Lokasi;
-use App\Models\PajakCabang;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use App\Support\RekapCabang;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 
 /**
- * Data pelanggan, cabang, tarif pajak, dan pembayaran diambil dari database. Setoran, penarikan, pengeluaran, dan WAGW belum punya tabel,
+ * Data pelanggan, cabang, tarif pajak, pembayaran, dan penarikan diambil dari database. Setoran, pengeluaran, dan WAGW belum punya tabel,
  * sehingga nilainya kosong/0 sampai modul tersebut terhubung ke database.
  */
 class DashboardController extends Controller
 {
-    /** Kolom rekap cabang yang masih 0 sampai modul tagihan, payment gateway, setoran, penarikan, dan pengeluaran punya tabel. */
-    private const NOMINAL_REKAP = ['lunas', 'belum_lunas', 'total_pg', 'sudah_setor', 'total_wd', 'pengeluaran'];
-
     private const PAYMENT_GATEWAY = ['tripay', 'xendit', 'pakar_digital'];
 
     public function index(Request $request)
@@ -85,7 +80,7 @@ class DashboardController extends Controller
 
         return Inertia::render('DashboardCabang/Index', [
             'filters' => $f,
-            'rows' => $this->rekapCabang(Lokasi::when($f['cabang'], fn ($q, $id) => $q->whereKey($id))->orderBy('kode_lokasi')->get(), $f),
+            'rows' => RekapCabang::hitung(Lokasi::when($f['cabang'], fn ($q, $id) => $q->whereKey($id))->orderBy('kode_lokasi')->get(), $this->periode($f)),
         ]);
     }
 
@@ -98,7 +93,7 @@ class DashboardController extends Controller
         return Inertia::render('DashboardCabang/Detail', [
             'filters' => $f,
             'lokasi' => $lokasi->only(['id', 'kode_lokasi', 'nama_lokasi', 'alamat_lokasi', 'nama_mitra']),
-            'rekap' => $this->rekapCabang($lokasi->newCollection([$lokasi]), $f)->first(),
+            'rekap' => RekapCabang::hitung($lokasi->newCollection([$lokasi]), $this->periode($f))->first(),
             'pelanggan' => $lokasi->pelanggan()->with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi'])->orderBy('nama')->get()->map->toBaris(),
             'pembayaran' => [],
             'pengeluaran' => [],
@@ -143,65 +138,6 @@ class DashboardController extends Controller
     }
 
     /**
-     * Rekap per cabang pada bulan filter (pembayaran menurut tanggal bayar), dihitung dengan skema withdrawal PajakCabang::rincian().
-     * Pemasukan via mitra = cash + transfer ke rekening milik cabang; transfer ke rekening tanpa cabang (rekening pusat) diterima MSS.
-     * Saldo = pendapatan reseller − pemasukan via mitra + sudah setor − sudah WD; minus berarti mitra masih harus setor ke MSS.
-     *
-     * @param  EloquentCollection<int, Lokasi>  $lokasi
-     * @return Collection<int, array<string, mixed>>
-     */
-    private function rekapCabang(EloquentCollection $lokasi, array $f): Collection
-    {
-        $periode = $this->periode($f);
-        $bulan = [$periode, Carbon::parse($periode)->endOfMonth()->toDateString()];
-        $lokasi->loadCount([
-            'pelanggan as jumlah_pelanggan' => fn ($q) => $q->where('status', 'aktif'),
-            'pelanggan as pelanggan_baru' => fn ($q) => $q->whereBetween('tgl_registrasi', $bulan),
-            'pelanggan as pelanggan_free' => fn ($q) => $q->where('status', 'aktif')->whereHas('paket', fn ($p) => $p->where('harga', 0)),
-        ]);
-        $tarif = PajakCabang::berlaku($lokasi->modelKeys(), $periode);
-        $pembayaran = Pembayaran::whereIn('pembayaran.id_lokasi', $lokasi->modelKeys())
-            ->whereBetween('paid_at', [Carbon::parse($periode)->startOfDay(), Carbon::parse($periode)->endOfMonth()])
-            ->leftJoin('rekening', 'rekening.id', '=', 'pembayaran.rekening_id')
-            ->get(['pembayaran.id_lokasi', 'pembayaran.metode', 'pembayaran.jml_bayar', 'rekening.id_lokasi as rekening_lokasi'])
-            ->groupBy('id_lokasi');
-
-        return $lokasi->map(function (Lokasi $l) use ($tarif, $pembayaran) {
-            $t = $tarif->get($l->id);
-            $bayar = $pembayaran->get($l->id, collect());
-            $pemasukan = (float) $bayar->sum('jml_bayar');
-            $cash = (float) $bayar->where('metode', 'cash')->sum('jml_bayar');
-            $viaMitra = $cash + $bayar->where('metode', 'transfer')->whereNotNull('rekening_lokasi')->sum('jml_bayar');
-            $rincian = PajakCabang::rincian($t, $pemasukan, $bayar->count());
-            $nominal = array_fill_keys(self::NOMINAL_REKAP, 0);
-            $saldo = $rincian['pendapatan_reseller'] - $viaMitra + $nominal['sudah_setor'] - $nominal['total_wd'];
-
-            return [
-                ...$nominal,
-                ...array_map(fn (float $v) => (int) round($v), $rincian),
-                'pemasukan' => (int) $pemasukan,
-                'pemasukan_via_mitra' => (int) $viaMitra,
-                'total_cash' => (int) $cash,
-                'sisa_setor' => (int) round($rincian['harus_setor'] - $nominal['sudah_setor']),
-                'sisa_wd' => (int) round($rincian['pendapatan_reseller'] - $nominal['total_wd']),
-                'saldo' => (int) round($saldo),
-                'id_lokasi' => $l->id,
-                'nama_cabang' => $l->nama_lokasi,
-                'jumlah_pelanggan' => $l->jumlah_pelanggan,
-                'pelanggan_baru' => $l->pelanggan_baru,
-                'pelanggan_free' => $l->pelanggan_free,
-                'ppn_persen' => $t?->ppn_persen,
-                'pph_persen' => $t?->pph_persen,
-                // Label "/trx" agar kartu ringkasan tidak menambahkan tanda %
-                'admin_fee_label' => $t ? ($t->admin_fee_tipe === 'persentase' ? $t->admin_fee : 'Rp'.number_format($t->admin_fee, 0, ',', '.').'/trx') : null,
-                'metode_bagi_hasil' => $t ? ($t->metode_bagi_hasil === 'persentase'
-                    ? 'Persentase '.str_replace('.', ',', (string) $t->nilai_bagi_hasil).'%'
-                    : 'Nominal Rp'.number_format($t->nilai_bagi_hasil, 0, ',', '.')) : null,
-            ];
-        })->values();
-    }
-
-    /**
      * Saldo cabang milik user ber-role Mitra (selalu cabangnya sendiri, bukan dari filter); null untuk role lain.
      * Memakai baris rekap cabang yang sama dengan Dashboard Cabang agar angkanya selalu sama.
      *
@@ -215,7 +151,7 @@ class DashboardController extends Controller
             return null;
         }
 
-        return [...$this->rekapCabang($lokasi->newCollection([$lokasi]), $f)->first(), 'nama_mitra' => $lokasi->nama_mitra];
+        return [...RekapCabang::hitung($lokasi->newCollection([$lokasi]), $this->periode($f))->first(), 'nama_mitra' => $lokasi->nama_mitra];
     }
 
     /**

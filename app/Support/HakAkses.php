@@ -42,7 +42,7 @@ class HakAkses
         'kelola_data.tunnel' => ['Kelola Data › Tunnel', '/kelola-data/tunnel', self::CRUD],
         'kelola_data.template_isolir' => ['Kelola Data › Template Isolir', '/kelola-data/template-isolir', ['view', 'update']],
         'transaksi.penarikan' => ['Transaksi › Penarikan Saldo Mitra', '/transaksi/penarikan-saldo', ['view', 'create', 'approve']],
-        'transaksi.setor' => ['Transaksi › Setor Kewajiban Mitra', '/transaksi/setor-kewajiban', ['view', 'create', 'approve']],
+        'transaksi.setor' => ['Transaksi › Setor Kewajiban Mitra (Tambah & Hapus khusus user pusat)', '/transaksi/setor-kewajiban', ['view', 'create', 'delete']],
         'transaksi.pengeluaran' => ['Transaksi › Pengeluaran', '/transaksi/pengeluaran', self::CRUD],
         'laporan' => ['Laporan', '/laporan', ['view', 'export']],
         'payment_gateway' => ['Payment Gateway', '/payment-gateway', self::CRUD],
