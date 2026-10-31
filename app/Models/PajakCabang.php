@@ -94,6 +94,43 @@ class PajakCabang extends Model
     }
 
     /**
+     * Skema withdrawal: Omset (sudah termasuk PPN) − PPN − Admin Fee − Bagi Hasil (biaya bandwidth) − PPh = pendapatan reseller.
+     * DPP = omset ÷ (1 + PPN). Admin fee persentase dari DPP, nominal per transaksi. Bagi hasil persentase dari omset, nominal per bulan.
+     * PPh dari omset reseller (DPP − admin fee − bagi hasil). Nilai tidak dibulatkan; bulatkan saat ditampilkan.
+     * Tanpa tarif (null) semua potongan 0.
+     *
+     * @return array{dpp: float, ppn: float, admin_fee: float, nominal_bagi_hasil: float, omset_reseller: float, pph: float, harus_setor: float, pendapatan_reseller: float}
+     */
+    public static function rincian(?self $tarif, float $pemasukan, int $jumlahTransaksi): array
+    {
+        $dpp = $pemasukan / (1 + ($tarif?->ppn_persen ?? 0) / 100);
+        $adminFee = match ($tarif?->admin_fee_tipe) {
+            'persentase' => $dpp * $tarif->admin_fee / 100,
+            'nominal' => $tarif->admin_fee * $jumlahTransaksi,
+            default => 0.0,
+        };
+        $bagiHasil = match ($tarif?->metode_bagi_hasil) {
+            'persentase' => $pemasukan * $tarif->nilai_bagi_hasil / 100,
+            'nominal' => $tarif->nilai_bagi_hasil,
+            default => 0.0,
+        };
+        $omsetReseller = $dpp - $adminFee - $bagiHasil;
+        $pph = max(0, $omsetReseller) * ($tarif?->pph_persen ?? 0) / 100;
+        $ppn = $pemasukan - $dpp;
+
+        return [
+            'dpp' => $dpp,
+            'ppn' => $ppn,
+            'admin_fee' => $adminFee,
+            'nominal_bagi_hasil' => $bagiHasil,
+            'omset_reseller' => $omsetReseller,
+            'pph' => $pph,
+            'harus_setor' => $ppn + $adminFee + $bagiHasil + $pph,
+            'pendapatan_reseller' => $omsetReseller - $pph,
+        ];
+    }
+
+    /**
      * Tarif yang berlaku pada periode tertentu untuk beberapa cabang sekaligus, di-key id_lokasi.
      *
      * @param  list<int>  $idLokasi

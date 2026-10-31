@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Lokasi;
 use App\Models\Paket;
 use App\Models\Pelanggan;
+use App\Models\Pembayaran;
+use App\Models\Rekening;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -83,10 +85,58 @@ class DashboardTest extends TestCase
         $this->get("/dashboard-cabang/{$cimahi->id}")->assertNotFound();
     }
 
+    public function test_mitra_dashboard_shows_balance_of_own_branch_only(): void
+    {
+        $garut = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut', 'nama_mitra' => 'Mitra Garut']);
+        $cimahi = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Cimahi']);
+
+        $this->get('/dashboard')->assertInertia(fn ($page) => $page->where('saldoMitra', null));
+
+        $this->actingAs(User::factory()->peran('Teknisi')->create(['id_lokasi' => $garut->id]));
+        $this->get('/dashboard')->assertInertia(fn ($page) => $page->where('saldoMitra', null));
+
+        $this->actingAs(User::factory()->peran('Mitra')->create(['id_lokasi' => $garut->id]));
+        $this->bayar($cimahi, 500000, 'cash');
+        $this->get("/dashboard?cabang={$cimahi->id}")->assertOk()->assertInertia(fn ($page) => $page
+            ->where('saldoMitra.nama_cabang', 'MSS Garut')->where('saldoMitra.nama_mitra', 'Mitra Garut')
+            ->where('saldoMitra.pemasukan', 0)->where('saldoMitra.saldo', 0));
+    }
+
+    public function test_branch_recap_follows_withdrawal_scheme(): void
+    {
+        $garut = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $garut->pajak()->create([
+            'periode' => '2026-01-01', 'ppn_persen' => 11, 'pph_persen' => 2.5, 'admin_fee_tipe' => 'persentase', 'admin_fee' => 5,
+            'metode_bagi_hasil' => 'nominal', 'nilai_bagi_hasil' => 4830000,
+        ]);
+        $pusat = Rekening::create(['nama_rekening' => 'BCA', 'atas_nama' => 'MSS', 'no_rekening' => '111']);
+        $cabang = Rekening::create(['nama_rekening' => 'BRI', 'atas_nama' => 'Mitra', 'no_rekening' => '222', 'id_lokasi' => $garut->id]);
+        $this->bayar($garut, 11000000, 'cash');
+        $this->bayar($garut, 330000, 'transfer', $cabang);
+        $this->bayar($garut, 170000, 'transfer', $pusat);
+        $this->bayar($garut, 999000, 'cash', paidAt: '2026-09-30 23:00:00');
+
+        // Angka sama dengan Ringkasan Bulan Ini di aplikasi lama (omset Rp11.500.000)
+        $this->get("/dashboard-cabang/{$garut->id}")->assertOk()->assertInertia(fn ($page) => $page
+            ->where('rekap.pemasukan', 11500000)->where('rekap.dpp', 10360360)->where('rekap.ppn', 1139640)
+            ->where('rekap.admin_fee', 518018)->where('rekap.nominal_bagi_hasil', 4830000)->where('rekap.omset_reseller', 5012342)
+            ->where('rekap.pph', 125309)->where('rekap.harus_setor', 6612966)->where('rekap.pendapatan_reseller', 4887034)
+            ->where('rekap.pemasukan_via_mitra', 11330000)->where('rekap.total_cash', 11000000)->where('rekap.sisa_setor', 6612966)
+            ->where('rekap.saldo', -6442966));
+    }
+
     public function test_income_summary_is_empty_until_payments_exist(): void
     {
         $this->get('/income-summary')->assertOk()->assertInertia(fn ($page) => $page->component('IncomeSummary/Index')
             ->where('total', ['total' => 0, 'jumlah' => 0])->has('metode', 5)->where('metode.0.total', 0)->has('rekening', 0)->has('pembayaran', 0));
+    }
+
+    private function bayar(Lokasi $lokasi, int $nominal, string $metode, ?Rekening $rekening = null, string $paidAt = '2026-10-10 09:00:00'): Pembayaran
+    {
+        return Pembayaran::create([
+            'id_lokasi' => $lokasi->id, 'periode' => '2026-10-01', 'nama_pelanggan' => 'Pelanggan', 'nama_paket' => 'Paket', 'harga' => $nominal,
+            'jml_bayar' => $nominal, 'metode' => $metode, 'rekening_id' => $rekening?->id, 'paid_at' => $paidAt,
+        ]);
     }
 
     private function pelanggan(string $username, array $attrs = []): Pelanggan

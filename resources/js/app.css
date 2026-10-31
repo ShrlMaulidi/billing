@@ -168,6 +168,34 @@ body.dark-only .btn-action-dark { --c: #a9a9c0; }
 .ringkasan-more { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; background: rgba(0,0,0,.12); color: #fff !important; font-weight: 500; }
 .ringkasan-more:hover { background: rgba(0,0,0,.2); }
 
+/* Kartu saldo Mitra di Dashboard (Components/SaldoCard.jsx) */
+.saldo-card { background: linear-gradient(135deg, #7366ff, #4b3fd1); color: #fff; overflow: hidden; }
+.saldo-card .card-body { padding: 22px 24px; }
+.saldo-card small { color: rgba(255,255,255,.8); }
+.saldo-label { font-size: 15px; font-weight: 600; }
+.saldo-icon { width: 40px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.18); }
+.saldo-nominal { font-size: clamp(28px, 6vw, 40px); font-weight: 700; letter-spacing: .5px; margin: 18px 0 14px; word-break: break-word; }
+.saldo-btn { background: #fff; color: #4b3fd1 !important; font-weight: 600; }
+.saldo-btn:hover { background: rgba(255,255,255,.88); }
+.saldo-card .ringkasan-toggle { color: #4b3fd1; }
+.saldo-hint { margin: -6px 0 12px; font-size: 13px; color: rgba(255,255,255,.9); }
+/* Rincian skema withdrawal */
+.rincian-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--bs-border-color, #e6e9eb); }
+.rincian-row:last-child { border-bottom: 0; }
+.rincian-row strong { white-space: nowrap; font-weight: 600; }
+.rincian-label { font-weight: 500; }
+.rincian-op { display: inline-block; width: 16px; color: #fc4438; font-weight: 700; }
+.rincian-row.is-minus strong { color: #fc4438; }
+.rincian-row.is-start .rincian-label, .rincian-row.is-start strong { font-weight: 700; }
+.rincian-row.is-subtotal { background: rgba(115,102,255,.07); border-radius: 8px; border-bottom: 0; padding: 10px 12px; margin: 4px 0; }
+.rincian-row.is-subtotal strong { color: #7366ff; }
+.rincian-row.is-total { background: rgba(84,186,74,.12); border-radius: 10px; border-bottom: 0; padding: 12px 14px; margin-top: 8px; }
+.rincian-row.is-total .rincian-label, .rincian-row.is-total strong { color: #3f9a36; font-weight: 700; font-size: 15px; }
+.rincian-saldo { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; padding: 14px; border-radius: 10px; background: rgba(84,186,74,.12); color: #3f9a36; }
+.rincian-saldo.is-minus { background: rgba(252,68,56,.1); color: #fc4438; }
+.rincian-saldo .rincian-label, .rincian-saldo strong { font-weight: 700; font-size: 15px; white-space: nowrap; }
+.rincian-saldo small { opacity: .85; }
+
 /* Navbar bawah + panel menu (khusus mobile, Layouts/MobileNav.jsx) */
 .mnav, .msheet, .msheet-backdrop { display: none; }
 @media (max-width: 991.98px) {
