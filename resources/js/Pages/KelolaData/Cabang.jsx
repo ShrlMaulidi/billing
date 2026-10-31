@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Info } from 'react-feather';
 import CrudPage from '../../Components/CrudPage';
 import { StatusBadge } from '../../Components/ui';
@@ -12,13 +12,14 @@ const TIPE = [{ value: 'persentase', label: 'Persentase' }, { value: 'nominal', 
 const baru = (v) => !v.id;
 
 export default function Cabang({ filters, rows, periodeSekarang }) {
+    const { auth } = usePage().props;
     const bisa = useBisa();
     const pct = (key, label) => ({ key, label, align: 'end', render: (r) => (kosong(r[key]) ? '-' : persen(r[key])) });
     return (
         <CrudPage
             title="Cabang / Lokasi" entity="Cabang" rows={rows} filters={filters} filterFields={[]}
             defaults={{
-                status: 'aktif', terima_cash: true,
+                status: 'aktif', terima_cash: true, admin_full: false,
                 ppn_persen: 0, pph_persen: 0, bhp_persen: 0, uso_persen: 0, admin_fee_tipe: 'nominal', admin_fee: 0, metode_bagi_hasil: 'persentase', nilai_bagi_hasil: 0,
             }}
             deleteLabel={(r) => r.nama_lokasi}
@@ -39,6 +40,7 @@ export default function Cabang({ filters, rows, periodeSekarang }) {
                 { key: 'jumlah_area', label: 'Jml Area', align: 'end', render: (r) => <Link href={`/kelola-data/area?cabang=${r.id}`} prefetch title={`Lihat area ${r.nama_lokasi}`}>{angka(r.jumlah_area)}</Link> },
                 { key: 'jumlah_pelanggan', label: 'Jml Pelanggan', align: 'end', render: (r) => angka(r.jumlah_pelanggan) },
                 { key: 'terima_cash', label: 'Terima Cash', render: (r) => <StatusBadge value={r.terima_cash} /> },
+                { key: 'admin_full', label: 'Admin Full', render: (r) => <span className={`badge ${r.admin_full ? 'badge-light-warning' : 'badge-light-secondary'}`}>{r.admin_full ? 'Ya' : 'Tidak'}</span> },
                 { key: 'status', label: 'Status', render: (r) => <StatusBadge value={r.status} /> },
             ]}
             fields={[
@@ -51,6 +53,11 @@ export default function Cabang({ filters, rows, periodeSekarang }) {
                 { name: 'group_wa', label: 'ID Grup WA Notifikasi', placeholder: '1203630xxxx@g.us' },
                 { name: 'status', label: 'Status', type: 'radio', required: true, options: [{ value: 'aktif', label: 'Aktif' }, { value: 'tidak_aktif', label: 'Tidak Aktif' }] },
                 { name: 'terima_cash', label: 'Cabang menerima pembayaran cash', type: 'switch' },
+                {
+                    name: 'admin_full', label: 'Admin Full', type: 'radio', col: 'col-12', disabled: !!auth.user?.id_lokasi,
+                    options: [{ value: false, label: 'Tidak' }, { value: true, label: 'Ya' }],
+                    help: 'Tidak: pembayaran online memakai payment gateway perusahaan, mitra tidak bisa menambah payment gateway sendiri. Ya: mitra memakai payment gateway sendiri (uang masuk ke mitra) lalu menyetor kewajiban ke perusahaan sesuai Saldo / Balance. Hanya bisa diubah admin pusat.',
+                },
                 { name: 'judul_pajak', type: 'static', col: 'col-12', show: baru, render: () => <h6 className="border-top pt-3 mb-0">Pajak &amp; Bagi Hasil</h6> },
                 { name: 'ppn_persen', label: 'PPN (%)', type: 'number', required: true, show: baru },
                 { name: 'pph_persen', label: 'PPh 25 (%)', type: 'number', required: true, show: baru },

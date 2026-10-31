@@ -67,8 +67,8 @@ export function RincianSaldo({ saldo: s, hidden }) {
         { label: 'Total Setor ke MSS', note: 'PPN + Admin Fee + Bagi Hasil + PPh', value: s.harus_setor },
         { label: 'Sudah Setor ke MSS', value: s.sudah_setor },
         { label: 'Sisa Harus Setor', value: s.sisa_setor, accent: 'warning' },
-        { label: 'Pemasukan Via Mitra', note: 'Cash & transfer ke rekening cabang', value: s.pemasukan_via_mitra },
-        { label: 'Total Payment Gateway', note: 'Pembayaran online, diterima MSS', value: s.total_pg },
+        { label: 'Pemasukan Via Mitra', note: s.admin_full ? 'Cash + transfer + payment gateway mitra (Admin Full)' : 'Cash + transfer ke rekening cabang', value: s.pemasukan_via_mitra },
+        { label: 'Total Payment Gateway', note: s.admin_full ? 'Masuk ke payment gateway mitra (Admin Full)' : 'Pembayaran online, diterima MSS', value: s.total_pg },
         { label: 'Sudah WD ke Reseller', value: s.total_wd },
         { label: 'Pengeluaran', value: s.pengeluaran },
     ];

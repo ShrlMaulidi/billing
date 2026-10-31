@@ -90,6 +90,22 @@ class CabangTest extends TestCase
         $this->assertDatabaseCount('lokasi', 2);
     }
 
+    public function test_admin_full_is_saved_by_head_office_but_branch_users_cannot_change_it(): void
+    {
+        $this->postJson('/cabang', $this->data(['admin_full' => true]))->assertOk();
+        $garut = Lokasi::firstWhere('kode_lokasi', 'C001');
+        $this->assertTrue($garut->admin_full);
+        $this->get('/kelola-data/cabang')->assertInertia(fn ($page) => $page->where('rows.0.admin_full', true));
+
+        $this->putJson("/cabang/{$garut->id}", $this->data(['admin_full' => false]))->assertOk();
+        $this->assertFalse($garut->fresh()->admin_full);
+
+        // Mitra/admin cabang mengedit cabangnya sendiri: data lain tersimpan, Admin Full tidak berubah
+        $this->actingAs(User::factory()->peran('Admin')->create(['id_lokasi' => $garut->id]));
+        $this->putJson("/cabang/{$garut->id}", $this->data(['nama_lokasi' => 'MSS Garut Kota', 'admin_full' => true]))->assertOk();
+        $this->assertSame(['MSS Garut Kota', false], [$garut->fresh()->nama_lokasi, $garut->fresh()->admin_full]);
+    }
+
     public function test_update_keeps_own_code(): void
     {
         $lokasi = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);

@@ -16,8 +16,6 @@ use Inertia\Inertia;
  */
 class DashboardController extends Controller
 {
-    private const PAYMENT_GATEWAY = ['tripay', 'xendit', 'pakar_digital'];
-
     public function index(Request $request)
     {
         $f = $this->filters($request);
@@ -114,7 +112,7 @@ class DashboardController extends Controller
             'filters' => $f,
             'total' => ['total' => (int) $pembayaran->sum('jml_bayar'), 'jumlah' => $pembayaran->count()],
             // Payment gateway belum punya pengaturan per cabang: kartunya hanya muncul bila ada transaksi lewat gateway tersebut
-            'metode' => collect(['cash', 'transfer', ...$pembayaran->whereIn('metode', self::PAYMENT_GATEWAY)->pluck('metode')->unique()->sort()])->map(fn ($m) => [
+            'metode' => collect(['cash', 'transfer', ...$pembayaran->whereIn('metode', RekapCabang::PAYMENT_GATEWAY)->pluck('metode')->unique()->sort()])->map(fn ($m) => [
                 'metode' => $m,
                 'total' => (int) $pembayaran->where('metode', $m)->sum('jml_bayar'),
                 'jumlah' => $pembayaran->where('metode', $m)->count(),

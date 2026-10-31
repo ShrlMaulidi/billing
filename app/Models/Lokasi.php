@@ -7,15 +7,20 @@ use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** Cabang / lokasi (menu Kelola Data › Cabang). */
+/**
+ * Cabang / lokasi (menu Kelola Data › Cabang).
+ * admin_full: mitra memakai payment gateway sendiri (uang online masuk ke mitra, lalu disetor sesuai kewajiban);
+ * bila false, cabang ikut payment gateway perusahaan.
+ */
 #[Table('lokasi')]
-#[Fillable(['kode_lokasi', 'nama_lokasi', 'alamat_lokasi', 'tlp_lokasi', 'tlp_owner', 'nama_mitra', 'group_wa', 'terima_cash', 'status'])]
+#[Fillable(['kode_lokasi', 'nama_lokasi', 'alamat_lokasi', 'tlp_lokasi', 'tlp_owner', 'nama_mitra', 'group_wa', 'terima_cash', 'admin_full', 'status'])]
 class Lokasi extends Model
 {
     protected function casts(): array
     {
         return [
             'terima_cash' => 'boolean',
+            'admin_full' => 'boolean',
         ];
     }
 

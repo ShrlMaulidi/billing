@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Lokasi;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -21,11 +22,22 @@ class SistemController extends Controller
         ]);
     }
 
+    /**
+     * Payment gateway mengikuti Admin Full cabang: cabang non Admin Full memakai gateway perusahaan (tidak bisa menambah),
+     * cabang Admin Full menambah gateway sendiri. User pusat mengelola gateway perusahaan & gateway cabang Admin Full.
+     */
     public function paymentGateway(Request $request)
     {
+        $lokasiUser = $request->user()->lokasi;
+
         return Inertia::render('PaymentGateway/Index', [
             'filters' => $this->filters($request),
             'rows' => [],
+            'cabangUser' => $lokasiUser?->only(['id', 'nama_lokasi', 'admin_full']),
+            // Pilihan pemilik gateway untuk user pusat: perusahaan atau cabang Admin Full
+            'pemilikOptions' => $lokasiUser ? [] : Lokasi::where('admin_full', true)->orderBy('nama_lokasi')->get(['id', 'nama_lokasi'])
+                ->map(fn (Lokasi $l) => ['value' => $l->id, 'label' => "{$l->nama_lokasi} (Admin Full)"])
+                ->prepend(['value' => 'perusahaan', 'label' => 'Perusahaan (dipakai cabang non Admin Full)'])->values(),
         ]);
     }
 

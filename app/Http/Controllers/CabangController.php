@@ -55,7 +55,12 @@ class CabangController extends Controller
     public function update(Request $request, Lokasi $lokasi): JsonResponse
     {
         $this->pastikanCabang($request, $lokasi->id);
-        $lokasi->update($this->validated($request, $lokasi));
+        $data = $this->validated($request, $lokasi);
+        // Admin Full menentukan ke mana uang payment gateway masuk: hanya user semua cabang yang boleh mengubahnya
+        if ($request->user()->id_lokasi !== null) {
+            unset($data['admin_full']);
+        }
+        $lokasi->update($data);
 
         return response()->json(['message' => "Cabang {$lokasi->nama_lokasi} diperbarui"]);
     }
@@ -94,11 +99,12 @@ class CabangController extends Controller
             'nama_mitra' => ['nullable', 'string', 'max:100'],
             'group_wa' => ['nullable', 'string', 'max:255'],
             'terima_cash' => ['boolean'],
+            'admin_full' => ['boolean'],
             'status' => ['required', 'in:aktif,tidak_aktif'],
             ...($tarif ? PajakCabang::aturan($request->all()) : []),
         ], $this->pesanValidasi(), [
             'kode_lokasi' => 'Kode lokasi', 'nama_lokasi' => 'Nama lokasi', 'alamat_lokasi' => 'Alamat', 'tlp_lokasi' => 'Tlp lokasi',
-            'tlp_owner' => 'Tlp owner', 'nama_mitra' => 'Mitra / pemilik', 'group_wa' => 'ID grup WA', 'status' => 'Status',
+            'tlp_owner' => 'Tlp owner', 'nama_mitra' => 'Mitra / pemilik', 'group_wa' => 'ID grup WA', 'admin_full' => 'Admin Full', 'status' => 'Status',
             ...PajakCabang::ATRIBUT,
         ]);
     }

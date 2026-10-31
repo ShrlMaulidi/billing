@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Chart from '../../Components/Chart';
-import { CreditCard, DollarSign, Layers, Smartphone, Zap } from 'react-feather';
+import { CreditCard, DollarSign, Hash, Layers, Smartphone, Zap } from 'react-feather';
 import { Card, CardBody, CardHeader, Offcanvas, OffcanvasBody, OffcanvasHeader } from 'reactstrap';
 import DataTable, { sumFooter } from '../../Components/DataTable';
 import FilterBar from '../../Components/FilterBar';
@@ -8,9 +8,9 @@ import PageHeader from '../../Components/PageHeader';
 import { StatCard } from '../../Components/ui';
 import { angka, METODE, periode, rupiah, waktu } from '../../lib/format';
 
-const ICON = { cash: DollarSign, transfer: CreditCard, tripay: Zap, xendit: Layers, pakar_digital: Smartphone };
-const COLOR = { cash: 'success', transfer: 'primary', tripay: 'warning', xendit: 'info', pakar_digital: 'secondary' };
-const WARNA_GRAFIK = { cash: '#54ba4a', transfer: '#7366ff', tripay: '#ffaa05', xendit: '#16c7f9', pakar_digital: '#f73164' };
+const ICON = { cash: DollarSign, transfer: CreditCard, tripay: Zap, xendit: Layers, pakar_digital: Smartphone, moota: Hash };
+const COLOR = { cash: 'success', transfer: 'primary', tripay: 'warning', xendit: 'info', pakar_digital: 'secondary', moota: 'dark' };
+const WARNA_GRAFIK = { cash: '#54ba4a', transfer: '#7366ff', tripay: '#ffaa05', xendit: '#16c7f9', pakar_digital: '#f73164', moota: '#52526c' };
 
 export default function IncomeSummary({ filters, total, metode, rekening, pembayaran }) {
     const [drawer, setDrawer] = useState(null); // { metode, rekening? , title }

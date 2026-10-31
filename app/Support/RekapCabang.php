@@ -14,14 +14,18 @@ use Illuminate\Support\Collection;
 /**
  * Rekap keuangan per cabang untuk satu periode; dipakai Dashboard (Mitra & Cabang) dan Penarikan Saldo agar angka saldo selalu sama.
  * Pembayaran dihitung menurut tanggal bayar dengan skema withdrawal PajakCabang::rincian().
- * Pemasukan via mitra = cash + transfer ke rekening milik cabang; transfer ke rekening tanpa cabang (rekening pusat) diterima MSS.
+ * Pemasukan via mitra = cash + transfer (setiap cabang memakai rekeningnya sendiri) + payment gateway bila cabang Admin Full.
+ * Hanya payment gateway cabang non Admin Full (gateway perusahaan) yang diterima MSS.
  * Saldo = pendapatan reseller − pemasukan via mitra + sudah setor − sudah WD; minus berarti mitra masih harus setor ke MSS.
  * Sudah setor = setoran mitra berperiode bulan itu; sudah WD = penarikan berperiode sumber bulan itu yang sudah disetujui.
  */
 class RekapCabang
 {
-    /** Kolom rekap yang masih 0 sampai modul tagihan, payment gateway, dan pengeluaran punya tabel. */
-    private const NOMINAL_KOSONG = ['lunas', 'belum_lunas', 'total_pg', 'pengeluaran'];
+    /** Kolom rekap yang masih 0 sampai modul tagihan dan pengeluaran punya tabel. */
+    private const NOMINAL_KOSONG = ['lunas', 'belum_lunas', 'pengeluaran'];
+
+    /** Metode pembayaran lewat payment gateway (selain cash & transfer manual). */
+    public const PAYMENT_GATEWAY = ['tripay', 'xendit', 'pakar_digital', 'moota'];
 
     /**
      * @param  EloquentCollection<int, Lokasi>  $lokasi
@@ -37,10 +41,9 @@ class RekapCabang
             'pelanggan as pelanggan_free' => fn ($q) => $q->where('status', 'aktif')->whereHas('paket', fn ($p) => $p->where('harga', 0)),
         ]);
         $tarif = PajakCabang::berlaku($lokasi->modelKeys(), $periode);
-        $pembayaran = Pembayaran::whereIn('pembayaran.id_lokasi', $lokasi->modelKeys())
+        $pembayaran = Pembayaran::whereIn('id_lokasi', $lokasi->modelKeys())
             ->whereBetween('paid_at', [$awal->copy()->startOfDay(), $awal->copy()->endOfMonth()])
-            ->leftJoin('rekening', 'rekening.id', '=', 'pembayaran.rekening_id')
-            ->get(['pembayaran.id_lokasi', 'pembayaran.metode', 'pembayaran.jml_bayar', 'rekening.id_lokasi as rekening_lokasi'])
+            ->get(['id_lokasi', 'metode', 'jml_bayar'])
             ->groupBy('id_lokasi');
         $penarikan = PenarikanSaldo::whereIn('id_lokasi', $lokasi->modelKeys())->where('periode_sumber', $periode)
             ->whereIn('status', PenarikanSaldo::MENGURANGI_SALDO)
@@ -53,7 +56,8 @@ class RekapCabang
             $bayar = $pembayaran->get($l->id, collect());
             $pemasukan = (float) $bayar->sum('jml_bayar');
             $cash = (float) $bayar->where('metode', 'cash')->sum('jml_bayar');
-            $viaMitra = $cash + $bayar->where('metode', 'transfer')->whereNotNull('rekening_lokasi')->sum('jml_bayar');
+            $pg = (float) $bayar->whereIn('metode', self::PAYMENT_GATEWAY)->sum('jml_bayar');
+            $viaMitra = $pemasukan - ($l->admin_full ? 0 : $pg);
             $rincian = PajakCabang::rincian($t, $pemasukan, $bayar->count());
             $nominal = [...array_fill_keys(self::NOMINAL_KOSONG, 0), 'sudah_setor' => (int) $setoran->get($l->id, 0), 'total_wd' => (int) $penarikan->get($l->id, 0)];
             $saldo = $rincian['pendapatan_reseller'] - $viaMitra + $nominal['sudah_setor'] - $nominal['total_wd'];
@@ -64,6 +68,8 @@ class RekapCabang
                 'pemasukan' => (int) $pemasukan,
                 'pemasukan_via_mitra' => (int) $viaMitra,
                 'total_cash' => (int) $cash,
+                'total_pg' => (int) $pg,
+                'admin_full' => (bool) $l->admin_full,
                 'sisa_setor' => (int) round($rincian['harus_setor'] - $nominal['sudah_setor']),
                 'sisa_wd' => (int) round($rincian['pendapatan_reseller'] - $nominal['total_wd']),
                 'saldo' => (int) round($saldo),

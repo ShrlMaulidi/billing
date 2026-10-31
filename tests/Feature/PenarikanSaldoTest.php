@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Lokasi;
 use App\Models\Pembayaran;
 use App\Models\PenarikanSaldo;
-use App\Models\Rekening;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -34,8 +33,8 @@ class PenarikanSaldoTest extends TestCase
 
     public function test_mitra_can_request_up_to_available_balance_minus_pending_requests(): void
     {
-        // Tanpa tarif: transfer ke rekening pusat Rp1.000.000 seluruhnya jadi saldo mitra
-        $this->bayarKePusat($this->garut, 1000000);
+        // Tanpa tarif: pembayaran lewat payment gateway perusahaan Rp1.000.000 diterima MSS, seluruhnya jadi saldo mitra
+        $this->bayarLewatGatewayPerusahaan($this->garut, 1000000);
         $this->actingAs($this->mitra);
 
         $this->postJson('/transaksi/penarikan-saldo', $this->pengajuan(['nominal' => 600000]))->assertOk();
@@ -59,7 +58,7 @@ class PenarikanSaldoTest extends TestCase
         Pembayaran::create($this->pembayaran($this->garut, 500000) + ['metode' => 'cash']);
         $this->postJson('/transaksi/penarikan-saldo', $this->pengajuan(['nominal' => 1000]))->assertJsonValidationErrors(['nominal' => 'Rp0']);
 
-        $this->bayarKePusat($this->cimahi, 1000000);
+        $this->bayarLewatGatewayPerusahaan($this->cimahi, 1000000);
         $this->postJson('/transaksi/penarikan-saldo', $this->pengajuan(['id_lokasi' => $this->cimahi->id, 'nominal' => 1000]))->assertJsonValidationErrors('id_lokasi');
         $this->postJson('/transaksi/penarikan-saldo', $this->pengajuan(['periode_sumber' => '2026-11-01']))->assertJsonValidationErrors('periode_sumber');
         $this->assertDatabaseCount('penarikan_saldo', 0);
@@ -67,7 +66,7 @@ class PenarikanSaldoTest extends TestCase
 
     public function test_super_admin_approval_requires_transfer_photo_and_reduces_mitra_balance_and_rejection_does_not(): void
     {
-        $this->bayarKePusat($this->garut, 1000000);
+        $this->bayarLewatGatewayPerusahaan($this->garut, 1000000);
         $disetujui = $this->buatPengajuan(300000);
         $ditolak = $this->buatPengajuan(200000);
         $admin = User::factory()->create();
@@ -95,7 +94,7 @@ class PenarikanSaldoTest extends TestCase
 
     public function test_transfer_photo_is_only_visible_to_users_of_that_branch(): void
     {
-        $this->bayarKePusat($this->garut, 1000000);
+        $this->bayarLewatGatewayPerusahaan($this->garut, 1000000);
         $pengajuan = $this->buatPengajuan(100000);
         $this->actingAs(User::factory()->create())->postJson("/transaksi/penarikan-saldo/{$pengajuan->id}/setujui", ['bukti_transfer' => $this->foto()])->assertOk();
 
@@ -109,7 +108,7 @@ class PenarikanSaldoTest extends TestCase
 
     public function test_approval_is_rejected_when_balance_is_no_longer_enough(): void
     {
-        $this->bayarKePusat($this->garut, 500000);
+        $this->bayarLewatGatewayPerusahaan($this->garut, 500000);
         $pertama = $this->buatPengajuan(400000);
         $kedua = $this->buatPengajuan(400000);
 
@@ -122,7 +121,7 @@ class PenarikanSaldoTest extends TestCase
 
     public function test_branch_users_cannot_approve_even_with_permission(): void
     {
-        $this->bayarKePusat($this->garut, 1000000);
+        $this->bayarLewatGatewayPerusahaan($this->garut, 1000000);
         $pengajuan = $this->buatPengajuan(100000);
         $this->mitra->givePermissionTo('transaksi.penarikan.approve');
 
@@ -150,10 +149,9 @@ class PenarikanSaldoTest extends TestCase
         return UploadedFile::fake()->image('bukti.jpg', 400, 600);
     }
 
-    private function bayarKePusat(Lokasi $lokasi, int $nominal): void
+    private function bayarLewatGatewayPerusahaan(Lokasi $lokasi, int $nominal): void
     {
-        $pusat = Rekening::firstOrCreate(['no_rekening' => '999'], ['nama_rekening' => 'BCA', 'atas_nama' => 'MSS']);
-        Pembayaran::create($this->pembayaran($lokasi, $nominal) + ['metode' => 'transfer', 'rekening_id' => $pusat->id]);
+        Pembayaran::create($this->pembayaran($lokasi, $nominal) + ['metode' => 'xendit']);
     }
 
     /** @return array<string, mixed> */

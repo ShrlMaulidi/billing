@@ -109,11 +109,11 @@ class DashboardTest extends TestCase
             'periode' => '2026-01-01', 'ppn_persen' => 11, 'pph_persen' => 2.5, 'admin_fee_tipe' => 'persentase', 'admin_fee' => 5,
             'metode_bagi_hasil' => 'nominal', 'nilai_bagi_hasil' => 4830000,
         ]);
-        $pusat = Rekening::create(['nama_rekening' => 'BCA', 'atas_nama' => 'MSS', 'no_rekening' => '111']);
         $cabang = Rekening::create(['nama_rekening' => 'BRI', 'atas_nama' => 'Mitra', 'no_rekening' => '222', 'id_lokasi' => $garut->id]);
         $this->bayar($garut, 11000000, 'cash');
         $this->bayar($garut, 330000, 'transfer', $cabang);
-        $this->bayar($garut, 170000, 'transfer', $pusat);
+        // Satu-satunya uang yang diterima MSS: payment gateway perusahaan (cabang non Admin Full)
+        $this->bayar($garut, 170000, 'xendit');
         $this->bayar($garut, 999000, 'cash', paidAt: '2026-09-30 23:00:00');
 
         // Angka sama dengan Ringkasan Bulan Ini di aplikasi lama (omset Rp11.500.000)
@@ -121,8 +121,27 @@ class DashboardTest extends TestCase
             ->where('rekap.pemasukan', 11500000)->where('rekap.dpp', 10360360)->where('rekap.ppn', 1139640)
             ->where('rekap.admin_fee', 518018)->where('rekap.nominal_bagi_hasil', 4830000)->where('rekap.omset_reseller', 5012342)
             ->where('rekap.pph', 125309)->where('rekap.harus_setor', 6612966)->where('rekap.pendapatan_reseller', 4887034)
-            ->where('rekap.pemasukan_via_mitra', 11330000)->where('rekap.total_cash', 11000000)->where('rekap.sisa_setor', 6612966)
+            ->where('rekap.pemasukan_via_mitra', 11330000)->where('rekap.total_cash', 11000000)->where('rekap.total_pg', 170000)->where('rekap.sisa_setor', 6612966)
             ->where('rekap.saldo', -6442966));
+    }
+
+    public function test_cash_and_transfers_are_held_by_mitra_and_gateway_only_when_branch_is_admin_full(): void
+    {
+        $biasa = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $full = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Cimahi', 'admin_full' => true]);
+        foreach ([$biasa, $full] as $lokasi) {
+            $rekening = Rekening::create(['nama_rekening' => 'BCA', 'atas_nama' => $lokasi->nama_lokasi, 'no_rekening' => (string) $lokasi->id, 'id_lokasi' => $lokasi->id]);
+            $this->bayar($lokasi, 100000, 'cash');
+            $this->bayar($lokasi, 200000, 'transfer', $rekening);
+            $this->bayar($lokasi, 300000, 'xendit');
+        }
+
+        // Tanpa tarif pendapatan reseller = pemasukan Rp600.000 di kedua cabang
+        $this->get('/dashboard-cabang')->assertInertia(fn ($page) => $page
+            ->where('rows.0.nama_cabang', 'MSS Garut')->where('rows.0.admin_full', false)->where('rows.0.total_pg', 300000)
+            ->where('rows.0.pemasukan_via_mitra', 300000)->where('rows.0.saldo', 300000)
+            ->where('rows.1.nama_cabang', 'MSS Cimahi')->where('rows.1.admin_full', true)->where('rows.1.total_pg', 300000)
+            ->where('rows.1.pemasukan_via_mitra', 600000)->where('rows.1.saldo', 0));
     }
 
     public function test_income_summary_is_empty_until_payments_exist(): void

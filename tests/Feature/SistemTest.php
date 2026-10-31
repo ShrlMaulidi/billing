@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Lokasi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\TestWith;
@@ -27,6 +28,26 @@ class SistemTest extends TestCase
         $this->actingAs(User::factory()->create());
 
         $this->get($url)->assertOk()->assertInertia(fn ($page) => $page->component($component)->has('rows', 0));
+    }
+
+    public function test_payment_gateway_page_follows_branch_admin_full(): void
+    {
+        $biasa = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $full = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Cimahi', 'admin_full' => true]);
+
+        $this->actingAs(User::factory()->create());
+        $this->get('/payment-gateway')->assertInertia(fn ($page) => $page->where('cabangUser', null)
+            ->where('pemilikOptions', [
+                ['value' => 'perusahaan', 'label' => 'Perusahaan (dipakai cabang non Admin Full)'],
+                ['value' => $full->id, 'label' => 'MSS Cimahi (Admin Full)'],
+            ]));
+
+        foreach ([[$biasa, false], [$full, true]] as [$lokasi, $adminFull]) {
+            $mitra = User::factory()->peran('Mitra')->create(['id_lokasi' => $lokasi->id]);
+            $mitra->givePermissionTo('payment_gateway.view');
+            $this->actingAs($mitra)->get('/payment-gateway')->assertInertia(fn ($page) => $page
+                ->where('cabangUser', ['id' => $lokasi->id, 'nama_lokasi' => $lokasi->nama_lokasi, 'admin_full' => $adminFull])->where('pemilikOptions', []));
+        }
     }
 
     public function test_payment_gateway_channel_page_returns_404(): void
