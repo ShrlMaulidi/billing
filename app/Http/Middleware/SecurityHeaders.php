@@ -32,7 +32,8 @@ class SecurityHeaders
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
         $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
-        if ($request->isSecure()) {
+        // Situs ber-APP_URL https (mis. di balik Cloudflare) tetap mendapat HSTS walau koneksi ke server terlihat http
+        if ($request->isSecure() || str_starts_with((string) config('app.url'), 'https://')) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000');
         }
         if ($csp) {

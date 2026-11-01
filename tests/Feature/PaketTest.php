@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Lokasi;
 use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Router;
@@ -61,6 +62,18 @@ class PaketTest extends TestCase
             ['name' => 'default', 'rate_limit' => null], ['name' => '10Mbps', 'rate_limit' => null], ['name' => '20Mbps', 'rate_limit' => '20M/20M'],
         ]]);
         $this->getJson("/paket/profile-router/{$this->router->id}?jenis=hotspot")->assertOk()->assertJsonPath('data.1', ['name' => 'HS-1H', 'rate_limit' => '2M/2M']);
+    }
+
+    public function test_branch_user_cannot_read_profiles_of_another_branch_router(): void
+    {
+        $garut = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $cimahi = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Cimahi']);
+        $this->router->update(['id_lokasi' => $cimahi->id]);
+        $admin = User::factory()->peran('Admin')->create(['id_lokasi' => $garut->id]);
+
+        $this->actingAs($admin)->getJson("/paket/profile-router/{$this->router->id}?jenis=pppoe")->assertNotFound();
+        $this->router->update(['id_lokasi' => $garut->id]);
+        $this->getJson("/paket/profile-router/{$this->router->id}?jenis=pppoe")->assertOk();
     }
 
     public function test_sync_mode_links_existing_router_profile_without_changing_router(): void

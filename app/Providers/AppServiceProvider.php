@@ -8,6 +8,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,6 +26,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Di balik Cloudflare/proxy publik, header X-Forwarded-Proto tidak dipercaya sehingga request terlihat http.
+        // Bila APP_URL https, semua URL & redirect dibuat https (berdasarkan konfigurasi server, bukan header dari luar).
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
+
         // Super Admin lolos semua permission (spatie memeriksa permission lewat Gate)
         Gate::before(fn (User $user) => $user->hasRole(HakAkses::SUPER_ADMIN) ? true : null);
 

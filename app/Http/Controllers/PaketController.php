@@ -70,6 +70,8 @@ class PaketController extends Controller
     /** Dropdown "Sinkronisasi": profile yang sudah ada di router terpilih, dimuat langsung dari MikroTik. */
     public function profileRouter(Request $request, Router $router, IsolirService $isolir): JsonResponse
     {
+        // Router cabang lain tidak boleh dibaca (404 agar keberadaannya tidak terbaca); router tanpa cabang berlaku umum
+        abort_unless($router->id_lokasi === null || $request->user()->bolehAksesCabang($router->id_lokasi), 404);
         $jenis = $request->validate(['jenis' => ['required', 'in:pppoe,hotspot']])['jenis'];
 
         try {

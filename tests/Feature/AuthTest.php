@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Router;
 use App\Models\User;
+use App\Providers\AppServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -137,6 +138,20 @@ class AuthTest extends TestCase
         // cloudflared / reverse proxy di jaringan lokal: redirect memakai https + domain asli
         $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])->withHeaders(self::FORWARDED)
             ->get('/dashboard')->assertRedirect('https://billingv2.sahrulmaulidi.online/login');
+    }
+
+    public function test_https_app_url_keeps_login_redirect_on_https_behind_public_proxy(): void
+    {
+        // Cloudflare: request sampai ke server dari IP publik (header forwarded diabaikan) tetapi situs diakses lewat https
+        config(['app.url' => 'https://billing.example.com']);
+        (new AppServiceProvider($this->app))->boot();
+        User::factory()->create(['username' => 'superadmin', 'password' => 'rahasia123']);
+
+        $location = $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])->post('/login', ['username' => 'superadmin', 'password' => 'rahasia123'])
+            ->assertRedirect()->assertHeader('Strict-Transport-Security', 'max-age=31536000')->headers->get('Location');
+
+        $this->assertStringStartsWith('https://', $location);
+        $this->assertStringEndsWith('/dashboard', $location);
     }
 
     public function test_forwarded_headers_from_public_ip_are_ignored(): void
