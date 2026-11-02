@@ -5,9 +5,10 @@ Panduan ini disusun untuk memberikan standar alur kerja (*workflow*), penamaan b
 > **Status penerapan di repo MSS Billing**
 >
 > - Branch `staging` **belum dibuat**. Saat ini hanya ada `main`. Buat sekali dengan `git checkout -b staging main && git push -u origin staging`.
-> - Pipeline CI/CD (GitHub Actions, folder `.github/workflows`) **belum ada**. Sampai CI tersedia, jalankan pemeriksaan di bagian 3 secara manual sebelum membuat PR.
-> - Deploy ke server masih manual lewat `deploy.sh` (lihat [README](../README.md#deploy-ke-server)).
-> - Aturan "dilarang push langsung ke `main`/`staging`" baru benar-benar terkunci setelah *branch protection* diaktifkan di GitHub (Settings → Branches).
+> - **CI sudah ada**: [.github/workflows/ci.yml](../.github/workflows/ci.yml) menjalankan Pint, build, dan PHPUnit pada setiap PR dan push ke `main`/`staging`. Tetap jalankan pemeriksaan di bagian 3 di laptop sebelum push agar CI tidak merah.
+> - **Template PR sudah ada**: [.github/pull_request_template.md](../.github/pull_request_template.md) otomatis mengisi deskripsi PR sesuai bagian 4.
+> - **CD (auto-deploy) belum ada.** Deploy ke server masih manual lewat `deploy.sh` (lihat [README](../README.md#deploy-ke-server)).
+> - Aturan "dilarang push langsung ke `main`/`staging`" baru benar-benar terkunci setelah *branch protection* diaktifkan di GitHub (Settings → Branches): wajib PR, minimal 1 approval, status check **CI / Pint, Build & Test** wajib lulus, dan larang force push.
 
 ## 1. Strategi Branching (Branching Strategy)
 
@@ -79,7 +80,7 @@ Setiap kali ada **Pull Request (PR)** yang diajukan ke branch `staging` atau `ma
 2. **Build Check:** Memastikan aset frontend dapat di-*build* tanpa error (`npm run build`).
 3. **Automated Testing:** Menjalankan seluruh test PHPUnit (`php artisan test --compact`).
 
-Selama CI belum tersedia, jalankan ketiga perintah di atas di laptop sebelum push. Untuk merapikan format otomatis: `vendor/bin/pint --dirty`.
+CI ini ada di [.github/workflows/ci.yml](../.github/workflows/ci.yml). Jalankan juga ketiga perintah di atas di laptop sebelum push. Untuk merapikan format otomatis: `vendor/bin/pint --dirty`.
 
 > ⛔ **Aturan PR & CI:** PR **TIDAK BISA DI-MERGE** jika status CI menunjukkan tanda gagal (*failed status checks*). Developer wajib memperbaiki error tersebut terlebih dahulu.
 
