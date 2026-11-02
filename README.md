@@ -110,6 +110,26 @@ npm run dev                                  # atau npm run build
 | `TUNNEL_SERVER`, `TUNNEL_SUBNET`, `TUNNEL_GATEWAY` | Server & jaringan L2TP untuk menu Tunnel (default: host `APP_URL`, `10.10.10.0/24`, `10.10.10.1`) |
 | `ISOLIR_URL` | Halaman tujuan pelanggan terisolir (default `APP_URL/isolir`) |
 
+## Alur Kerja Git (SOP Tim)
+
+Panduan lengkap: [docs/SOP_Git_Workflow.md](docs/SOP_Git_Workflow.md). Ringkasnya:
+
+- **Branch:** `main` (production) dan `staging` (gabungan fitur sebelum rilis) tidak boleh di-push langsung. Kerjakan tugas di `feature/<nama>`, `bugfix/<nama>`, atau `hotfix/<nama>`, lalu hapus branch setelah di-merge.
+- **Commit:** format `<tipe>: <deskripsi>` dengan tipe `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `test`.
+- **Pull Request:** satu PR untuk satu tugas, minimal 1 approval, lolos Pint + test + build, tanpa conflict, digabung dengan **Squash and Merge**.
+- **Sebelum push:** `vendor/bin/pint --dirty`, `php artisan test --compact`, `npm run build`.
+- Jangan `git push -f` ke `main` / `staging`.
+
+```bash
+git checkout staging && git pull origin staging
+git checkout -b feature/nama-fitur
+# ... kerjakan, lalu:
+git commit -m "feat: deskripsi singkat"
+git push origin feature/nama-fitur      # buka PR ke staging di GitHub
+```
+
+> Branch `staging` dan CI GitHub Actions belum dibuat di repo ini. Lihat bagian "Status penerapan" di dokumen SOP.
+
 ## Menjalankan Test
 
 ```bash
