@@ -6,10 +6,14 @@ use App\Models\Lokasi;
 use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
+use App\Models\Router;
 use App\Models\User;
+use App\Services\Mikrotik\MikrotikConnector;
 use App\Support\HakAkses;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\PersonalAccessToken;
+use Tests\Fakes\FakeConnector;
+use Tests\Fakes\FakeGateway;
 use Tests\TestCase;
 
 class ApiStafTest extends TestCase
@@ -134,6 +138,18 @@ class ApiStafTest extends TestCase
         $this->withToken($token)->getJson('/api/v1/dashboard')->assertOk()
             ->assertJsonPath('kpi.total', 1)->assertJsonPath('kpi.lunas', 1)->assertJsonPath('kpi.pemasukan_bulan', 200000)
             ->assertJsonPath('saldo_mitra.nama_cabang', 'MSS Garut')->assertJsonPath('saldo_mitra.pemasukan', 200000);
+    }
+
+    public function test_router_profiles_for_turning_customer_back_on(): void
+    {
+        $this->app->instance(MikrotikConnector::class, new FakeConnector(new FakeGateway));
+        $router = Router::create(['nama_router' => 'RB Cimahi', 'mode_koneksi' => 'langsung', 'host' => '203.0.113.10', 'port_api' => 8728, 'username' => 'billing', 'password' => 'x', 'id_lokasi' => $this->cimahi->id]);
+
+        $this->withToken($this->token(User::factory()->peran('Admin')->create()))->getJson("/api/v1/router/{$router->id}/profiles")
+            ->assertOk()->assertJsonPath('data', ['default', '10Mbps', '20Mbps', 'ISOLIR']);
+        $this->app['auth']->forgetGuards();
+        $this->withToken($this->token(User::factory()->peran('Admin')->create(['id_lokasi' => $this->garut->id])))->getJson("/api/v1/router/{$router->id}/profiles")
+            ->assertNotFound();
     }
 
     public function test_customer_token_cannot_use_staff_endpoints(): void

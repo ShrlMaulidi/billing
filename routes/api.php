@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\RekapCabangController;
 use App\Http\Controllers\Api\V1\SetoranMitraController;
 use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\PembayaranController;
+use App\Http\Controllers\RouterController;
 use App\Http\Controllers\TransaksiController;
 use Illuminate\Support\Facades\Route;
 
@@ -56,6 +57,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('/pelanggan/{pelanggan}/aktifkan', [PelangganController::class, 'aktifkan'])->middleware('permission:pelanggan.off.update')->name('pelanggan.aktifkan');
             Route::get('/router/{router}/akun', [PelangganController::class, 'akunRouter'])->middleware('permission:pelanggan.data.create|pelanggan.data.update')->name('router.akun');
             Route::get('/router/{router}/ip', [PelangganController::class, 'ipRouter'])->middleware('permission:pelanggan.data.create|pelanggan.data.update')->name('router.ip');
+            // Pilihan profile saat menyalakan pelanggan yang profile asalnya tidak diketahui
+            Route::get('/router/{router}/profiles', [RouterController::class, 'profiles'])->middleware('permission:pelanggan.off.update|kelola_data.router.view')->name('router.profiles');
         });
 
         Route::prefix('transaksi')->name('transaksi.')->group(function () {
