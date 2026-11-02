@@ -1,0 +1,55 @@
+# Pemeriksaan otomatis sesuai SOP Git (docs/SOP_Git_Workflow.md bagian 3A):
+# Pint (format kode), build frontend, dan seluruh test PHPUnit.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Pint, Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # composer.lock butuh PHP >= 8.4.1 (paket Symfony 8)
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, fileinfo, pdo_sqlite, sqlite3
+          coverage: none
+
+      # Vite 8 butuh Node 20.19 atau 22.12+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependency PHP
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Siapkan .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Pint (format kode PHP)
+        run: vendor/bin/pint --test
+
+      - name: Build frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      # Database test: SQLite in-memory (phpunit.xml)
+      - name: PHPUnit
+        run: php artisan test --compact
