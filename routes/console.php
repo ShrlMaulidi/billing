@@ -4,6 +4,7 @@ use App\Models\Lokasi;
 use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 use Spatie\Permission\Models\Role;
 
 Artisan::command('inspire', function () {
@@ -53,3 +54,6 @@ Artisan::command('user:create {username} {--name= : Nama tampilan} {--role=Super
 
     return 0;
 })->purpose('Buat user login atau reset kata sandinya');
+
+// Token aplikasi mobile yang sudah kedaluwarsa (lihat Api\V1\AuthController & PortalPelangganController) dibersihkan tiap hari
+Schedule::command('sanctum:prune-expired --hours=24')->daily();

@@ -26,9 +26,6 @@ use Throwable;
  */
 class TransaksiController extends Controller
 {
-    /** Jumlah bulan terakhir (termasuk bulan berjalan) yang bisa dipilih untuk penarikan & setoran. */
-    private const BULAN_TRANSAKSI = 12;
-
     public function penarikan(Request $request)
     {
         $f = $this->filters($request) + ['status' => $request->input('status'), 'semua' => $request->boolean('semua')];
@@ -52,8 +49,8 @@ class TransaksiController extends Controller
                     'pemohon' => $p->pemohon?->name ?? '-',
                     'diproses_oleh' => $p->pemroses?->name,
                 ]),
-            'saldo' => (object) RekapCabang::saldoTersedia($lokasi, $this->periodeTerakhir()),
-            'periodeOptions' => $this->periodeTerakhir(),
+            'saldo' => (object) RekapCabang::saldoTersedia($lokasi, RekapCabang::periodeTransaksi()),
+            'periodeOptions' => RekapCabang::periodeTransaksi(),
         ]);
     }
 
@@ -63,7 +60,7 @@ class TransaksiController extends Controller
         $data = $request->validate([
             'id_lokasi' => ['required', 'integer', 'exists:lokasi,id', ...$this->aturanCabangSendiri($request)],
             'nama_request' => ['required', 'string', 'max:100'],
-            'periode_sumber' => ['required', Rule::in($this->periodeTerakhir())],
+            'periode_sumber' => ['required', Rule::in(RekapCabang::periodeTransaksi())],
             'nominal' => ['required', 'integer', 'min:1', 'max:4000000000'],
             'keterangan' => ['required', 'string', 'max:500'],
             'bank_penerima' => ['required', 'string', 'max:100'],
@@ -191,9 +188,9 @@ class TransaksiController extends Controller
                     'petugas' => $s->petugas?->name ?? '-',
                 ]),
             // Kewajiban = saldo minus (uang perusahaan yang masih dipegang mitra), 0 bila saldo tidak minus
-            'kewajiban' => (object) collect(RekapCabang::saldo($lokasi, $this->periodeTerakhir()))
+            'kewajiban' => (object) collect(RekapCabang::saldo($lokasi, RekapCabang::periodeTransaksi()))
                 ->map(fn (array $perPeriode) => array_map(fn (int $saldo) => max(0, -$saldo), $perPeriode))->all(),
-            'periodeOptions' => $this->periodeTerakhir(),
+            'periodeOptions' => RekapCabang::periodeTransaksi(),
             'rekeningOptions' => Rekening::whereNull('id_lokasi')->orderBy('nama_rekening')->get()
                 ->map(fn (Rekening $r) => ['value' => (string) $r->id, 'label' => $r->label()])->prepend(['value' => 'cash', 'label' => 'Cash (diterima di kantor pusat)']),
         ]);
@@ -205,7 +202,7 @@ class TransaksiController extends Controller
         $rekeningPusat = Rekening::whereNull('id_lokasi')->pluck('id')->map(fn ($id) => (string) $id)->prepend('cash')->all();
         $data = $request->validate([
             'id_lokasi' => ['required', 'integer', 'exists:lokasi,id'],
-            'periode' => ['required', Rule::in($this->periodeTerakhir())],
+            'periode' => ['required', Rule::in(RekapCabang::periodeTransaksi())],
             'nominal' => ['required', 'integer', 'min:1', 'max:4000000000'],
             'metode' => ['required', 'string', Rule::in($rekeningPusat)],
             'bukti_setor' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
@@ -266,11 +263,5 @@ class TransaksiController extends Controller
             'master' => [],
             'rekeningOptions' => [],
         ]);
-    }
-
-    /** @return list<string> Y-m-01 bulan yang bisa dipilih untuk penarikan & setoran, terbaru dulu */
-    private function periodeTerakhir(): array
-    {
-        return array_map(fn (int $i) => today()->startOfMonth()->subMonths($i)->format('Y-m-d'), range(0, self::BULAN_TRANSAKSI - 1));
     }
 }

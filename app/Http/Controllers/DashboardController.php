@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Lokasi;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
+use App\Support\KpiDashboard;
 use App\Support\RekapCabang;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -21,26 +22,15 @@ class DashboardController extends Controller
         $f = $this->filters($request);
         $today = today();
         $pelanggan = Pelanggan::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
-        $aktif = (clone $pelanggan)->where('status', 'aktif');
-        $bulanIni = $today->format('Y-m-01');
-        $pembayaran = Pembayaran::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
         $awalGrafik = $today->copy()->startOfMonth()->subMonths(11);
         // Pemasukan per bulan berdasarkan tanggal bayar (paid_at)
-        $pemasukanBulanan = (clone $pembayaran)->where('paid_at', '>=', $awalGrafik)->get(['paid_at', 'jml_bayar'])
+        $pemasukanBulanan = Pembayaran::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']))
+            ->where('paid_at', '>=', $awalGrafik)->get(['paid_at', 'jml_bayar'])
             ->groupBy(fn (Pembayaran $p) => $p->paid_at->format('Y-m-01'))->map->sum('jml_bayar');
 
         return Inertia::render('Dashboard/Index', [
             'filters' => $f,
-            'kpi' => [
-                'total' => (clone $aktif)->count(),
-                'lunas' => (clone $pelanggan)->lunas($bulanIni)->count(),
-                'belum_lunas' => (clone $pelanggan)->belumLunas($bulanIni)->count(),
-                'on' => (clone $aktif)->where('status_langganan', 'on')->count(),
-                'off' => (clone $aktif)->where('status_langganan', 'off')->count(),
-                'berhenti' => (clone $pelanggan)->where('status', 'berhenti')->count(),
-                'pemasukan_bulan' => (int) $pemasukanBulanan->get($bulanIni, 0),
-                'pemasukan_hari' => (int) (clone $pembayaran)->where('paid_at', '>=', $today->copy()->startOfDay())->sum('jml_bayar'),
-            ],
+            'kpi' => KpiDashboard::hitung($f['cabang']),
             'pelangganBaru' => (clone $pelanggan)->with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi'])
                 ->whereBetween('tgl_registrasi', $this->bulanIni())
                 ->latest('tgl_registrasi')->take(8)->get()
@@ -50,7 +40,7 @@ class DashboardController extends Controller
                 'periode' => $periode = $today->copy()->startOfMonth()->subMonths($i)->format('Y-m-01'),
                 'total' => (int) $pemasukanBulanan->get($periode, 0),
             ]),
-            'saldoMitra' => $this->saldoMitra($request, $f),
+            'saldoMitra' => KpiDashboard::saldoMitra($request->user(), $this->periode($f)),
         ]);
     }
 
@@ -133,23 +123,6 @@ class DashboardController extends Controller
                 'petugas' => $p->petugas?->name ?? '-',
             ]),
         ]);
-    }
-
-    /**
-     * Saldo cabang milik user ber-role Mitra (selalu cabangnya sendiri, bukan dari filter); null untuk role lain.
-     * Memakai baris rekap cabang yang sama dengan Dashboard Cabang agar angkanya selalu sama.
-     *
-     * @return array<string, mixed>|null baris rekap cabang + nama_mitra
-     */
-    private function saldoMitra(Request $request, array $f): ?array
-    {
-        $user = $request->user();
-        $lokasi = $user->id_lokasi && $user->hasRole('Mitra') ? Lokasi::find($user->id_lokasi) : null;
-        if (! $lokasi) {
-            return null;
-        }
-
-        return [...RekapCabang::hitung($lokasi->newCollection([$lokasi]), $this->periode($f))->first(), 'nama_mitra' => $lokasi->nama_mitra];
     }
 
     /**

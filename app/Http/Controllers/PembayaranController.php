@@ -179,19 +179,7 @@ class PembayaranController extends Controller
         abort_unless(in_array($f['tahun'], Pembayaran::tahunBayar(), true) && $f['bulan'] >= 1 && $f['bulan'] <= 12, 404);
         $pelanggan->load(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi']);
 
-        $invoice = $pelanggan->invoice($this->periode($f));
-
-        return Inertia::render('Pelanggan/Tagihan', [
-            'tagihan' => [
-                ...$invoice,
-                ...$pelanggan->only(['id', 'id_pelanggan', 'nama', 'alamat', 'tlp', 'jns_tagihan']),
-                'cabang' => $pelanggan->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
-                'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $pelanggan->id_lokasi))
-                    ->orderBy('nama_rekening')->get()->map->only(['nama_rekening', 'no_rekening', 'atas_nama']),
-                // Sudah dibayar: tampil LUNAS dengan tautan kwitansi
-                'pembayaran_id' => $pelanggan->pembayaran()->where('periode', $invoice['periode'])->value('id'),
-            ],
-        ]);
+        return Inertia::render('Pelanggan/Tagihan', ['tagihan' => $pelanggan->invoiceLengkap($this->periode($f))]);
     }
 
     /** Membatalkan pembayaran yang salah input; pelanggan kembali belum lunas untuk periode itu. Tercatat di log aplikasi. */

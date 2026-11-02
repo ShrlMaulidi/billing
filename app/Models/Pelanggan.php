@@ -10,10 +10,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * Pelanggan. Akun koneksi di router: username_pppoe untuk PPPoE & Hotspot, ip_address untuk Static,
- * mac_address untuk IP Binding.
+ * mac_address untuk IP Binding. Aplikasi mobile pelanggan memakai token Sanctum berkemampuan "pelanggan"
+ * (lihat App\Http\Controllers\Api\V1\PortalPelangganController).
  */
 #[Table('pelanggan')]
 #[Fillable([
@@ -23,6 +25,8 @@ use Illuminate\Support\Carbon;
 ])]
 class Pelanggan extends Model
 {
+    use HasApiTokens;
+
     public const KONEKSI = ['pppoe' => 'PPPoE', 'hotspot' => 'Hotspot', 'static' => 'Static', 'ip_binding' => 'IP Binding'];
 
     public const SKEMA_TAGIHAN = ['full' => 'Tagihan Full', 'prorate' => 'Prorate'];
@@ -175,6 +179,27 @@ class Pelanggan extends Model
     }
 
     /**
+     * Halaman invoice satu bulan tagihan: isi invoice() + identitas pelanggan, kop cabang, rekening yang ditandai tampil di invoice,
+     * dan id pembayaran bila sudah lunas. Dipakai halaman tagihan web dan API mobile. Muat relasi paket & lokasi lebih dulu.
+     *
+     * @return array<string, mixed>
+     */
+    public function invoiceLengkap(string $bulanTagihan): array
+    {
+        $invoice = $this->invoice($bulanTagihan);
+
+        return [
+            ...$invoice,
+            ...$this->only(['id', 'id_pelanggan', 'nama', 'alamat', 'tlp', 'jns_tagihan']),
+            'cabang' => $this->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
+            'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $this->id_lokasi))
+                ->orderBy('nama_rekening')->get()->map->only(['nama_rekening', 'no_rekening', 'atas_nama']),
+            // Sudah dibayar: tampil LUNAS dengan tautan kwitansi
+            'pembayaran_id' => $this->pembayaran()->where('periode', $invoice['periode'])->value('id'),
+        ];
+    }
+
+    /**
      * Invoice yang sudah muncul tetapi belum dibayar dalam beberapa bulan tagihan terakhir (aturan sama dengan scope belumLunas).
      * Muat relasi paket & pembayaran lebih dulu.
      *
@@ -209,6 +234,14 @@ class Pelanggan extends Model
 
         return $periode !== null && $this->status === 'aktif' && $this->prorateMuncul() <= today()->toDateString()
             && ! $this->pembayaran->contains('periode', $periode);
+    }
+
+    /** Nomor HP ke format 08…: buang selain angka, awalan 62 diganti 0 (0812…, 62812…, +62 812-… dianggap sama). */
+    public static function nomorHp(string $tlp): string
+    {
+        $angka = preg_replace('/\D/', '', $tlp);
+
+        return str_starts_with($angka, '62') ? '0'.substr($angka, 2) : $angka;
     }
 
     /** Identitas akun di router sesuai jenis koneksi (username, IP, atau MAC). */

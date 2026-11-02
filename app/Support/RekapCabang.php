@@ -27,6 +27,15 @@ class RekapCabang
     /** Metode pembayaran lewat payment gateway (selain cash & transfer manual). */
     public const PAYMENT_GATEWAY = ['tripay', 'xendit', 'pakar_digital', 'moota'];
 
+    /** Jumlah bulan terakhir (termasuk bulan berjalan) yang bisa dipilih untuk penarikan & setoran. */
+    private const BULAN_TRANSAKSI = 12;
+
+    /** @return list<string> Y-m-01 bulan yang bisa dipilih untuk penarikan & setoran, terbaru dulu */
+    public static function periodeTransaksi(): array
+    {
+        return array_map(fn (int $i) => today()->startOfMonth()->subMonths($i)->format('Y-m-d'), range(0, self::BULAN_TRANSAKSI - 1));
+    }
+
     /**
      * @param  EloquentCollection<int, Lokasi>  $lokasi
      * @param  string  $periode  Y-m-01

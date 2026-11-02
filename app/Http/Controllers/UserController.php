@@ -73,9 +73,10 @@ class UserController extends Controller
         abort_if($user->isSuperAdmin() && ! $request->user()->isSuperAdmin(), 403, 'Anda tidak memiliki akses ke fitur ini');
     }
 
-    /** Hapus sesi login & token "ingat saya" user, sehingga harus login ulang. */
+    /** Hapus sesi login, token "ingat saya", dan token aplikasi mobile user, sehingga harus login ulang. */
     private function putusSesi(User $user): void
     {
+        $user->tokens()->delete();
         if (config('session.driver') === 'database') {
             DB::table(config('session.table', 'sessions'))->where('user_id', $user->id)->delete();
         }

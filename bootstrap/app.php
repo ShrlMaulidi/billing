@@ -1,14 +1,18 @@
 <?php
 
+use App\Http\Middleware\EnsureTokenOwnerIsActive;
 use App\Http\Middleware\EnsureUserCoversAllBranches;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SecurityHeaders;
 use App\Support\HakAkses;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Laravel\Sanctum\Exceptions\MissingAbilityException;
+use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
 use Spatie\Permission\Exceptions\UnauthorizedException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
@@ -17,6 +21,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -26,10 +31,16 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             SecurityHeaders::class,
         ]);
+        $middleware->api(append: [
+            SecurityHeaders::class,
+        ]);
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'semua_cabang' => EnsureUserCoversAllBranches::class,
+            // API mobile: token staf / pelanggan (Sanctum ability) dan pemilik token masih aktif
+            'ability' => CheckForAnyAbility::class,
+            'token_aktif' => EnsureTokenOwnerIsActive::class,
         ]);
         $middleware->redirectGuestsTo('/login');
         // User yang sudah login diarahkan ke menu pertama yang boleh dibukanya
@@ -44,4 +55,9 @@ return Application::configure(basePath: dirname(__DIR__))
         );
         // Tolakan role/permission spatie tampil sebagai 403 berbahasa Indonesia (tanpa membocorkan nama permission)
         $exceptions->map(UnauthorizedException::class, fn () => new AccessDeniedHttpException('Anda tidak memiliki akses ke fitur ini'));
+        // Token pelanggan dipakai di endpoint staf (atau sebaliknya)
+        $exceptions->map(MissingAbilityException::class, fn () => new AccessDeniedHttpException('Anda tidak memiliki akses ke fitur ini'));
+        $exceptions->render(fn (AuthenticationException $e, Request $request) => $request->is('api/*')
+            ? response()->json(['message' => 'Sesi berakhir atau token tidak valid, silakan login kembali'], 401)
+            : null);
     })->create();

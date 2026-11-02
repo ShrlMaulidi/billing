@@ -11,18 +11,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
  * Akun login. Role & permission lewat spatie/laravel-permission (lihat App\Support\HakAkses).
  * id_lokasi terisi = user hanya boleh mengakses data cabang itu; kosong = semua cabang.
+ * Aplikasi mobile memakai token Sanctum berkemampuan "staf" (lihat App\Http\Controllers\Api\V1\AuthController).
  */
 #[Fillable(['name', 'username', 'email', 'tlp', 'id_lokasi', 'status', 'password', 'last_login_at', 'last_login_ip'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     /** Sama dengan default kolom, agar user yang baru dibuat langsung terbaca aktif. */
     protected $attributes = ['status' => 'aktif'];
@@ -56,6 +58,14 @@ class User extends Authenticatable
     public function bolehMasuk(): bool
     {
         return $this->status === 'aktif' && HakAkses::halamanAwal($this) !== null;
+    }
+
+    /** Pesan untuk akun yang ditolak bolehMasuk(): nonaktif, atau role-nya belum diberi satu menu pun. */
+    public function alasanTidakBolehMasuk(): string
+    {
+        return $this->status !== 'aktif'
+            ? 'Akun ini sedang dinonaktifkan. Hubungi Super Admin.'
+            : 'Akun ini belum memiliki akses ke aplikasi. Hubungi Super Admin.';
     }
 
     /**

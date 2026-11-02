@@ -2,16 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Area;
-use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
-use App\Models\Rekening;
 use App\Models\Router;
 use App\Models\User;
 use App\Services\Mikrotik\IsolirService;
 use App\Services\Mikrotik\RouterOsException;
 use App\Support\IpPool;
+use App\Support\OpsiForm;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -32,9 +30,7 @@ class PelangganController extends Controller
     public function index(Request $request, ?string $status = null)
     {
         $f = $this->filters($request);
-        $cabangUser = $request->user()->id_lokasi;
-        // Pilihan milik cabang user, plus yang berlaku untuk semua cabang (tanpa cabang)
-        $cabangDanUmum = fn ($q) => $q->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $cabangUser));
+        $opsi = OpsiForm::untuk($request->user());
         $base = Pelanggan::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
 
         $periode = $this->periode($f);
@@ -100,19 +96,11 @@ class PelangganController extends Controller
             ],
             'periode' => $periode,
             'tahunBayar' => Pembayaran::tahunBayar(),
-            // Rekening cabang ini atau semua cabang (id_lokasi null)
-            'rekeningOptions' => Rekening::when($cabangUser, $cabangDanUmum)->orderBy('nama_rekening')->get()
-                ->map(fn (Rekening $r) => ['value' => (string) $r->id, 'label' => $r->label(), 'id_lokasi' => $r->id_lokasi]),
-            // id_lokasi dkk. dipakai form untuk menyaring pilihan sesuai cabang & jenis koneksi
-            'areaOptions' => Area::when($cabangUser, fn ($q) => $q->where('id_lokasi', $cabangUser))->orderBy('nama_area')->get()->map(fn ($a) => ['value' => $a->id, 'label' => $a->nama_area, 'id_lokasi' => $a->id_lokasi]),
-            'routerOptions' => Router::when($cabangUser, $cabangDanUmum)->orderBy('nama_router')->get()->map(fn ($r) => ['value' => $r->id, 'label' => $r->nama_router, 'id_lokasi' => $r->id_lokasi]),
-            'paketOptions' => Paket::when($cabangUser, fn ($q) => $q->where(fn ($q) => $q->where('filter_lokasi', false)->orWhere('id_lokasi', $cabangUser)))
-                ->orderBy('nama_paket')->get()->map(fn ($p) => [
-                    'value' => $p->id, 'label' => "{$p->nama_paket} ({$p->profile_mikrotik}) · Rp".number_format($p->harga, 0, ',', '.'),
-                    'id_lokasi' => $p->filter_lokasi ? $p->id_lokasi : null, 'jns_koneksi' => $p->jns_koneksi,
-                ]),
-            'salesOptions' => User::role('Sales')->where('status', 'aktif')->when($cabangUser, $cabangDanUmum)->orderBy('name')->get()
-                ->map(fn ($u) => ['value' => $u->id, 'label' => $u->name, 'id_lokasi' => $u->id_lokasi]),
+            'rekeningOptions' => $opsi['rekening'],
+            'areaOptions' => $opsi['area'],
+            'routerOptions' => $opsi['router'],
+            'paketOptions' => $opsi['paket'],
+            'salesOptions' => $opsi['sales'],
         ]);
     }
 
