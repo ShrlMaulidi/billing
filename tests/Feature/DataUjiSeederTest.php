@@ -29,7 +29,8 @@ class DataUjiSeederTest extends TestCase
     {
         $this->app['env'] = 'production';
 
-        $this->seed(DataUjiSeeder::class);
+        // Dipanggil langsung: lewat db:seed, mode production meminta konfirmasi interaktif
+        $this->app->make(DataUjiSeeder::class)->run();
 
         $this->assertDatabaseCount('lokasi', 0);
     }

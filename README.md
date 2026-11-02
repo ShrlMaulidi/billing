@@ -128,7 +128,7 @@ git commit -m "feat: deskripsi singkat"
 git push origin feature/nama-fitur      # buka PR ke staging di GitHub
 ```
 
-> Branch `staging` dan CI GitHub Actions belum dibuat di repo ini. Lihat bagian "Status penerapan" di dokumen SOP.
+> CI GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) menjalankan Pint, build, dan test di setiap PR. Branch `staging`, branch protection, dan auto-deploy belum disiapkan. Lihat bagian "Status penerapan" di dokumen SOP.
 
 ## Menjalankan Test
 
