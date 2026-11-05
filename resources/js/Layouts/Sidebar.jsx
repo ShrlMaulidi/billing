@@ -5,7 +5,9 @@ import { menuUntuk } from '../lib/menu';
 import { useBisa } from '../lib/ui';
 import Icon from '../Components/Icon';
 
-const NAV_PREFETCH = ['mount', 'hover'];
+// Data halaman diambil saat kursor berhenti di menu, bukan saat sidebar tampil: prefetch 'mount' meminta data ±30 halaman
+// sekaligus setiap website dibuka sehingga server sibuk dan klik/filter pengguna harus antre
+const NAV_PREFETCH = 'hover';
 
 export default function Sidebar({ closed, onToggle }) {
     const { url, props } = usePage();

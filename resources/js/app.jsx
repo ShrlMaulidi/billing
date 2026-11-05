@@ -24,7 +24,8 @@ createInertiaApp({
     defaults: {
         // Data jarang berubah: anggap segar 1 menit, lalu tetap ditampilkan
         // instan sambil diperbarui di belakang hingga 10 menit
-        prefetch: { cacheFor: ['1m', '10m'], hoverDelay: 50 },
+        // hoverDelay: kursor yang hanya melintas di sidebar tidak memicu permintaan ke server
+        prefetch: { cacheFor: ['1m', '10m'], hoverDelay: 150 },
     },
     progress: { color: '#7366ff', delay: 400 },
 });
