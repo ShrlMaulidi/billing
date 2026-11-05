@@ -2,7 +2,7 @@
 
 Branch: `perf/audit-optimasi` (dibuat dari `main` commit `4974538`)
 Tanggal audit: 6 November 2026
-Status: **Tahap 3 selesai — menunggu persetujuan sebelum perbaikan kode (Tahap 4).**
+Status: **Tahap 5 selesai.** Perbaikan ada di branch ini, belum di-merge ke `main` dan belum di-deploy. Hasil ada di bagian 5–8.
 
 ## 1. Ringkasan
 
@@ -135,3 +135,130 @@ Diurutkan dari dampak terbesar dengan risiko terkecil. Satu baris = satu commit.
 | — | P06 (b)(c), P08 (subset CSS) | **Perlu persetujuan terpisah** (mengubah perilaku atau berisiko tinggi) |
 
 Catatan: implementasi awal untuk P01, P02, P03(a), P05, dan P07 sudah dibuat di sesi sebelumnya dan disimpan di `git stash` ("WIP sebelum audit…"), bersama perubahan tampilan mobile Laporan yang bukan bagian dari audit performa. Saat Tahap 4, bagian performanya akan diterapkan ulang per temuan dengan commit terpisah. Migration indeks di stash **sudah pernah dijalankan di database lokal** pada sesi sebelumnya; nama filenya akan dipertahankan agar status migration lokal tetap konsisten.
+
+## 5. Perbaikan yang selesai (Tahap 4)
+
+Satu temuan atau satu kelompok kecil per commit. Test dan build dijalankan setelah setiap perubahan penting; semua lulus.
+
+| Commit | Temuan | Perubahan |
+|---|---|---|
+| `792001c` | P01 | Prefetch sidebar hanya saat hover, `hoverDelay` 150 ms |
+| `2aec41c` | P05 | SQLite: `journal_mode=wal`, `busy_timeout=5000`, `synchronous=normal` (bisa diubah lewat env). Diverifikasi di file SQLite sementara: `wal / 5000 / 1` |
+| `17c1bd3` | P02 | Prop laporan jadi closure + memo; tampilan perbandingan lokasi Shafa.net tidak mengirim daftar pelanggan |
+| `e0c78a1` | P03 (a)(b) | Opsi `hitungPelanggan` di `RekapCabang::hitung()`; saldo, saldo tersedia, persetujuan penarikan, dan laporan mitra tidak menghitung pelanggan; `saldo` Penarikan Saldo jadi deferred |
+| `8a4ff48` | P07 | Migration indeks `pelanggan(id_lokasi, status)`, `pelanggan(id_paket)`, `pembayaran(paid_at)` — **belum dijalankan di server** |
+| `9a53724` | P09 | Preload chunk halaman hanya untuk user yang login |
+| `de98e89` | P11 | `fetchpriority="high"` pada gambar hero |
+| `7295611` | P06 (a) | `toBaris()` tidak mengirim relasi `lokasi`/`area` dan timestamp; relasi `router` tetap karena dipakai halaman Pelanggan |
+| `7670e06` | P04 (Dashboard) | Pemasukan bulanan dijumlahkan di database (`SUM … GROUP BY SUBSTR(paid_at, 1, 7)`); hasil dibandingkan dengan cara lama di MySQL lokal: sama |
+| `2f294db` | P12 | Empat hitungan tab pelanggan menjadi satu query |
+| `dc18305` | P13 | `PajakCabang::berlakuPerPeriode()`: tarif semua bulan dalam satu query |
+| `2b7607f` | P10 | 13 logo diperkecil ke 2× ukuran tampil (1.040 KB → 159 KB, transparansi tetap); 5 gambar tak terpakai dihapus |
+| `95ad8dc` | P15, P08 (cache) | Template Nginx: `gzip_vary`, `gzip_proxied`, kompresi font, cache 1 tahun `immutable` untuk `/cuba/css/` |
+| `2162a1f` | P03 (c), P04 (rekap) | `RekapCabang::hitungPerPeriode()`: tarif, pembayaran, penarikan, setoran masing-masing 1 query untuk semua bulan; pembayaran dijumlahkan di database. Keluaran identik dengan kode lama (dibandingkan di MySQL lokal; test baru `RekapCabangTest` juga lulus terhadap kode lama) |
+
+Test baru: `RekapCabangTest` (saldo multi-bulan dihitung manual), `DashboardTest::test_monthly_income_chart_sums_payments_per_paid_month_within_twelve_months`, `LaporanTest::test_shafa_net_yearly_tax_follows_the_tariff_in_effect_each_month`, `PelangganTest::test_customer_rows_keep_router_for_the_page_but_drop_unused_relations`.
+
+## 6. Perbandingan sebelum dan sesudah (Tahap 5)
+
+Cara ukur sama dengan bagian 2. Hanya angka hasil pengukuran.
+
+### 6.1 Beban saat website dibuka
+
+| | Sebelum | Sesudah |
+|---|---|---|
+| Permintaan prefetch otomatis dari sidebar | 34 | **0** (hanya saat kursor berhenti di menu) |
+| Query yang dipicu | 394 | **0** |
+| Data JSON yang diunduh | ±224 KB | **0** |
+
+### 6.2 Halaman yang berubah
+
+| Halaman | Query sebelum → sesudah | Waktu ms sebelum → sesudah | Data KB sebelum → sesudah |
+|---|---|---|---|
+| `/transaksi/penarikan-saldo` | 66 → **5** | 101 → 9 | 2,2 → 0,9 |
+| ↳ deferred `saldo` (baru) | — → 9 | — → 19 | — → 1,5 |
+| ↳ deferred `kewajiban` (Pembayaran Masuk) | 185 → **14** | 250 → 32 | 3,9 → 3,9 |
+| `/laporan` (bulanan) | 18 → 17 | 39 → 35 | 10,6 → 10,6 |
+| ↳ deferred `tren` | 98 → **16** | 143 → 36 | 0,7 → 0,7 |
+| `/laporan?mode=tahunan` | 78 → **17** | 125 → 57 | 16,7 → 16,7 |
+| ↳ deferred `tren` | 152 → **16** | 266 → 41 | 0,7 → 0,7 |
+| `/laporan/mitra` | 9 → 8 | 22 → 17 | 2,5 → 2,5 |
+| `/laporan/shafa-net` | 9 → 9 | 25 → 22 | 6,4 → **2,0** |
+| `/laporan/shafa-net?mode=tahunan` | 19 → **9** | 41 → 25 | 9,2 → **2,1** |
+| `/pelanggan` | 23 → 20 | 55 → 49 | 32,1 → 27,9 |
+| `/pelanggan/lunas` | 21 → 18 | 39 → 43 | 20,3 → 17,8 |
+| `/pelanggan/belum-lunas` | 23 → 20 | 41 → 40 | 13,3 → 11,7 |
+| Halaman pelanggan lain (on/off/berhenti/prorate) | 23 → 20 | 23–54 → 26–51 | turun 0,2–4,1 |
+| `/kelola-data/kartu-member` | 6 → 6 | 20 → 19 | 19,7 → 16,0 |
+| `/dashboard` | 12 → 12 | 19 → 11 | 1,3 → 1,3 |
+
+Halaman lain: jumlah query dan ukuran data tidak berubah. Variasi waktu ±8 ms pada respons di bawah ±20 ms adalah noise pengukuran lokal. `/laporan/pemerintah` tercatat 5 → 6 query karena satu query `update sessions` (penulisan session) yang tidak selalu terjadi; query laporannya sendiri tidak berubah.
+
+### 6.3 Bundle dan aset
+
+| | Sebelum | Sesudah |
+|---|---|---|
+| Total JS hasil build | 1.709,5 KB (gzip 478,1 KB) | 1.709,8 KB (gzip 478,3 KB) |
+| JS yang diunduh pengunjung landing setelah halaman tampil | seluruh 60 chunk halaman | hanya chunk halaman yang dibuka |
+| Logo landing yang diperkecil (13 file) | 1.040 KB | 159 KB |
+| Gambar tak terpakai di `public/images/landing` | 5 file | 0 |
+| Test | 241 lulus | 245 lulus (+4 test baru) |
+
+Ukuran bundle total praktis sama: tidak ada dependency yang ditambah atau dihapus; perubahan frontend hanya pada cara prefetch/preload.
+
+## 7. Belum dikerjakan dan alasannya
+
+| Temuan | Alasan |
+|---|---|
+| P06 (b) batasi riwayat pembayaran | Form pembayaran memakai rentang 5 tahun ke belakang (`Pembayaran::TAHUN_MUNDUR`), sedangkan data baru ada sejak Oktober 2026. Membatasi ke rentang itu tidak mengurangi data apa pun selama 5 tahun ke depan, tetapi menambah relasi baru untuk "pembayaran terakhir". Layak ditinjau ulang setelah data lebih dari 5 tahun. |
+| P06 (c) pagination daftar pelanggan di server | Mengubah fungsi: pencarian, pengurutan, ekspor, dan centang bayar massal saat ini bekerja di seluruh data di browser. Bertentangan dengan aturan audit "tanpa mengubah fungsi". Disarankan sebagai fitur terpisah bila jumlah pelanggan sudah ribuan. |
+| P08 subset CSS Cuba | Butuh alat tambahan (mis. PurgeCSS) atau pemangkasan manual 1,7 MB CSS; risiko tinggi tampilan rusak di halaman yang jarang dibuka. Bertentangan dengan aturan "tanpa dependency baru" dan "tanpa mengubah tampilan". Sudah dimitigasi dengan cache 1 tahun (P08 cache). |
+| P14 lazy load Hak Akses | Hanya satu role yang dimuat; eager load tetap 1 query. Tidak ada manfaat performa. |
+| P16 font | Mengubah font berarti mengubah tampilan. |
+| Konfigurasi server (OPcache, PHP-FPM, `LOG_LEVEL`, session/cache driver) | Tidak ada di repository dan server production tidak diakses. Lihat langkah deploy. |
+
+## 8. Langkah deploy
+
+Server `Billing-Mss` (Ubuntu, Nginx, PHP 8.4-FPM, SQLite, user `www-data`):
+
+1. **Gabungkan kode** sesuai SOP: push branch `perf/audit-optimasi`, buat PR ke `staging`, tunggu CI hijau, lalu PR `staging` → `main`.
+2. **Backup database sebelum deploy** (mode WAL belum aktif, jadi `cp` masih aman untuk deploy ini):
+   ```bash
+   cd /var/www/mss-billing
+   cp database/database.sqlite ~/backup-billing-$(date +%F-%H%M).sqlite
+   ```
+3. **Deploy:** `sudo bash deploy.sh`. Skrip ini menjalankan `migrate --force` (migration indeks `2026_11_05_172319_add_performance_indexes`), `HakAksesSeeder`, `optimize:clear` + `optimize` (cache config/route/view/event), mengatur pemilik file, dan reload PHP-FPM.
+   - Dampak migration: SQLite mengunci tabel `pelanggan` dan `pembayaran` selama indeks dibuat. Untuk puluhan ribu baris biasanya selesai dalam hitungan detik; jalankan di luar jam sibuk bila data sudah besar.
+   - Setelah deploy, koneksi pertama mengubah database ke mode WAL dan membuat file `database.sqlite-wal` dan `database.sqlite-shm` di folder `database/` (folder itu sudah diberi izin tulis oleh `deploy.sh`).
+4. **Backup berikutnya wajib memakai `sqlite3`** (data terbaru bisa masih di file `-wal`):
+   ```bash
+   sudo apt install sqlite3   # sekali saja
+   sqlite3 database/database.sqlite ".backup '$HOME/backup-billing-$(date +%F-%H%M).sqlite'"
+   ```
+5. **Nginx (opsional, disarankan):** salin perubahan `deploy/nginx.conf` (blok `gzip` dan `location ^~ /cuba/css/`) ke `/etc/nginx/sites-available/mss-billing`, lalu:
+   ```bash
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+6. **Cek OPcache:** `php-fpm8.4 -i | grep -E "^opcache.enable =>"` harus `On`.
+7. **Opsional di `.env` server** (keputusan Anda): `SESSION_DRIVER=file` dan `CACHE_STORE=file` mengurangi penulisan ke SQLite di setiap request (mengganti session driver membuat semua user perlu login ulang sekali); `LOG_LEVEL=warning`. Setelah mengubah `.env`, jalankan `php artisan optimize`.
+
+## 9. Halaman yang perlu diuji manual
+
+| Area | Yang dicek |
+|---|---|
+| Navigasi | Buka/refresh website: tampil cepat; pindah menu lewat sidebar tetap cepat (arahkan kursor sebentar sebelum klik) |
+| Laporan › Semua Laporan | Filter Bulanan/Tahunan, Tipe, Status; angka kartu; grafik tren dan donut muncul; tombol Rincian per Periode |
+| Laporan › Laporan Mitra | Kolom Saldo Mitra dan angka kewajiban sama dengan sebelum update |
+| Laporan › Laporan Shafa Net | Tabel perbandingan lokasi → klik lokasi → daftar pelanggan → Semua Lokasi |
+| Laporan › Korporat / Instansi Pemerintah | Status lunas/sebagian/belum dan periode belum lunas |
+| Transaksi › Penarikan Saldo | Buka form, pilih cabang dan periode: "Saldo Tersedia" muncul (sebentar animasi memuat); ajukan; setujui/tolak |
+| Transaksi › Pembayaran Masuk | Tambah tipe Mitra: "Sisa Kewajiban" muncul; tambah Korporat |
+| Dashboard | Kartu KPI dan grafik pemasukan 12 bulan; Dashboard Cabang dan detailnya (saldo mitra) |
+| Pelanggan (7 menu) | Daftar dan angka tab; tombol isolir/aktifkan (memakai router); input pembayaran (periode yang sudah lunas tetap ditandai); bayar massal; kwitansi |
+| Kelola Data › Kartu Member, Cabang / Lokasi | Data tampil lengkap |
+| Landing page | Logo Our Partner, Technology Partner, Our Client tajam dan ukurannya sama seperti sebelumnya; gambar hero |
+| Login sebagai Mitra | Dashboard (saldo), Laporan Mitra, Penarikan Saldo |
+
+## 10. Catatan stash
+
+`git stash` "WIP sebelum audit…" masih berisi perubahan **tampilan mobile Laporan** (bukan bagian audit performa) beserta versi lama perbaikan performa yang kini sudah masuk lewat commit di atas. Jangan `git stash pop` langsung di branch ini (akan bentrok di file yang sama); bagian tampilan mobile sebaiknya dipindah ke branch tersendiri.
