@@ -409,11 +409,6 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
 .lp-photo img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 70% center; display: block; }
 .lp-photo figcaption { margin-top: 12px; font-size: 13px; color: var(--muted); padding-left: 12px; border-left: 3px solid var(--gold); }
 
-.lp-products { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 3px solid var(--navy); }
-.lp-products article { padding: 30px 32px 10px 0; }
-.lp-products article + article { padding-left: 32px; border-left: 1px solid var(--line); }
-.lp-products h3 { font-family: Poppins, Rubik, sans-serif; font-weight: 800; font-size: 30px; }
-.lp-product-type { color: #b48a12 !important; font-weight: 600; font-size: 14px; margin: 4px 0 14px !important; }
 
 .lp-price { width: 100%; border-collapse: collapse; }
 .lp-price th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 1px !important; color: var(--muted); font-weight: 600; padding: 0 16px 12px 0; border-bottom: 2px solid var(--navy); }
@@ -438,10 +433,32 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
 .lp-logos-client li { gap: 12px; padding: 22px 14px; }
 .lp-logos-client img { height: 64px; max-width: 100%; object-fit: contain; }
 .lp-logos-client span { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+/* Pengganti logo klien yang filenya belum ada */
+.lp-logos-client .lp-klien-inisial { width: 64px; height: 64px; border-radius: 50%; background: var(--navy); color: var(--gold); display: flex; align-items: center; justify-content: center;
+    font-family: Poppins, Rubik, sans-serif; font-weight: 700; font-size: 20px; letter-spacing: 1px; line-height: 1; }
 .lp-partner-head { margin-top: 80px; }
 .lp-logos-partner { grid-template-columns: repeat(8, 1fr); }
 .lp-logos-partner li { padding: 16px 12px; height: 92px; }
 .lp-logos-partner img { max-height: 54px; max-width: 100%; object-fit: contain; }
+
+/* Our Partner: logo bergeser ke kiri tanpa henti; berhenti & membesar saat disentuh kursor */
+.lp-marquee { overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.lp-marquee-track { list-style: none; margin: 0; padding: 0; display: flex; width: max-content; animation: lp-geser 32s linear infinite; }
+.lp-marquee-track:hover { animation-play-state: paused; }
+/* Lebar kotak mengikuti logo (minimal 170px). Ukuran logo dihitung di komponen LogoPartner (luas setara logo Huawei);
+   batas di bawah hanya berlaku sebelum gambar selesai dimuat */
+.lp-marquee-track li { flex: 0 0 auto; min-width: 170px; height: 84px; padding: 14px 28px; display: flex; align-items: center; justify-content: center; }
+.lp-marquee-track img { max-height: 44px; max-width: 165px; object-fit: contain; transition: transform .25s ease; }
+.lp-partner-nama { max-width: 170px; font-family: Poppins, Rubik, sans-serif; font-weight: 700; font-size: 15px; line-height: 1.25; color: var(--navy); text-align: center; transition: transform .25s ease; }
+.lp-marquee-track li:hover img, .lp-marquee-track li:hover .lp-partner-nama { transform: scale(1.15); }
+@keyframes lp-geser { to { transform: translateX(-50%); } }
+@media (max-width: 575.98px) { .lp-marquee { --skala-logo: .8; } .lp-marquee-track li { min-width: 130px; height: 70px; padding: 10px 18px; } .lp-marquee-track img { max-height: 36px; max-width: 132px; } }
+@media (prefers-reduced-motion: reduce) {
+    .lp-marquee { -webkit-mask-image: none; mask-image: none; }
+    .lp-marquee-track { animation: none; width: auto; flex-wrap: wrap; justify-content: center; }
+    .lp-marquee-track li[aria-hidden] { display: none; }
+}
 
 /* Kontak & footer */
 .lp-contact { background: var(--navy); padding: 90px 0; border-top: 4px solid var(--gold); }
@@ -477,9 +494,6 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
     .lp-sec-head, .lp-about, .lp-vm, .lp-service-wrap, .lp-network-grid, .lp-contact-grid { grid-template-columns: 1fr; gap: 32px; }
     .lp-photo { position: static; }
     .lp-photo img { aspect-ratio: 16 / 9; }
-    .lp-products { grid-template-columns: 1fr; }
-    .lp-products article, .lp-products article + article { padding: 26px 0; border-left: 0; }
-    .lp-products article + article { border-top: 1px solid var(--line); }
 }
 @media (max-width: 575.98px) {
     .lp-wrap { padding: 0 18px; }
@@ -586,10 +600,6 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
     .lp-services h3 { font-size: 16px; }
     .lp-services p { font-size: 14px; }
     .lp-service-wrap { gap: 24px; }
-    .lp-products article, .lp-products article + article { padding: 22px 0; }
-    .lp-products h3 { font-size: 24px; }
-    .lp-product-type { margin-bottom: 8px !important; }
-    .lp-products p { font-size: 14.5px; }
     /* Tabel paket jadi kartu: nama | harga, kecepatan, lalu tautan */
     .lp-price tr { grid-template-columns: 1fr auto; column-gap: 12px; padding: 14px 0; }
     .lp-price td:nth-child(1) { grid-column: 1; grid-row: 1; }

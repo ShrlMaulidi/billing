@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
-/** Cabang / lokasi (database). Tarif pajak & bagi hasil diisi saat tambah cabang, lalu diatur per bulan di Pengaturan Pajak. */
+/**
+ * Cabang / lokasi (database) untuk pelanggan tipe Mitra Reseller & Retail / Shafa.net. Ditambahkan lewat menu Data Pelanggan;
+ * tarif pajak & bagi hasil diisi saat tambah cabang, lalu diatur per bulan di Pengaturan Pajak.
+ */
 class CabangController extends Controller
 {
     public function index(Request $request)
@@ -56,9 +59,9 @@ class CabangController extends Controller
     {
         $this->pastikanCabang($request, $lokasi->id);
         $data = $this->validated($request, $lokasi);
-        // Admin Full menentukan ke mana uang payment gateway masuk: hanya user semua cabang yang boleh mengubahnya
+        // Admin Full menentukan ke mana uang payment gateway masuk, tipe adalah klasifikasi pusat: hanya user semua cabang yang boleh mengubahnya
         if ($request->user()->id_lokasi !== null) {
-            unset($data['admin_full']);
+            unset($data['admin_full'], $data['tipe']);
         }
         $lokasi->update($data);
 
@@ -91,6 +94,8 @@ class CabangController extends Controller
     private function validated(Request $request, ?Lokasi $lokasi = null, bool $tarif = false): array
     {
         return $request->validate([
+            // Wajib saat tambah (dari menu Data Pelanggan); form edit lama boleh tidak mengirimnya
+            'tipe' => [$lokasi ? 'sometimes' : 'required', Rule::in(array_keys(Lokasi::TIPE))],
             'kode_lokasi' => ['required', 'string', 'max:20', Rule::unique('lokasi')->ignore($lokasi)],
             'nama_lokasi' => ['required', 'string', 'max:100'],
             'alamat_lokasi' => ['required', 'string', 'max:500'],
@@ -103,7 +108,7 @@ class CabangController extends Controller
             'status' => ['required', 'in:aktif,tidak_aktif'],
             ...($tarif ? PajakCabang::aturan($request->all()) : []),
         ], $this->pesanValidasi(), [
-            'kode_lokasi' => 'Kode lokasi', 'nama_lokasi' => 'Nama lokasi', 'alamat_lokasi' => 'Alamat', 'tlp_lokasi' => 'Tlp lokasi',
+            'tipe' => 'Tipe pelanggan', 'kode_lokasi' => 'Kode lokasi', 'nama_lokasi' => 'Nama lokasi', 'alamat_lokasi' => 'Alamat', 'tlp_lokasi' => 'Tlp lokasi',
             'tlp_owner' => 'Tlp owner', 'nama_mitra' => 'Mitra / pemilik', 'group_wa' => 'ID grup WA', 'admin_full' => 'Admin Full', 'status' => 'Status',
             ...PajakCabang::ATRIBUT,
         ]);

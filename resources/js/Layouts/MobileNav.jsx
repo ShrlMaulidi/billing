@@ -1,7 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ArrowDownCircle, ArrowUpCircle, Bell, Box, CheckCircle, Circle, CreditCard, Database, GitBranch, List, Map, MapPin, Menu, Percent, Server, Shield,
+    ArrowDownCircle, ArrowUpCircle, Bell, Box, CheckCircle, Circle, CreditCard, Database, FileText, GitBranch, List, Map, MapPin, Menu, Percent, Server, Shield,
     ShoppingBag, Slash, UploadCloud, UserCheck, Users, UserX, X, XCircle, Zap,
 } from 'react-feather';
 import { MENU, menuUntuk } from '../lib/menu';
@@ -21,7 +21,8 @@ const SHEET_ICON = {
     '/kelola-data/paket': Box, '/kelola-data/router': Server, '/kelola-data/rekening': Database, '/kelola-data/notifikasi': Bell,
     '/kelola-data/pph': UploadCloud, '/kelola-data/tunnel': GitBranch, '/transaksi/penarikan-saldo': ArrowUpCircle,
     '/transaksi/setor-kewajiban': ArrowDownCircle, '/transaksi/pengeluaran': ShoppingBag, '/payment-gateway': Zap, '/logs': List,
-    '/user/manajemen': Users, '/user/hak-akses': Shield,
+    '/user/manajemen': Users, '/user/hak-akses': Shield, '/data-pelanggan': Users,
+    '/laporan/mitra': FileText, '/laporan/pemerintah': FileText, '/laporan/korporat': FileText, '/laporan/shafa-net': FileText,
 };
 
 // Sisa menu sidebar (selain menu utama), dikelompokkan seperti di sidebar
@@ -29,15 +30,18 @@ const sectionsOf = (menu) => menu.flatMap((group) => {
     const singles = group.items.filter((i) => !i.children && !PRIMARY.some((p) => p.href === i.href));
     return [
         ...(singles.length ? [{ title: group.title, items: singles }] : []),
-        ...group.items.filter((i) => i.children && i.children.length).map((i) => ({ title: i.title, items: i.children })),
+        ...group.items.filter((i) => i.children)
+            .map((i) => ({ title: i.title, items: i.children.filter((c) => !PRIMARY.some((p) => p.href === c.href)) }))
+            .filter((s) => s.items.length),
     ];
 });
 
 export default function MobileNav() {
     const { url, props } = usePage();
     const bisa = useBisa();
-    const sections = useMemo(() => sectionsOf(menuUntuk(bisa)), [props.auth]); // eslint-disable-line react-hooks/exhaustive-deps
-    const allItems = MENU.flatMap((g) => g.items);
+    const sections = useMemo(() => sectionsOf(menuUntuk(bisa, !props.auth.user?.id_lokasi)), [props.auth]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Submenu ikut dicari (mis. Laporan › Semua Laporan di navbar bawah) dengan ikon induknya
+    const allItems = MENU.flatMap((g) => g.items.flatMap((i) => (i.children ? i.children.map((c) => ({ ...c, icon: i.icon })) : [i])));
     const primary = PRIMARY.filter((p) => bisa(allItems.find((i) => i.href === p.href)?.izin));
     const sheetHrefs = sections.flatMap((s) => s.items.map((i) => i.href));
     const path = url.split('?')[0];

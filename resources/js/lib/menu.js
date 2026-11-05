@@ -10,6 +10,7 @@ export const MENU = [
     {
         title: 'Data & Transaksi',
         items: [
+            { title: 'Data Pelanggan', icon: 'social', href: '/data-pelanggan', izin: 'data_pelanggan.view', pusat: true },
             {
                 title: 'Pelanggan', icon: 'contact', base: '/pelanggan',
                 children: [
@@ -42,7 +43,7 @@ export const MENU = [
                 title: 'Transaksi', icon: 'ecommerce', base: '/transaksi',
                 children: [
                     { title: 'Penarikan Saldo Mitra', href: '/transaksi/penarikan-saldo', izin: 'transaksi.penarikan.view' },
-                    { title: 'Setor Kewajiban Mitra', href: '/transaksi/setor-kewajiban', izin: 'transaksi.setor.view' },
+                    { title: 'Pembayaran Masuk', href: '/transaksi/setor-kewajiban', izin: 'transaksi.setor.view' },
                     { title: 'Pengeluaran', href: '/transaksi/pengeluaran', izin: 'transaksi.pengeluaran.view' },
                 ],
             },
@@ -51,7 +52,16 @@ export const MENU = [
     {
         title: 'Laporan & Sistem',
         items: [
-            { title: 'Laporan', icon: 'file', href: '/laporan', izin: 'laporan.view' },
+            {
+                title: 'Laporan', icon: 'file', base: '/laporan',
+                children: [
+                    { title: 'Semua Laporan', href: '/laporan', izin: 'laporan.view' },
+                    { title: 'Laporan Mitra', href: '/laporan/mitra', izin: 'laporan.mitra.view' },
+                    { title: 'Laporan Instansi Pemerintah', href: '/laporan/pemerintah', izin: 'laporan.pemerintah.view', pusat: true },
+                    { title: 'Laporan Korporat', href: '/laporan/korporat', izin: 'laporan.korporat.view', pusat: true },
+                    { title: 'Laporan Shafa Net', href: '/laporan/shafa-net', izin: 'laporan.shafanet.view' },
+                ],
+            },
             { title: 'Payment Gateway', icon: 'board', href: '/payment-gateway', izin: 'payment_gateway.view' },
             { title: 'Logs', icon: 'to-do', href: '/logs', izin: 'logs.view' },
             {
@@ -65,10 +75,14 @@ export const MENU = [
     },
 ];
 
-// Menu yang permission lihat-nya tidak dimiliki user disembunyikan; server tetap menolak aksesnya
-export const menuUntuk = (bisa) => MENU.map((group) => ({
-    ...group,
-    items: group.items
-        .map((item) => (item.children ? { ...item, children: item.children.filter((c) => bisa(c.izin)) } : item))
-        .filter((item) => (item.children ? item.children.length > 0 : bisa(item.izin))),
-})).filter((group) => group.items.length > 0);
+// Menu yang permission lihat-nya tidak dimiliki user disembunyikan; server tetap menolak aksesnya.
+// pusat: true = menu khusus user semua cabang (route di grup semua_cabang), disembunyikan untuk user cabang.
+export const menuUntuk = (bisa, pusat = true) => {
+    const boleh = (m) => bisa(m.izin) && (pusat || !m.pusat);
+    return MENU.map((group) => ({
+        ...group,
+        items: group.items
+            .map((item) => (item.children ? { ...item, children: item.children.filter(boleh) } : item))
+            .filter((item) => (item.children ? item.children.length > 0 : boleh(item))),
+    })).filter((group) => group.items.length > 0);
+};

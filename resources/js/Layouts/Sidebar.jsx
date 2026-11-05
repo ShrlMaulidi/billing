@@ -10,7 +10,7 @@ const NAV_PREFETCH = ['mount', 'hover'];
 export default function Sidebar({ closed, onToggle }) {
     const { url, props } = usePage();
     const bisa = useBisa();
-    const menu = useMemo(() => menuUntuk(bisa), [props.auth]); // eslint-disable-line react-hooks/exhaustive-deps
+    const menu = useMemo(() => menuUntuk(bisa, !props.auth.user?.id_lokasi), [props.auth]); // eslint-disable-line react-hooks/exhaustive-deps
     const path = url.split('?')[0];
     const isActive = (href) => path === href || path.startsWith(`${href}/`);
     const groupOf = (p) => menu.flatMap((g) => g.items).find((i) => i.base && p.startsWith(i.base))?.title;

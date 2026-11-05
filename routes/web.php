@@ -5,10 +5,12 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CabangController;
 use App\Http\Controllers\CekTagihanController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DataPelangganController;
 use App\Http\Controllers\HakAksesController;
 use App\Http\Controllers\IsolirController;
 use App\Http\Controllers\KelolaDataController;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\PajakController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PelangganController;
@@ -59,11 +61,11 @@ Route::middleware('auth')->group(function () {
     // Pengaturan pajak per cabang per bulan; mengubah tarif & bagi hasil hanya untuk user semua cabang (lihat grup semua_cabang)
     Route::get('/kelola-data/pajak', [PajakController::class, 'index'])->middleware('permission:kelola_data.pajak.view')->name('kelola-data.pajak');
 
-    // Cabang & area (database)
+    // Cabang & area (database). Cabang (Mitra Reseller / Retail) ditambahkan lewat menu Data Pelanggan, dan bisa diubah/dihapus dari kedua menu
     Route::get('/kelola-data/cabang', [CabangController::class, 'index'])->middleware('permission:kelola_data.cabang.view')->name('kelola-data.cabang');
-    Route::post('/cabang', [CabangController::class, 'store'])->middleware('permission:kelola_data.cabang.create')->name('cabang.store');
-    Route::put('/cabang/{lokasi}', [CabangController::class, 'update'])->middleware('permission:kelola_data.cabang.update')->name('cabang.update');
-    Route::delete('/cabang/{lokasi}', [CabangController::class, 'destroy'])->middleware('permission:kelola_data.cabang.delete')->name('cabang.destroy');
+    Route::post('/cabang', [CabangController::class, 'store'])->middleware('permission:data_pelanggan.create')->name('cabang.store');
+    Route::put('/cabang/{lokasi}', [CabangController::class, 'update'])->middleware('permission:kelola_data.cabang.update|data_pelanggan.update')->name('cabang.update');
+    Route::delete('/cabang/{lokasi}', [CabangController::class, 'destroy'])->middleware('permission:kelola_data.cabang.delete|data_pelanggan.delete')->name('cabang.destroy');
     Route::get('/kelola-data/area', [AreaController::class, 'index'])->middleware('permission:kelola_data.area.view')->name('kelola-data.area');
     Route::post('/area', [AreaController::class, 'store'])->middleware('permission:kelola_data.area.create')->name('area.store');
     Route::put('/area/{area}', [AreaController::class, 'update'])->middleware('permission:kelola_data.area.update')->name('area.update');
@@ -122,8 +124,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/pengeluaran', 'pengeluaran')->middleware('permission:transaksi.pengeluaran.view')->name('pengeluaran');
     });
 
+    // Laporan per tipe pelanggan; korporat & instansi pemerintah ada di grup semua_cabang
+    Route::prefix('laporan')->controller(LaporanController::class)->group(function () {
+        Route::get('/', 'semua')->middleware('permission:laporan.view')->name('laporan');
+        Route::get('/mitra', 'mitra')->middleware('permission:laporan.mitra.view')->name('laporan.mitra');
+        Route::get('/shafa-net', 'shafanet')->middleware('permission:laporan.shafanet.view')->name('laporan.shafanet');
+    });
+
     Route::controller(SistemController::class)->group(function () {
-        Route::get('/laporan', 'laporan')->middleware('permission:laporan.view')->name('laporan');
         Route::get('/payment-gateway', 'paymentGateway')->middleware('permission:payment_gateway.view')->name('payment-gateway');
         Route::get('/payment-gateway/{id}/channel', 'pgChannel')->middleware('permission:payment_gateway.view')->name('payment-gateway.channel');
         Route::get('/logs', 'logs')->middleware('permission:logs.view')->name('logs');
@@ -140,9 +148,25 @@ Route::middleware('auth')->group(function () {
 
     // Menu global (tidak terikat cabang): hanya untuk user semua cabang
     Route::middleware('semua_cabang')->group(function () {
-        // Setoran mitra hanya diinput / dibatalkan user pusat; mitra hanya melihat setoran cabangnya
+        Route::get('/laporan/korporat', [LaporanController::class, 'korporat'])->middleware('permission:laporan.korporat.view')->name('laporan.korporat');
+        Route::get('/laporan/pemerintah', [LaporanController::class, 'pemerintah'])->middleware('permission:laporan.pemerintah.view')->name('laporan.pemerintah');
+
+        // Data Pelanggan semua tipe; korporat & instansi pemerintah memuat NIK dan dokumen identitas
+        Route::prefix('data-pelanggan')->name('data-pelanggan.')->controller(DataPelangganController::class)->group(function () {
+            Route::get('/', 'index')->middleware('permission:data_pelanggan.view')->name('index');
+            Route::post('/instansi', 'store')->middleware('permission:data_pelanggan.create')->name('instansi.store');
+            // Multipart (upload dokumen): dikirim sebagai POST dengan _method=PUT
+            Route::put('/instansi/{instansi}', 'update')->middleware('permission:data_pelanggan.update')->name('instansi.update');
+            Route::delete('/instansi/{instansi}', 'destroy')->middleware('permission:data_pelanggan.delete')->name('instansi.destroy');
+            Route::get('/instansi/{instansi}/dokumen/{jenis}', 'dokumen')->whereIn('jenis', ['ktp', 'npwp'])->middleware('permission:data_pelanggan.view')->name('instansi.dokumen');
+        });
+
+        // Pembayaran Masuk (setoran mitra) hanya diinput / dibatalkan user pusat; mitra hanya melihat setoran cabangnya
         Route::post('/transaksi/setor-kewajiban', [TransaksiController::class, 'simpanSetoran'])->middleware('permission:transaksi.setor.create')->name('transaksi.setor.store');
         Route::delete('/transaksi/setor-kewajiban/{setoran}', [TransaksiController::class, 'hapusSetoran'])->middleware('permission:transaksi.setor.delete')->name('transaksi.setor.destroy');
+        // Pembayaran Masuk dari korporat & instansi pemerintah (menu yang sama dengan setoran mitra)
+        Route::post('/transaksi/setor-kewajiban/instansi', [TransaksiController::class, 'simpanPembayaranInstansi'])->middleware('permission:transaksi.setor.create')->name('transaksi.setor.instansi.store');
+        Route::delete('/transaksi/setor-kewajiban/instansi/{pembayaran}', [TransaksiController::class, 'hapusPembayaranInstansi'])->middleware('permission:transaksi.setor.delete')->name('transaksi.setor.instansi.destroy');
 
         // Persetujuan penarikan saldo: user cabang (mitra) tidak boleh menyetujui penarikannya sendiri
         Route::prefix('transaksi/penarikan-saldo/{penarikan}')->name('transaksi.penarikan.')->controller(TransaksiController::class)

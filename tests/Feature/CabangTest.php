@@ -106,6 +106,27 @@ class CabangTest extends TestCase
         $this->assertSame(['MSS Garut Kota', false], [$garut->fresh()->nama_lokasi, $garut->fresh()->admin_full]);
     }
 
+    public function test_store_requires_a_valid_customer_type_and_saves_retail_branches(): void
+    {
+        $this->postJson('/cabang', $this->data(['tipe' => null]))->assertStatus(422)->assertJsonValidationErrors(['tipe' => 'Tipe pelanggan wajib diisi']);
+        $this->postJson('/cabang', $this->data(['tipe' => 'korporat']))->assertStatus(422)->assertJsonValidationErrors(['tipe' => 'Tipe pelanggan tidak valid']);
+        $this->assertDatabaseCount('lokasi', 0);
+
+        $this->postJson('/cabang', $this->data(['tipe' => 'retail', 'nama_lokasi' => 'Shafa.net']))->assertOk();
+
+        $this->assertSame('retail', Lokasi::sole()->tipe);
+    }
+
+    public function test_branch_user_cannot_change_own_branch_type(): void
+    {
+        $garut = Lokasi::create(['tipe' => 'reseller', 'kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $this->actingAs(User::factory()->peran('Admin')->create(['id_lokasi' => $garut->id]));
+
+        $this->putJson("/cabang/{$garut->id}", $this->data(['tipe' => 'retail', 'nama_lokasi' => 'MSS Garut Kota']))->assertOk();
+
+        $this->assertSame(['MSS Garut Kota', 'reseller'], [$garut->fresh()->nama_lokasi, $garut->fresh()->tipe]);
+    }
+
     public function test_update_keeps_own_code(): void
     {
         $lokasi = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
@@ -134,7 +155,7 @@ class CabangTest extends TestCase
     private function data(array $override = []): array
     {
         return [
-            'kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut', 'alamat_lokasi' => 'Jl. Ciledug 10', 'tlp_lokasi' => '0262123456',
+            'tipe' => 'reseller', 'kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut', 'alamat_lokasi' => 'Jl. Ciledug 10', 'tlp_lokasi' => '0262123456',
             'status' => 'aktif', 'terima_cash' => false,
             'ppn_persen' => 11, 'pph_persen' => 0.5, 'bhp_persen' => 0, 'uso_persen' => 0, 'admin_fee_tipe' => 'nominal', 'admin_fee' => 2500,
             'metode_bagi_hasil' => 'persentase', 'nilai_bagi_hasil' => 20, ...$override,

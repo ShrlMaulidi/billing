@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Lokasi;
+use App\Models\PelangganInstansi;
+use App\Models\PembayaranInstansi;
 use App\Models\PenarikanSaldo;
 use App\Models\Rekening;
 use App\Models\SetoranMitra;
 use App\Support\RekapCabang;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -28,6 +31,12 @@ class TransaksiController extends Controller
 {
     /** Jumlah bulan terakhir (termasuk bulan berjalan) yang bisa dipilih untuk penarikan & setoran. */
     private const BULAN_TRANSAKSI = 12;
+
+    /** Pilihan periode Pembayaran Masuk mundur sampai Januari sekian tahun lalu. */
+    private const TAHUN_PEMBAYARAN_MASUK = 2;
+
+    /** @var array<string, string> Tipe di Pembayaran Masuk (urutan pilihan form): reseller & retail = cabang, korporat & pemerintah = instansi */
+    private const TIPE_PEMBAYARAN = ['reseller' => 'Mitra Reseller', 'pemerintah' => 'Instansi Pemerintah', 'korporat' => 'Korporat', 'retail' => 'Shafa.net'];
 
     public function penarikan(Request $request)
     {
@@ -170,33 +179,118 @@ class TransaksiController extends Controller
         return Storage::disk('local')->response($penarikan->bukti_transfer, null, ['X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store']);
     }
 
-    /** Daftar setoran mitra per periode kewajiban; user cabang (mitra) hanya melihat setoran cabangnya. */
+    /**
+     * Pembayaran Masuk: setoran Mitra Reseller & Shafa.net (menambah saldo cabang) digabung dengan pembayaran
+     * Korporat & Instansi Pemerintah. User cabang (mitra) hanya melihat setoran cabangnya; pembayaran instansi khusus user pusat.
+     */
     public function setor(Request $request)
     {
-        $f = $this->filters($request) + ['semua' => $request->boolean('semua')];
+        $pusat = $request->user()->id_lokasi === null;
+        $f = $this->filters($request) + [
+            'semua' => $request->boolean('semua'),
+            'tipe' => array_key_exists((string) $request->input('tipe'), self::TIPE_PEMBAYARAN) ? $request->input('tipe') : null,
+        ];
+        $periode = $this->periode($f);
         $lokasi = Lokasi::when($request->user()->id_lokasi, fn ($q, $id) => $q->whereKey($id))->orderBy('nama_lokasi')->get();
 
-        return Inertia::render('Transaksi/Setor', [
-            'filters' => $f,
-            'rows' => SetoranMitra::with(['lokasi:id,nama_lokasi,nama_mitra', 'rekening', 'petugas:id,name'])
+        $setoran = $f['tipe'] === null || isset(Lokasi::TIPE[$f['tipe']])
+            ? SetoranMitra::with(['lokasi:id,tipe,nama_lokasi,nama_mitra', 'rekening', 'petugas:id,name'])
                 ->when($f['cabang'], fn ($q, $id) => $q->where('id_lokasi', $id))
-                ->unless($f['semua'], fn ($q) => $q->where('periode', $this->periode($f)))
+                ->when($f['tipe'], fn ($q, $tipe) => $q->whereRelation('lokasi', 'tipe', $tipe))
+                ->unless($f['semua'], fn ($q) => $q->where('periode', $periode))
                 ->latest()->get()
                 ->map(fn (SetoranMitra $s) => [
                     ...$s->only(['id', 'id_lokasi', 'periode', 'nominal', 'metode', 'keterangan', 'created_at']),
-                    'cabang' => $s->lokasi?->nama_lokasi ?? '-',
+                    'key' => "setoran-{$s->id}", 'sumber' => 'setoran', 'tipe' => $s->lokasi?->tipe,
+                    'nama' => $s->lokasi?->nama_lokasi ?? '-',
                     'nama_mitra' => $s->lokasi?->nama_mitra,
+                    'ppn' => null, 'total' => $s->nominal,
                     'rekening' => $s->rekening?->label(),
                     'ada_bukti' => (bool) $s->bukti_setor,
                     'petugas' => $s->petugas?->name ?? '-',
-                ]),
-            // Kewajiban = saldo minus (uang perusahaan yang masih dipegang mitra), 0 bila saldo tidak minus
-            'kewajiban' => (object) collect(RekapCabang::saldo($lokasi, $this->periodeTerakhir()))
-                ->map(fn (array $perPeriode) => array_map(fn (int $saldo) => max(0, -$saldo), $perPeriode))->all(),
-            'periodeOptions' => $this->periodeTerakhir(),
+                ])
+            : collect();
+
+        // Pembayaran instansi tidak terikat cabang: tidak tampil saat filter cabang dipakai
+        $instansi = $pusat && ! $f['cabang'] && ($f['tipe'] === null || isset(PelangganInstansi::TIPE[$f['tipe']]))
+            ? PembayaranInstansi::with(['pelanggan:id,tipe,nama', 'petugas:id,name'])
+                ->when($f['tipe'], fn ($q, $tipe) => $q->whereRelation('pelanggan', 'tipe', $tipe))
+                ->unless($f['semua'], fn ($q) => $q->where('periode', $periode))
+                ->latest()->get()
+                ->map(fn (PembayaranInstansi $p) => [
+                    ...$p->only(['id', 'periode', 'nominal', 'ppn_persen', 'ppn', 'total', 'created_at']),
+                    'key' => "instansi-{$p->id}", 'sumber' => 'instansi', 'tipe' => $p->pelanggan->tipe, 'nama' => $p->pelanggan->nama,
+                    'nama_mitra' => null, 'metode' => null, 'rekening' => null, 'keterangan' => null, 'ada_bukti' => false,
+                    'petugas' => $p->petugas?->name ?? '-',
+                ])
+            : collect();
+
+        return Inertia::render('Transaksi/Setor', [
+            'filters' => $f,
+            'rows' => $setoran->concat($instansi)->sortByDesc('created_at')->values(),
+            // Kewajiban = saldo minus (uang perusahaan yang masih dipegang mitra), 0 bila saldo tidak minus.
+            // Dihitung per cabang × periode (puluhan bulan), jadi dimuat setelah halaman tampil
+            'kewajiban' => Inertia::defer(fn () => (object) collect(RekapCabang::saldo($lokasi, $this->periodePembayaranMasuk(bayarDiMuka: false)))
+                ->map(fn (array $perPeriode) => array_map(fn (int $saldo) => max(0, -$saldo), $perPeriode))->all()),
+            'periodeOptions' => [
+                'cabang' => $this->periodePembayaranMasuk(bayarDiMuka: false),
+                'instansi' => $this->periodePembayaranMasuk(bayarDiMuka: true),
+            ],
+            'periodeSekarang' => today()->format('Y-m-01'),
+            'ppnBawaan' => PembayaranInstansi::PPN_BAWAAN,
             'rekeningOptions' => Rekening::whereNull('id_lokasi')->orderBy('nama_rekening')->get()
                 ->map(fn (Rekening $r) => ['value' => (string) $r->id, 'label' => $r->label()])->prepend(['value' => 'cash', 'label' => 'Cash (diterima di kantor pusat)']),
+            'tipeOptions' => collect(self::TIPE_PEMBAYARAN)->map(fn ($label, $value) => compact('value', 'label'))->values(),
+            // Pilihan nama per tipe untuk form tambah (hanya user pusat yang boleh menambah)
+            'namaOptions' => (object) ($pusat ? $this->namaOptions() : []),
         ]);
+    }
+
+    /** Pembayaran korporat / instansi pemerintah; PPN & total dihitung di server dari nominal × PPN %. */
+    public function simpanPembayaranInstansi(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tipe' => ['required', Rule::in(array_keys(PelangganInstansi::TIPE))],
+            'pelanggan_instansi_id' => ['required', 'integer', Rule::exists('pelanggan_instansi', 'id')->where('tipe', $request->input('tipe'))],
+            'nominal' => ['required', 'integer', 'min:1', 'max:4000000000'],
+            'ppn_persen' => ['required', 'numeric', 'between:0,100'],
+            'periode' => ['required', Rule::in($this->periodePembayaranMasuk(bayarDiMuka: true))],
+        ], $this->pesanValidasi(), [
+            'tipe' => 'Tipe pelanggan', 'pelanggan_instansi_id' => 'Nama pelanggan', 'nominal' => 'Nominal pembayaran', 'ppn_persen' => 'PPN', 'periode' => 'Periode',
+        ]);
+
+        $ppn = (int) round($data['nominal'] * $data['ppn_persen'] / 100);
+        $pembayaran = PembayaranInstansi::create([
+            ...collect($data)->except('tipe')->all(),
+            'ppn' => $ppn,
+            'total' => $data['nominal'] + $ppn,
+            'user_id' => $request->user()->id,
+        ]);
+        Log::info('Pembayaran instansi dicatat', ['pembayaran_instansi_id' => $pembayaran->id, 'total' => $pembayaran->total, 'oleh' => $request->user()->id]);
+
+        return response()->json(['message' => 'Pembayaran '.$pembayaran->pelanggan->nama.' Rp'.number_format($pembayaran->total, 0, ',', '.').' dicatat']);
+    }
+
+    /** Batalkan pembayaran korporat / instansi yang salah input. */
+    public function hapusPembayaranInstansi(Request $request, PembayaranInstansi $pembayaran): JsonResponse
+    {
+        $pembayaran->delete();
+        Log::warning('Pembayaran instansi dibatalkan', ['pembayaran_instansi_id' => $pembayaran->id, 'total' => $pembayaran->total, 'oleh' => $request->user()->id]);
+
+        return response()->json(['message' => 'Pembayaran '.$pembayaran->pelanggan->nama.' Rp'.number_format($pembayaran->total, 0, ',', '.').' dibatalkan']);
+    }
+
+    /** @return array<string, list<array{value: int, label: string, harga?: int}>> tipe => pilihan nama */
+    private function namaOptions(): array
+    {
+        $cabang = Lokasi::orderBy('nama_lokasi')->get(['id', 'tipe', 'nama_lokasi'])->groupBy('tipe');
+        $instansi = PelangganInstansi::orderBy('nama')->get(['id', 'tipe', 'nama', 'harga', 'status'])->groupBy('tipe');
+
+        return collect(self::TIPE_PEMBAYARAN)->map(fn ($label, string $tipe) => isset(Lokasi::TIPE[$tipe])
+            ? $cabang->get($tipe, collect())->map(fn (Lokasi $l) => ['value' => $l->id, 'label' => $l->nama_lokasi])->values()->all()
+            : $instansi->get($tipe, collect())->map(fn (PelangganInstansi $p) => [
+                'value' => $p->id, 'label' => $p->nama.($p->status === 'berhenti' ? ' (Berhenti)' : ''), 'harga' => $p->harga,
+            ])->values()->all())->all();
     }
 
     /** Input setoran mitra oleh user pusat: langsung menambah saldo mitra pada periode kewajibannya. */
@@ -205,7 +299,7 @@ class TransaksiController extends Controller
         $rekeningPusat = Rekening::whereNull('id_lokasi')->pluck('id')->map(fn ($id) => (string) $id)->prepend('cash')->all();
         $data = $request->validate([
             'id_lokasi' => ['required', 'integer', 'exists:lokasi,id'],
-            'periode' => ['required', Rule::in($this->periodeTerakhir())],
+            'periode' => ['required', Rule::in($this->periodePembayaranMasuk(bayarDiMuka: false))],
             'nominal' => ['required', 'integer', 'min:1', 'max:4000000000'],
             'metode' => ['required', 'string', Rule::in($rekeningPusat)],
             'bukti_setor' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
@@ -268,7 +362,21 @@ class TransaksiController extends Controller
         ]);
     }
 
-    /** @return list<string> Y-m-01 bulan yang bisa dipilih untuk penarikan & setoran, terbaru dulu */
+    /**
+     * Periode Pembayaran Masuk, dari Januari TAHUN_PEMBAYARAN_MASUK tahun lalu. Setoran Mitra / Shafa.net sampai bulan berjalan
+     * (kewajibannya baru ada setelah bulannya berjalan); korporat & instansi bisa bayar di muka sampai Desember tahun depan.
+     *
+     * @return list<string> Y-m-01, terlama dulu
+     */
+    private function periodePembayaranMasuk(bool $bayarDiMuka): array
+    {
+        $awal = today()->startOfYear()->subYears(self::TAHUN_PEMBAYARAN_MASUK);
+        $akhir = $bayarDiMuka ? today()->addYear()->endOfYear()->startOfMonth() : today()->startOfMonth();
+
+        return array_map(fn (Carbon $bulan) => $bulan->format('Y-m-d'), CarbonPeriod::create($awal, '1 month', $akhir)->toArray());
+    }
+
+    /** @return list<string> Y-m-01 bulan yang bisa dipilih untuk penarikan saldo, terbaru dulu */
     private function periodeTerakhir(): array
     {
         return array_map(fn (int $i) => today()->startOfMonth()->subMonths($i)->format('Y-m-d'), range(0, self::BULAN_TRANSAKSI - 1));

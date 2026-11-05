@@ -9,7 +9,7 @@ const STATUS_COLOR = {
     aktif: 'success', tidak_aktif: 'danger', nonaktif: 'danger', on: 'success', off: 'warning', berhenti: 'dark',
     lunas: 'success', belum_lunas: 'danger', sebagian: 'warning', pending: 'warning', menunggu_verifikasi: 'warning',
     disetujui: 'success', diterima: 'success', dibayar: 'primary', ditolak: 'danger', online: 'success', offline: 'danger',
-    connected: 'success', disconnected: 'danger', true: 'success', false: 'secondary',
+    connected: 'success', disconnected: 'danger', true: 'success', false: 'secondary', berlangganan: 'success',
 };
 const STATUS_TEXT = { true: 'Ya', false: 'Tidak', connected: 'Terhubung', disconnected: 'Terputus', on: 'On', off: 'Off' };
 
@@ -181,7 +181,8 @@ export function Field({ field, value, onChange, error, values }) {
 }
 
 // Modal form berbasis skema field (onSubmit menerima values).
-// field.resets: daftar field yang dikosongkan saat field ini berubah (mis. ganti cabang → kosongkan router).
+// field.resets: daftar field yang dikosongkan saat field ini berubah (mis. ganti cabang → kosongkan router),
+// atau fungsi (nilaiBaru, nilaiForm) => { field: nilai } untuk mengisi ulang field lain (mis. ganti tipe → isi nilai bawaan tipe itu).
 export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmit, size = 'lg', submitLabel = 'Simpan', children }) {
     const [values, setValues] = useState(initial);
     const [errors, setErrors] = useState({});
@@ -225,7 +226,7 @@ export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmi
                     <div className="row">
                         {visible.map((f) => (
                             <div key={f.name} className={f.col ?? (fields.length > 4 ? 'col-md-6' : 'col-12')}>
-                                <Field field={f} value={values[f.name]} values={values} error={errors[f.name]} onChange={(v) => setValues((s) => ({ ...s, ...Object.fromEntries((f.resets ?? []).map((k) => [k, ''])), [f.name]: v }))} />
+                                <Field field={f} value={values[f.name]} values={values} error={errors[f.name]} onChange={(v) => setValues((s) => ({ ...s, ...(typeof f.resets === 'function' ? f.resets(v, s) : Object.fromEntries((f.resets ?? []).map((k) => [k, '']))), [f.name]: v }))} />
                             </div>
                         ))}
                     </div>

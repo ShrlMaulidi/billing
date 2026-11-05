@@ -20,7 +20,6 @@ class SistemTest extends TestCase
             ->where('user.nama', 'Sahrul')->where('user.username', 'sahrul')->where('user.email', 'sahrul1@gmail.com')->where('user.last_login_at', null));
     }
 
-    #[TestWith(['/laporan', 'Laporan/Index'])]
     #[TestWith(['/payment-gateway', 'PaymentGateway/Index'])]
     #[TestWith(['/logs', 'Logs/Index'])]
     public function test_menu_without_table_renders_no_rows(string $url, string $component): void

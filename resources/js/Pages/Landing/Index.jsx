@@ -49,12 +49,6 @@ const LAYANAN = [
     ['ERP & LAN Perusahaan', 'Enterprise Resources Planning dan koneksi internet perusahaan dengan Local Area Network.'],
 ];
 
-const PRODUK = [
-    ['PROXIMA', 'Internet dedicated 1:1', 'Kestabilan koneksi terjamin, keamanan data lebih baik karena tidak berbagi bandwidth, dukungan teknis responsif, dan jaminan SLA.'],
-    ['Shafa.net', 'FTTH · Fiber To The Home', 'Internet berkecepatan tinggi dan stabil untuk rumah tangga dan pribadi: streaming, gaming, dan browsing bersama keluarga.'],
-    ['ServeGo', 'Aplikasi cafe & resto', 'Pemesanan, reservasi, dan pembayaran online untuk cafe/resto. Cepat, mudah, ramah, dan efisien.'],
-];
-
 const LISENSI = [
     ['Internet Service Provider (ISP)', 'JASA-0013/TEL.04.02/2022'],
     ['Jaringan Tetap Lokal (Jartaplok)', 'JAR-0164/TEL.04.02/2022'],
@@ -63,7 +57,7 @@ const LISENSI = [
     ['Upstream', 'Tata · Level 3 · NTT · Arelion · China Mobile · Telecom Italia'],
 ];
 
-/** Logo dari halaman Our Client & Our Partner Company Profile 2026 (public/images/landing). */
+/** Logo dari halaman Our Client & Company Profile 2026 (public/images/landing). */
 const KLIEN = [
     ['mahkamah-agung', 'Mahkamah Agung RI · Pengadilan Tinggi TUN Jakarta', 'pttun-jakarta'],
     ['ma-biro-hukum', 'Mahkamah Agung RI · Biro Hukum dan Humas', 'ma-biro-hukum'],
@@ -74,6 +68,9 @@ const KLIEN = [
     ['unsika', 'Universitas Singaperbangsa Karawang', 'unsika'],
     ['kujang', 'Pupuk Kujang Cikampek', 'pupuk-kujang'],
     ['bri', 'BRI Kantor Cabang Cikampek', 'bri-cikampek'],
+    ['anugrah-pangan', 'PT Anugrah Pangan Lestari', 'anugrah-pangan-lestari'],
+    ['fapon', 'PT Fapon Bioindustries Indonesia', 'fapon-bioindustries'],
+    ['vaiotech', 'PT Vaiotech Lintas Nusantara', 'vaiotech-lintas-nusantara'],
     ['kpu', 'Komisi Pemilihan Umum Kab. Karawang', 'kpu-karawang'],
     ['bapenda', 'Bapenda Kab. Karawang', 'bapenda-karawang'],
     ['dlh', 'Dinas Lingkungan Hidup Kab. Karawang', 'dlh-karawang'],
@@ -81,14 +78,15 @@ const KLIEN = [
     ['dinkes', 'Dinas Kesehatan Kab. Karawang', 'dinkes-karawang'],
     ['polres', 'Polres Kab. Purwakarta', 'polres-purwakarta'],
     ['dishub', 'Dinas Perhubungan Kab. Purwakarta', 'dishub-purwakarta'],
-    ['diskominfo', 'Diskominfo Purwakarta', 'diskominfo-purwakarta'],
     ['rsud', 'RSUD Rengasdengklok', 'rsud-rengasdengklok'],
     ['saraswati', 'RSU Saraswati Cikampek', 'rsu-saraswati'],
+    ['sumber-waras', 'RS Sumber Waras', 'rs-sumber-waras'],
     ['smkn1', 'SMK Negeri 1 Karawang', 'smkn1-karawang'],
     ['sman1', 'SMA Negeri 1 Cikampek', 'sman1-cikampek'],
     ['smpn1', 'SMP Negeri 1 Klari', 'smpn1-klari'],
-    ['dewantara', 'SMK Dewantara Bekasi', 'smk-dewantara'],
-].map(([key, nama, logo]) => ({ key, nama, logo: `/images/landing/klien/${logo}.jpg` }));
+    ['man2-jaktim', 'Madrasah Aliyah Negeri (MAN) 2 Jakarta Timur', 'man2-jakarta-timur'],
+    // Logo dicoba berurutan .jpg → .jpeg → .png → .webp → .svg; bila belum ada, tampil inisial nama
+].map(([key, nama, logo]) => ({ key, nama, logo: ['jpg', 'jpeg', 'png', 'webp', 'svg'].map((ext) => `/images/landing/klien/${logo}.${ext}`) }));
 
 const MITRA = [
     ['shafa-net', 'Shafa.net'], ['rynet', 'Rynet'], ['aira-net', 'Aira Net'], ['cipta-selaras-net', 'PT Cipta Selaras Net'], ['mitra-a', 'Mitra MSS'], ['bks-net', 'BKS Net'],
@@ -99,9 +97,84 @@ const MITRA = [
     ['libra-net', 'Libra Net'], ['top-wifi-kamulyan', 'Top WiFi Kamulyan'],
 ].map(([logo, nama]) => ({ nama, logo: `/images/landing/mitra/${logo}.jpg` }));
 
+/**
+ * Partner jaringan & infrastruktur (bagian Our Partner, logo berjalan). Logo di public/images/landing/partner/{file};
+ * bila file tidak bisa dimuat, nama partner tampil sebagai teks.
+ */
+const PARTNER = [
+    ['telkom', 'Telkom', 'telkom.png'], ['indosat', 'Indosat', 'indosat.png'], ['mitra-visioner-pratama', 'PT Mitra Visioner Pratama', 'mitra-visioner-pratama.webp'],
+    ['cbn', 'CBN', 'cbn.png'], ['matrix-nap-info', 'Matrix NAP Info', 'matrix-nap-info.png'], ['lintas-arta', 'Lintas Arta', 'lintas-arta.png'],
+    ['fiber-star', 'Fiber Star', 'fiber-star.png'], ['rackh-lintas-asia', 'PT RackH Lintas Asia', 'rackh-lintas-asia.png'],
+].map(([key, nama, file]) => ({ key, nama, logo: `/images/landing/partner/${file}` }));
+
+/**
+ * Technology partner: perangkat jaringan & sistem pemantauan (logo berjalan di bawah Our Partner).
+ * Simpan logo di public/images/landing/teknologi/{key}.png (atau .webp / .svg / .jpg); selama belum ada, nama tampil sebagai teks.
+ */
+const TEKNOLOGI = [
+    ['mikrotik', 'MikroTik'], ['juniper', 'Juniper'], ['huawei', 'Huawei'], ['zte', 'ZTE'], ['ruijie', 'Ruijie'],
+    ['cisco', 'Cisco'], ['dell', 'Dell'], ['prtg', 'PRTG'], ['cacti', 'Cacti'], ['zabbix', 'Zabbix'],
+].map(([key, nama]) => ({ key, nama, logo: ['png', 'webp', 'svg', 'jpg'].map((ext) => `/images/landing/teknologi/${key}.${ext}`) }));
+
 const MENU = [['#tentang', 'Tentang'], ['#layanan', 'Layanan'], ['#paket', 'Paket'], ['#klien', 'Klien'], ['#kontak', 'Kontak']];
 
 const linkWa = (pesan = 'Halo MSS, saya ingin berkonsultasi tentang layanan internet.') => `https://wa.me/${PERUSAHAAN.whatsapp}?text=${encodeURIComponent(pesan)}`;
+
+/**
+ * Ukuran tampil logo: luasnya disamakan dengan logo Huawei (±150×34 px) agar bobot visual semua logo setara —
+ * logo memanjang jadi lebih pendek, logo kotak jadi lebih tinggi — dengan batas tinggi & lebar kotak.
+ * File logo harus tanpa ruang kosong di sekelilingnya agar rasionya tepat.
+ */
+const LUAS_LOGO = 150 * 34;
+const TINGGI_LOGO_MAKS = 44;
+const LEBAR_LOGO_MAKS = 165;
+const ukuranLogo = (lebarAsli, tinggiAsli) => {
+    const rasio = lebarAsli / tinggiAsli;
+    let tinggi = Math.min(Math.sqrt(LUAS_LOGO / rasio), TINGGI_LOGO_MAKS);
+    if (tinggi * rasio > LEBAR_LOGO_MAKS) tinggi = LEBAR_LOGO_MAKS / rasio;
+    return { lebar: Math.round(tinggi * rasio), tinggi: Math.round(tinggi) };
+};
+
+/** Logo partner; logo boleh berupa daftar kandidat file yang dicoba berurutan. Bila semuanya gagal dimuat, tampil nama partner. */
+function LogoPartner({ partner }) {
+    const kandidat = [].concat(partner.logo);
+    const [coba, setCoba] = useState(0);
+    const [ukuran, setUkuran] = useState(null);
+    if (coba >= kandidat.length) return <span className="lp-partner-nama">{partner.nama}</span>;
+    return (
+        <img src={kandidat[coba]} alt={partner.nama} title={partner.nama} loading="lazy" decoding="async"
+            // --skala dari CSS memperkecil semua logo secara seragam di layar sempit
+            style={ukuran ? { width: `calc(${ukuran.lebar}px * var(--skala-logo, 1))`, height: `calc(${ukuran.tinggi}px * var(--skala-logo, 1))` } : undefined}
+            onLoad={(e) => setUkuran(ukuranLogo(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight))}
+            onError={() => setCoba((c) => c + 1)} />
+    );
+}
+
+/**
+ * Logo bergeser ke kiri tanpa henti, berhenti & membesar saat disentuh kursor. Daftar digandakan agar putarannya menyambung
+ * (salinan kedua disembunyikan dari pembaca layar); kecepatan per logo sama berapa pun jumlah logonya.
+ */
+function LogoBerjalan({ items }) {
+    return (
+        <div className="lp-marquee">
+            <ul className="lp-marquee-track" style={{ animationDuration: `${items.length * 4}s` }}>
+                {[...items, ...items].map((p, i) => (
+                    <li key={`${p.key}-${i}`} aria-hidden={i >= items.length || undefined}><LogoPartner partner={p} /></li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+/** Logo klien; bila semua kandidat file gagal dimuat, tampil inisial nama (mis. "PT Fapon Bioindustries" → "FB"). */
+function LogoKlien({ klien }) {
+    const [coba, setCoba] = useState(0);
+    if (coba >= klien.logo.length) {
+        const inisial = klien.nama.replace(/\(.*?\)/g, '').split(/\s+/).filter((k) => !/^(PT|RS|RSU|RSUD|Kab\.?)$/i.test(k)).slice(0, 2).map((k) => k[0]).join('').toUpperCase();
+        return <span className="lp-klien-inisial" aria-hidden="true">{inisial}</span>;
+    }
+    return <img src={klien.logo[coba]} alt="" loading="lazy" decoding="async" onError={() => setCoba((c) => c + 1)} />;
+}
 
 /** Judul bagian bergaya company profile: huruf kapital tebal, kata kedua berwarna emas. */
 function Judul({ atas, bawah, gelap = false }) {
@@ -213,23 +286,8 @@ export default function Landing({ paket }) {
                 </div>
             </section>
 
-            <section id="produk" className="lp-sec lp-soft">
-                <div className="lp-wrap">
-                    <Judul atas="Our Special" bawah="Product" />
-                    <div className="lp-products">
-                        {PRODUK.map(([nama, jenis, teks]) => (
-                            <article key={nama}>
-                                <h3>{nama}</h3>
-                                <p className="lp-product-type">{jenis}</p>
-                                <p>{teks}</p>
-                            </article>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
             {paket.length > 0 && (
-                <section id="paket" className="lp-sec">
+                <section id="paket" className="lp-sec lp-soft">
                     <div className="lp-wrap">
                         <div className="lp-sec-head">
                             <Judul atas="Paket" bawah="Internet Rumah" />
@@ -254,6 +312,17 @@ export default function Landing({ paket }) {
                 </section>
             )}
 
+            {/* Latar selang-seling: putih setelah Paket (abu muda), abu muda bila Paket tidak tampil (setelah Layanan yang putih) */}
+            <section id="partner" className={`lp-sec ${paket.length > 0 ? '' : 'lp-soft'}`}>
+                <div className="lp-wrap">
+                    <div className="lp-sec-head">
+                        <Judul atas="Our" bawah="Partner" />
+                        <p>Penyedia jaringan dan infrastruktur yang bekerja sama dengan MSS.</p>
+                    </div>
+                    <LogoBerjalan items={PARTNER} />
+                </div>
+            </section>
+
             <section className="lp-sec lp-dark lp-network">
                 <div className="lp-wrap lp-network-grid">
                     <div>
@@ -267,6 +336,17 @@ export default function Landing({ paket }) {
                 </div>
             </section>
 
+            {/* Setelah Jaringan & Lisensi: perangkat & sistem pemantauan yang menjalankan jaringan tersebut */}
+            <section id="teknologi" className="lp-sec lp-soft">
+                <div className="lp-wrap">
+                    <div className="lp-sec-head">
+                        <Judul atas="Technology" bawah="Partner" />
+                        <p>Perangkat jaringan dan sistem pemantauan yang menopang layanan MSS.</p>
+                    </div>
+                    <LogoBerjalan items={TEKNOLOGI} />
+                </div>
+            </section>
+
             <section id="klien" className="lp-sec">
                 <div className="lp-wrap">
                     <div className="lp-sec-head">
@@ -276,14 +356,14 @@ export default function Landing({ paket }) {
                     <ul className="lp-logos lp-logos-client">
                         {KLIEN.map((k) => (
                             <li key={k.key}>
-                                <img src={k.logo} alt="" loading="lazy" decoding="async" />
+                                <LogoKlien klien={k} />
                                 <span>{k.nama}</span>
                             </li>
                         ))}
                     </ul>
 
                     <div className="lp-sec-head lp-partner-head">
-                        <Judul atas="Our" bawah="Partner" />
+                        <Judul atas="Our" bawah="Client Reseller" />
                     </div>
                     <ul className="lp-logos lp-logos-partner">
                         {MITRA.map((m) => <li key={m.logo}><img src={m.logo} alt={m.nama} title={m.nama} loading="lazy" decoding="async" /></li>)}

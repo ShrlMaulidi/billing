@@ -11,11 +11,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Cabang / lokasi (menu Kelola Data › Cabang).
  * admin_full: mitra memakai payment gateway sendiri (uang online masuk ke mitra, lalu disetor sesuai kewajiban);
  * bila false, cabang ikut payment gateway perusahaan.
+ * tipe: reseller (mitra menjual kembali ke end user) atau retail (produk ISP sendiri / Shafa.net); ditambahkan lewat menu Data Pelanggan.
  */
 #[Table('lokasi')]
-#[Fillable(['kode_lokasi', 'nama_lokasi', 'alamat_lokasi', 'tlp_lokasi', 'tlp_owner', 'nama_mitra', 'group_wa', 'terima_cash', 'admin_full', 'status'])]
+#[Fillable(['tipe', 'kode_lokasi', 'nama_lokasi', 'alamat_lokasi', 'tlp_lokasi', 'tlp_owner', 'nama_mitra', 'group_wa', 'terima_cash', 'admin_full', 'status'])]
 class Lokasi extends Model
 {
+    /** @var array<string, string> */
+    public const TIPE = ['reseller' => 'Mitra Reseller', 'retail' => 'Retail / Shafa.net'];
+
     protected function casts(): array
     {
         return [

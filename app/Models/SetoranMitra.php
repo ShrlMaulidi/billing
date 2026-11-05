@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Setoran mitra ke perusahaan (menu Transaksi › Setor Kewajiban Mitra), diinput Super Admin.
+ * Setoran mitra ke perusahaan (menu Transaksi › Pembayaran Masuk, tipe Mitra Reseller / Shafa.net), diinput Super Admin.
  * Setiap setoran langsung menambah saldo mitra pada periode kewajibannya (kolom Sudah Setor di rekap cabang).
  * Kolom periode sengaja tanpa cast date: disimpan & dibandingkan sebagai teks Y-m-d seperti pembayaran.periode.
  */

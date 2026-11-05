@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Lokasi;
+use App\Models\PelangganInstansi;
 use App\Models\Pembayaran;
 use App\Models\Rekening;
 use App\Models\SetoranMitra;
@@ -45,7 +46,8 @@ class SetoranMitraTest extends TestCase
         $this->actingAs($admin);
 
         $this->get('/transaksi/setor-kewajiban')->assertInertia(fn ($page) => $page
-            ->where("kewajiban.{$this->garut->id}.2026-10-01", 400000)
+            ->missing('kewajiban')
+            ->loadDeferredProps(fn ($reload) => $reload->where("kewajiban.{$this->garut->id}.2026-10-01", 400000))
             ->where('rekeningOptions', [['value' => 'cash', 'label' => 'Cash (diterima di kantor pusat)'], ['value' => (string) $pusat->id, 'label' => 'Mandiri · 999 a.n. MSS']]));
 
         $this->post('/transaksi/setor-kewajiban', [
@@ -61,7 +63,7 @@ class SetoranMitraTest extends TestCase
             ->where('saldoMitra.sudah_setor', 250000)->where('saldoMitra.sisa_setor', 150000)->where('saldoMitra.saldo', -150000));
         $this->get('/transaksi/setor-kewajiban')->assertInertia(fn ($page) => $page
             ->has('rows', 1)->where('rows.0.rekening', 'Mandiri · 999 a.n. MSS')->where('rows.0.ada_bukti', true)
-            ->where("kewajiban.{$this->garut->id}.2026-10-01", 150000));
+            ->loadDeferredProps(fn ($reload) => $reload->where("kewajiban.{$this->garut->id}.2026-10-01", 150000)));
         $this->get("/transaksi/setor-kewajiban/{$setoran->id}/bukti")->assertOk();
     }
 
@@ -83,10 +85,14 @@ class SetoranMitraTest extends TestCase
     {
         $milikGarut = SetoranMitra::create(['id_lokasi' => $this->garut->id, 'periode' => '2026-10-01', 'nominal' => 100000, 'metode' => 'cash']);
         SetoranMitra::create(['id_lokasi' => $this->cimahi->id, 'periode' => '2026-10-01', 'nominal' => 200000, 'metode' => 'cash']);
+        $korporat = PelangganInstansi::create(['tipe' => 'korporat', 'nama' => 'PT Maju', 'alamat' => 'Garut', 'kapasitas' => '50 Mbps', 'tanggal_aktif' => '2026-01-01']);
+        $korporat->pembayaran()->create(['periode' => '2026-10-01', 'nominal' => 1000000, 'ppn' => 110000, 'total' => 1110000]);
         $this->actingAs($this->mitra);
 
+        // Pembayaran korporat & pilihan nama untuk form tambah khusus user pusat
         $this->get("/transaksi/setor-kewajiban?cabang={$this->cimahi->id}")->assertInertia(fn ($page) => $page
-            ->has('rows', 1)->where('rows.0.cabang', 'MSS Garut')->missing("kewajiban.{$this->cimahi->id}"));
+            ->has('rows', 1)->where('rows.0.nama', 'MSS Garut')->where('namaOptions', [])
+            ->loadDeferredProps(fn ($reload) => $reload->has("kewajiban.{$this->garut->id}")->missing("kewajiban.{$this->cimahi->id}")));
         $this->postJson('/transaksi/setor-kewajiban', ['id_lokasi' => $this->garut->id, 'periode' => '2026-10-01', 'nominal' => 1000000, 'metode' => 'cash'])->assertForbidden();
         $this->deleteJson("/transaksi/setor-kewajiban/{$milikGarut->id}")->assertForbidden();
         $this->assertDatabaseCount('setoran_mitra', 2);
