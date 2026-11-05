@@ -133,7 +133,7 @@ class LaporanTest extends TestCase
         $this->pelanggan('Dodi', $paket, ['tgl_registrasi' => '2026-11-01']);
         $this->actingAs(User::factory()->create());
 
-        $this->get('/laporan/shafa-net')->assertInertia(fn ($page) => $page->has('rows', 3)
+        $this->get("/laporan/shafa-net?lokasi={$this->shafa->id}")->assertInertia(fn ($page) => $page->has('rows', 3)
             // Diskon: lunas dengan nominal yang dibayar; pajak = PPN termasuk harga + PPh 0,5% dari DPP
             ->where('rows.0.nama', 'Andi')->where('rows.0.status', 'lunas')->where('rows.0.omset', 100000)->where('rows.0.pajak', 10360)
             ->where('rows.1.nama', 'Budi')->where('rows.1.status', 'belum_lunas')->where('rows.1.sisa', 110000)
@@ -158,8 +158,8 @@ class LaporanTest extends TestCase
         $this->get("/laporan/shafa-net?lokasi={$tarogong->id}")->assertInertia(fn ($page) => $page
             ->where('lokasi', ['id' => $tarogong->id, 'kode_lokasi' => 'C004', 'nama_lokasi' => 'Shafa.net Tarogong'])->where('filters.lokasi', $tarogong->id)
             ->has('rows', 1)->where('rows.0.nama', 'Cici')->where('ringkasan.omset', 100000)->has('perLokasi', 2));
-        // Lokasi bukan Shafa.net diabaikan
-        $this->get("/laporan/shafa-net?lokasi={$this->garut->id}")->assertInertia(fn ($page) => $page->where('lokasi', null)->has('rows', 3));
+        // Lokasi bukan Shafa.net diabaikan; tampilan perbandingan lokasi tidak mengirim daftar pelanggan
+        $this->get("/laporan/shafa-net?lokasi={$this->garut->id}")->assertInertia(fn ($page) => $page->where('lokasi', null)->has('rows', 0)->has('perLokasi', 2));
         $this->get('/laporan/korporat')->assertInertia(fn ($page) => $page->where('perLokasi', null));
     }
 

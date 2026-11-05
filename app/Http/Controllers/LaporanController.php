@@ -66,33 +66,43 @@ class LaporanController extends Controller
     {
         $f = $this->filterLaporan($request);
         $periode = $this->periodeLaporan($f);
-        $perTipe = collect($tipe)->mapWithKeys(fn (string $t) => [$t => LaporanKeuangan::hitung($t, $periode, $f['cabang'])]);
 
-        // Shafa.net: bandingkan lokasi dulu, pelanggan ditampilkan setelah satu lokasi dipilih
-        $lokasi = null;
-        $perLokasi = null;
-        if ($tipe === ['retail']) {
-            $daftarLokasi = Lokasi::where('tipe', 'retail')->when($f['cabang'], fn ($q, $id) => $q->whereKey($id))->orderBy('nama_lokasi')->get(['id', 'kode_lokasi', 'nama_lokasi']);
-            $perLokasi = $daftarLokasi->map(fn (Lokasi $l) => [
-                'id' => $l->id, 'kode_lokasi' => $l->kode_lokasi, 'nama_lokasi' => $l->nama_lokasi,
-                ...LaporanKeuangan::ringkasan($perTipe['retail']->where('id_lokasi', $l->id)),
-            ])->values();
-            $lokasi = $daftarLokasi->firstWhere('id', (int) $request->input('lokasi'))?->only(['id', 'kode_lokasi', 'nama_lokasi']);
-            if ($lokasi) {
-                $perTipe['retail'] = $perTipe['retail']->where('id_lokasi', $lokasi['id'])->values();
-            }
-        }
-        $semuaBaris = $perTipe->flatten(1);
+        // Shafa.net: bandingkan lokasi dulu, pelanggan ditampilkan setelah satu lokasi dipilih (daftar lokasi ringan, tanpa menghitung laporan)
+        $daftarLokasi = $tipe === ['retail']
+            ? Lokasi::where('tipe', 'retail')->when($f['cabang'], fn ($q, $id) => $q->whereKey($id))->orderBy('nama_lokasi')->get(['id', 'kode_lokasi', 'nama_lokasi'])
+            : null;
+        $lokasi = $daftarLokasi?->firstWhere('id', (int) $request->input('lokasi'))?->only(['id', 'kode_lokasi', 'nama_lokasi']);
+
+        /*
+         * Perhitungan laporan dijalankan sekali dan hanya bila prop-nya diminta: permintaan lanjutan grafik tren (deferred)
+         * tidak ikut menghitung ulang seluruh laporan.
+         */
+        $hasil = null;
+        $semua = function () use (&$hasil, $tipe, $periode, $f): Collection {
+            return $hasil ??= collect($tipe)->mapWithKeys(fn (string $t) => [$t => LaporanKeuangan::hitung($t, $periode, $f['cabang'])]);
+        };
+        $perTipe = fn (): Collection => $lokasi
+            ? $semua()->merge(['retail' => $semua()['retail']->where('id_lokasi', $lokasi['id'])->values()])
+            : $semua();
+        $baris = fn (): Collection => $perTipe()->flatten(1);
 
         return Inertia::render('Laporan/Index', [
             'filters' => [...$f, 'tipe' => $tipeTerpilih, 'lokasi' => $lokasi['id'] ?? null],
             'lokasi' => $lokasi,
-            'perLokasi' => $perLokasi,
+            'perLokasi' => $daftarLokasi ? fn () => $daftarLokasi->map(fn (Lokasi $l) => [
+                'id' => $l->id, 'kode_lokasi' => $l->kode_lokasi, 'nama_lokasi' => $l->nama_lokasi,
+                ...LaporanKeuangan::ringkasan($semua()['retail']->where('id_lokasi', $l->id)),
+            ])->values() : null,
             'judul' => $judul,
             'periode' => $periode,
-            'ringkasan' => LaporanKeuangan::ringkasan($semuaBaris),
-            'perTipe' => $perTipe->map(fn (Collection $baris, string $t) => ['tipe' => $t, ...LaporanKeuangan::ringkasan($baris)])->values(),
-            'rows' => $f['status'] ? $semuaBaris->where('status', $f['status'])->values() : $semuaBaris,
+            'ringkasan' => fn () => LaporanKeuangan::ringkasan($baris()),
+            'perTipe' => fn () => $perTipe()->map(fn (Collection $b, string $t) => ['tipe' => $t, ...LaporanKeuangan::ringkasan($b)])->values(),
+            // Tampilan perbandingan lokasi tidak menampilkan daftar pelanggan: jangan kirim datanya
+            'rows' => fn () => match (true) {
+                $daftarLokasi !== null && $lokasi === null => [],
+                (bool) $f['status'] => $baris()->where('status', $f['status'])->values(),
+                default => $baris(),
+            },
             // Grafik tren khusus Semua Laporan; dihitung untuk 12 bulan sehingga dimuat setelah halaman tampil
             'tren' => $pilihanTipe ? Inertia::defer(fn () => $this->tren($f, $tipe, $lokasi['id'] ?? null)) : null,
             'tipeOptions' => collect($pilihanTipe)->map(fn (string $t) => ['value' => $t, 'label' => LaporanKeuangan::TIPE[$t]])->values(),
