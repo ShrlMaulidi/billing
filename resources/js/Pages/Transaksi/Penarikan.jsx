@@ -28,7 +28,8 @@ export default function Penarikan({ filters, rows, saldo, periodeOptions }) {
     const bisaApprove = bisa('transaksi.penarikan.approve') && !auth.user?.id_lokasi;
     const [setujui, setSetujui] = useState(null);
     const [tolak, setTolak] = useState(null);
-    const tersedia = (v) => saldo[v.id_lokasi]?.[v.periode_sumber];
+    // saldo adalah deferred prop: undefined sampai selesai dimuat setelah halaman tampil
+    const tersedia = (v) => saldo?.[v.id_lokasi]?.[v.periode_sumber];
 
     return (
         <>
@@ -62,10 +63,11 @@ export default function Penarikan({ filters, rows, saldo, periodeOptions }) {
                     { name: 'id_lokasi', label: 'Mitra / Cabang', type: 'select', required: true, options: cabangOptions, disabled: !!auth.user?.id_lokasi },
                     {
                         name: 'periode_sumber', label: 'Periode Sumber', type: 'select', required: true,
-                        options: (v) => periodeOptions.map((p) => ({ value: p, label: v.id_lokasi ? `${periode(p)} · saldo ${rupiah(saldo[v.id_lokasi]?.[p] ?? 0)}` : periode(p) })),
+                        options: (v) => periodeOptions.map((p) => ({ value: p, label: v.id_lokasi && saldo ? `${periode(p)} · saldo ${rupiah(saldo[v.id_lokasi]?.[p] ?? 0)}` : periode(p) })),
                     },
                     {
                         name: 'saldo', label: 'Saldo Tersedia', type: 'static', col: 'col-12', render: (v) => {
+                            if (v.id_lokasi && v.periode_sumber && saldo === undefined) return <span className="skeleton d-inline-block" style={{ width: 160, height: 22 }} />;
                             const s = tersedia(v);
                             if (!v.id_lokasi || s === undefined) return '-';
                             return (

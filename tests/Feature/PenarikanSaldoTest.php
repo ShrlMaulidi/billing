@@ -45,8 +45,9 @@ class PenarikanSaldoTest extends TestCase
         // Rp600.000 masih pending, jadi yang tersedia tinggal Rp400.000
         $this->postJson('/transaksi/penarikan-saldo', $this->pengajuan(['nominal' => 400001]))->assertJsonValidationErrors(['nominal' => 'Rp400.000']);
         $this->get('/transaksi/penarikan-saldo')->assertOk()->assertInertia(fn ($page) => $page
-            ->has('rows', 1)->where('rows.0.cabang', 'MSS Garut')
-            ->where("saldo.{$this->garut->id}.2026-10-01", 400000)->missing("saldo.{$this->cimahi->id}"));
+            ->has('rows', 1)->where('rows.0.cabang', 'MSS Garut')->missing('saldo')
+            ->loadDeferredProps(fn ($reload) => $reload
+                ->where("saldo.{$this->garut->id}.2026-10-01", 400000)->missing("saldo.{$this->cimahi->id}")));
     }
 
     public function test_mitra_cannot_request_when_balance_is_zero_or_negative_or_for_another_branch(): void

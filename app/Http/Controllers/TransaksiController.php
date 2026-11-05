@@ -61,7 +61,8 @@ class TransaksiController extends Controller
                     'pemohon' => $p->pemohon?->name ?? '-',
                     'diproses_oleh' => $p->pemroses?->name,
                 ]),
-            'saldo' => (object) RekapCabang::saldoTersedia($lokasi, $this->periodeTerakhir()),
+            // Saldo 12 bulan hanya dipakai form pengajuan: dimuat setelah halaman tampil
+            'saldo' => Inertia::defer(fn () => (object) RekapCabang::saldoTersedia($lokasi, $this->periodeTerakhir())),
             'periodeOptions' => $this->periodeTerakhir(),
         ]);
     }
@@ -124,7 +125,7 @@ class TransaksiController extends Controller
                     return 'Pengajuan ini sudah diproses';
                 }
                 // Saldo rekap belum dikurangi pengajuan pending mana pun, termasuk yang ini
-                $saldo = RekapCabang::hitung($lokasi->newCollection([$lokasi]), $penarikan->periode_sumber)->first()['saldo'];
+                $saldo = RekapCabang::hitung($lokasi->newCollection([$lokasi]), $penarikan->periode_sumber, hitungPelanggan: false)->first()['saldo'];
                 if ($penarikan->nominal > $saldo) {
                     return 'Saldo cabang saat ini Rp'.number_format($saldo, 0, ',', '.').', tidak cukup untuk penarikan ini';
                 }

@@ -30,16 +30,19 @@ class RekapCabang
     /**
      * @param  EloquentCollection<int, Lokasi>  $lokasi
      * @param  string  $periode  Y-m-01
+     * @param  bool  $hitungPelanggan  false = lewati hitungan jumlah pelanggan (kolom jumlah_pelanggan dkk. bernilai null), mis. untuk laporan keuangan
      * @return Collection<int, array<string, mixed>>
      */
-    public static function hitung(EloquentCollection $lokasi, string $periode): Collection
+    public static function hitung(EloquentCollection $lokasi, string $periode, bool $hitungPelanggan = true): Collection
     {
         $awal = Carbon::parse($periode);
-        $lokasi->loadCount([
-            'pelanggan as jumlah_pelanggan' => fn ($q) => $q->where('status', 'aktif'),
-            'pelanggan as pelanggan_baru' => fn ($q) => $q->whereBetween('tgl_registrasi', [$periode, $awal->copy()->endOfMonth()->toDateString()]),
-            'pelanggan as pelanggan_free' => fn ($q) => $q->where('status', 'aktif')->whereHas('paket', fn ($p) => $p->where('harga', 0)),
-        ]);
+        if ($hitungPelanggan) {
+            $lokasi->loadCount([
+                'pelanggan as jumlah_pelanggan' => fn ($q) => $q->where('status', 'aktif'),
+                'pelanggan as pelanggan_baru' => fn ($q) => $q->whereBetween('tgl_registrasi', [$periode, $awal->copy()->endOfMonth()->toDateString()]),
+                'pelanggan as pelanggan_free' => fn ($q) => $q->where('status', 'aktif')->whereHas('paket', fn ($p) => $p->where('harga', 0)),
+            ]);
+        }
         $tarif = PajakCabang::berlaku($lokasi->modelKeys(), $periode);
         $pembayaran = Pembayaran::whereIn('id_lokasi', $lokasi->modelKeys())
             ->whereBetween('paid_at', [$awal->copy()->startOfDay(), $awal->copy()->endOfMonth()])
@@ -100,7 +103,8 @@ class RekapCabang
     {
         $hasil = [];
         foreach ($periode as $p) {
-            foreach (self::hitung($lokasi, $p) as $rekap) {
+            // Saldo tidak memakai jumlah pelanggan: lewati hitungannya (1 query berat per bulan)
+            foreach (self::hitung($lokasi, $p, hitungPelanggan: false) as $rekap) {
                 $hasil[$rekap['id_lokasi']][$p] = $rekap['saldo'];
             }
         }
