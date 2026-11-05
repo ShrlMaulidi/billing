@@ -218,7 +218,7 @@ export default function Landing({ paket }) {
             </header>
 
             <section id="beranda" className="lp-hero">
-                <img className="lp-hero-img" src="/images/landing/gedung.jpg" alt="" />
+                <img className="lp-hero-img" src="/images/landing/gedung.jpg" alt="" fetchPriority="high" decoding="async" />
                 <div className="lp-wrap lp-hero-body">
                     <p className="lp-kicker">PT Media Solusi Sukses · Internet Service Provider</p>
                     <h1>Your internet solutions <span>start here.</span></h1>
