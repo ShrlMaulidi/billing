@@ -84,17 +84,25 @@ class PelangganController extends Controller
                 ] : null,
             ]);
 
+        // Empat hitungan status sederhana dalam satu query
+        $hitungStatus = (clone $base)->toBase()->selectRaw(
+            "SUM(CASE WHEN status <> 'berhenti' THEN 1 ELSE 0 END) AS semua,"
+            ." SUM(CASE WHEN status = 'aktif' AND status_langganan = 'on' THEN 1 ELSE 0 END) AS hidup,"
+            ." SUM(CASE WHEN status = 'aktif' AND status_langganan = 'off' THEN 1 ELSE 0 END) AS mati,"
+            ." SUM(CASE WHEN status = 'berhenti' THEN 1 ELSE 0 END) AS berhenti"
+        )->first();
+
         return Inertia::render('Pelanggan/Index', [
             'filters' => $f,
             'status' => $status,
             'rows' => $rows,
             'jumlah' => [
-                'semua' => (clone $base)->where('status', '!=', 'berhenti')->count(),
-                'on' => (clone $base)->where('status', 'aktif')->where('status_langganan', 'on')->count(),
-                'off' => (clone $base)->where('status', 'aktif')->where('status_langganan', 'off')->count(),
+                'semua' => (int) $hitungStatus->semua,
+                'on' => (int) $hitungStatus->hidup,
+                'off' => (int) $hitungStatus->mati,
                 'lunas' => (clone $base)->lunas($periode)->count(),
                 'belum_lunas' => (clone $base)->belumLunas($periode)->count(),
-                'berhenti' => (clone $base)->where('status', 'berhenti')->count(),
+                'berhenti' => (int) $hitungStatus->berhenti,
                 'prorate' => (clone $base)->tap($kandidatProrate)->with('pembayaran:id,pelanggan_id,periode')
                     ->get(['id', 'status', 'jns_tagihan', 'skema_tagihan', 'tgl_registrasi'])->filter->prorateBelumDibayar()->count(),
             ],
