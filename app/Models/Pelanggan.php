@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 
 /**
@@ -223,13 +224,15 @@ class Pelanggan extends Model
 
     /**
      * Baris tabel pelanggan di halaman. Muat relasi lokasi & paket lebih dulu agar tidak N+1.
+     * Relasi lokasi/area & timestamp tidak dikirim (halaman memakai nama yang sudah diratakan); relasi router tetap
+     * karena halaman Pelanggan memakai nama router & profile isolirnya.
      *
      * @return array<string, mixed>
      */
     public function toBaris(): array
     {
         return [
-            ...$this->toArray(),
+            ...Arr::except($this->toArray(), ['lokasi', 'area', 'created_at', 'updated_at']),
             'cabang' => $this->lokasi?->nama_lokasi ?? '-',
             'paket' => $this->paket?->nama_paket ?? '-',
             'harga' => $this->paket?->harga,

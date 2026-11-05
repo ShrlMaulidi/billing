@@ -222,6 +222,18 @@ class PelangganTest extends TestCase
         $this->assertSame('on', $p->fresh()->status_langganan);
     }
 
+    public function test_customer_rows_keep_router_for_the_page_but_drop_unused_relations(): void
+    {
+        $area = Area::create(['nama_area' => 'Garut Kota', 'id_lokasi' => $this->lokasi->id]);
+        $this->pelanggan('budi', ['id_lokasi' => $this->lokasi->id, 'id_area' => $area->id]);
+
+        // Lokasi & area dikirim sebagai nama saja, router tetap utuh untuk tombol isolir
+        $this->get('/pelanggan')->assertInertia(fn ($page) => $page
+            ->where('rows.0.cabang', 'MSS Garut')->where('rows.0.area', 'Garut Kota')
+            ->where('rows.0.router.profile_isolir', 'ISOLIR')->where('rows.0.router.nama_router', 'CCR Pusat')
+            ->missing('rows.0.lokasi')->missing('rows.0.created_at')->missing('rows.0.updated_at')->missing('rows.0.router.password'));
+    }
+
     public function test_on_and_off_pages_only_show_matching_active_customers(): void
     {
         $this->pelanggan('budi');
