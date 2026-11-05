@@ -141,4 +141,21 @@ class PajakCabang extends Model
         // Urut naik lalu keyBy: baris terakhir (periode terbaru) per cabang yang dipakai
         return static::whereIn('id_lokasi', $idLokasi)->where('periode', '<=', $periode)->orderBy('periode')->get()->keyBy('id_lokasi');
     }
+
+    /**
+     * Sama dengan berlaku() untuk banyak periode sekaligus dalam satu query (laporan & saldo multi-bulan).
+     *
+     * @param  list<int>  $idLokasi
+     * @param  list<string>  $periode  Y-m-01
+     * @return array<string, Collection<int, self>> periode => tarif per id_lokasi
+     */
+    public static function berlakuPerPeriode(array $idLokasi, array $periode): array
+    {
+        if ($periode === []) {
+            return [];
+        }
+        $semua = static::whereIn('id_lokasi', $idLokasi)->where('periode', '<=', max($periode))->orderBy('periode')->get();
+
+        return collect($periode)->mapWithKeys(fn (string $p) => [$p => $semua->filter(fn (self $t) => $t->periode <= $p)->keyBy('id_lokasi')])->all();
+    }
 }

@@ -105,7 +105,7 @@ class LaporanKeuangan
             ->where('status', 'aktif')->whereHas('paket', fn ($q) => $q->where('harga', '>', 0))
             ->orderBy('nama')->get();
         $idLokasi = $pelanggan->pluck('id_lokasi')->unique()->filter()->values()->all();
-        $tarif = collect($periode)->mapWithKeys(fn (string $p) => [$p => PajakCabang::berlaku($idLokasi, $p)]);
+        $tarif = PajakCabang::berlakuPerPeriode($idLokasi, $periode);
 
         return $pelanggan->map(fn (Pelanggan $pl) => self::baris('retail', "pelanggan-{$pl->id}", $pl->nama, $pl->lokasi?->nama_lokasi, $pl->id_lokasi,
             collect($periode)->map(function (string $bulanTagihan) use ($pl, $tarif) {

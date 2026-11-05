@@ -140,6 +140,25 @@ class LaporanTest extends TestCase
             ->where('rows.2.nama', 'Cici')->where('rows.2.status', 'lunas'));
     }
 
+    public function test_shafa_net_yearly_tax_follows_the_tariff_in_effect_each_month(): void
+    {
+        // PPN 11% sejak Januari, diturunkan ke 0% mulai Oktober
+        foreach (['2026-01-01' => 11, '2026-10-01' => 0] as $periode => $ppn) {
+            $this->shafa->pajak()->create([
+                'periode' => $periode, 'ppn_persen' => $ppn, 'pph_persen' => 0, 'admin_fee_tipe' => 'nominal', 'admin_fee' => 0,
+                'metode_bagi_hasil' => 'persentase', 'nilai_bagi_hasil' => 0,
+            ]);
+        }
+        $paket = Paket::create(['nama_paket' => 'Home 20', 'harga' => 111000, 'jenis' => 'bulanan', 'jns_koneksi' => 'pppoe', 'profile_mikrotik' => 'P']);
+        $this->pelanggan('Andi', $paket, ['tgl_registrasi' => '2026-09-01']);
+        $this->actingAs(User::factory()->create());
+
+        $this->get("/laporan/shafa-net?mode=tahunan&tahun=2026&lokasi={$this->shafa->id}")->assertInertia(fn ($page) => $page
+            ->where('rows.0.periode.0.periode', '2026-09-01')->where('rows.0.periode.0.pajak', 11000)
+            ->where('rows.0.periode.1.periode', '2026-10-01')->where('rows.0.periode.1.pajak', 0)
+            ->where('rows.0.pajak', 11000));
+    }
+
     public function test_shafa_net_report_compares_locations_before_listing_customers(): void
     {
         $tarogong = Lokasi::create(['tipe' => 'retail', 'kode_lokasi' => 'C004', 'nama_lokasi' => 'Shafa.net Tarogong']);
