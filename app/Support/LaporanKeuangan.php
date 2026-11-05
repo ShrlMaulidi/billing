@@ -79,7 +79,7 @@ class LaporanKeuangan
         if ($lokasi->isEmpty()) {
             return collect();
         }
-        $rekap = collect($periode)->mapWithKeys(fn (string $p) => [$p => RekapCabang::hitung($lokasi, $p, hitungPelanggan: false)->keyBy('id_lokasi')]);
+        $rekap = collect(RekapCabang::hitungPerPeriode($lokasi, $periode))->map(fn (Collection $rekapPeriode) => $rekapPeriode->keyBy('id_lokasi'));
 
         return $lokasi->map(fn (Lokasi $l) => self::baris('reseller', "lokasi-{$l->id}", $l->nama_lokasi, $l->nama_mitra, $l->id,
             $rekap->map(function (Collection $perCabang, string $p) use ($l) {
