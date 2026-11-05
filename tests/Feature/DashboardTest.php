@@ -22,6 +22,29 @@ class DashboardTest extends TestCase
         $this->travelTo('2026-10-15 10:00:00');
     }
 
+    public function test_monthly_income_chart_sums_payments_per_paid_month_within_twelve_months(): void
+    {
+        $garut = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $cimahi = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Cimahi']);
+        $bayar = fn (Lokasi $l, int $nominal, string $waktu) => Pembayaran::create([
+            'id_lokasi' => $l->id, 'periode' => substr($waktu, 0, 8).'01', 'nama_pelanggan' => 'P', 'nama_paket' => 'P',
+            'harga' => $nominal, 'jml_bayar' => $nominal, 'metode' => 'cash', 'paid_at' => $waktu,
+        ]);
+        $bayar($garut, 999000, '2025-10-31 23:59:59');
+        $bayar($garut, 100000, '2025-11-01 00:00:00');
+        $bayar($garut, 150000, '2026-10-01 08:00:00');
+        $bayar($cimahi, 50000, '2026-10-14 17:00:00');
+        $bayar($garut, 25000, '2026-10-15 07:30:00');
+
+        // Pembayaran sebelum awal grafik (Nov 2025) tidak dihitung
+        $this->get('/dashboard')->assertInertia(fn ($page) => $page
+            ->where('grafik.0', ['periode' => '2025-11-01', 'total' => 100000])
+            ->where('grafik.11', ['periode' => '2026-10-01', 'total' => 225000])
+            ->where('kpi.pemasukan_bulan', 225000)->where('kpi.pemasukan_hari', 25000));
+        $this->get("/dashboard?cabang={$cimahi->id}")->assertInertia(fn ($page) => $page
+            ->where('grafik.0.total', 0)->where('grafik.11.total', 50000)->where('kpi.pemasukan_bulan', 50000));
+    }
+
     public function test_dashboard_shows_database_customers_and_unpaid_count_without_payments(): void
     {
         $paket = Paket::create(['nama_paket' => 'Home 20 Mbps', 'harga' => 200000, 'jenis' => 'bulanan', 'jns_koneksi' => 'pppoe', 'profile_mikrotik' => '20M']);

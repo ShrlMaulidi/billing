@@ -25,9 +25,11 @@ class DashboardController extends Controller
         $bulanIni = $today->format('Y-m-01');
         $pembayaran = Pembayaran::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
         $awalGrafik = $today->copy()->startOfMonth()->subMonths(11);
-        // Pemasukan per bulan berdasarkan tanggal bayar (paid_at)
-        $pemasukanBulanan = (clone $pembayaran)->where('paid_at', '>=', $awalGrafik)->get(['paid_at', 'jml_bayar'])
-            ->groupBy(fn (Pembayaran $p) => $p->paid_at->format('Y-m-01'))->map->sum('jml_bayar');
+        // Pemasukan per bulan berdasarkan tanggal bayar (paid_at), dijumlahkan di database (bukan memuat semua baris ke PHP).
+        // SUBSTR(paid_at, 1, 7) = "Y-m" di SQLite (teks) maupun MySQL (DATETIME)
+        $pemasukanBulanan = (clone $pembayaran)->where('paid_at', '>=', $awalGrafik)
+            ->selectRaw('SUBSTR(paid_at, 1, 7) as bulan, SUM(jml_bayar) as total')->groupBy('bulan')->pluck('total', 'bulan')
+            ->mapWithKeys(fn ($total, string $bulan) => ["{$bulan}-01" => (int) $total]);
 
         return Inertia::render('Dashboard/Index', [
             'filters' => $f,
