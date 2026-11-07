@@ -9,10 +9,12 @@ const cellValue = (row, col) => (col.sortValue ? col.sortValue(row) : row[col.ke
 /**
  * Tabel reusable: search, sort, paginasi, export, column toggle, sticky kolom pertama,
  * baris total, seleksi, serta empty / loading / error state.
+ * card(row): bila diisi, di layar HP (< 576px) baris tampil sebagai kartu dari fungsi ini, bukan tabel lebar;
+ * pencarian & paginasi tetap sama.
  */
 export default function DataTable({
     columns, data = [], rowKey = 'id', toolbar, actions, exportable = true, stickyFirst = false, footer,
-    pageSize = 10, selectable = false, selected, onSelect, onRowClick, error, onRetry, emptyText, searchable = true, title,
+    pageSize = 10, selectable = false, selected, onSelect, onRowClick, error, onRetry, emptyText, searchable = true, title, card,
 }) {
     const loading = useNavLoading();
     const [q, setQ] = useState('');
@@ -47,18 +49,18 @@ export default function DataTable({
     const toggleAll = () => { const next = new Set(selected); rows.forEach((r) => (allChecked ? next.delete(r[rowKey]) : next.add(r[rowKey]))); onSelect(next); };
 
     return (
-        <div>
+        <div className={card ? 'dt-has-cards' : undefined}>
             <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
                 {title && <h5 className="mb-0 me-2">{title}</h5>}
                 {toolbar}
                 <div className="ms-auto d-flex flex-wrap gap-2">
                     {searchable && (
-                        <div className="input-group" style={{ width: 220 }}>
+                        <div className="input-group dt-search" style={{ width: 220 }}>
                             <span className="input-group-text"><Search size={14} /></span>
                             <Input placeholder="Cari..." value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
                         </div>
                     )}
-                    <UncontrolledDropdown>
+                    <UncontrolledDropdown className="dt-cols">
                         <DropdownToggle color="light" title="Tampilkan kolom"><Columns size={16} /></DropdownToggle>
                         <DropdownMenu end style={{ maxHeight: 320, overflowY: 'auto' }}>
                             {columns.map((c) => (
@@ -80,7 +82,17 @@ export default function DataTable({
                 </div>
             </div>
 
-            <div className="table-responsive">
+            {card && (
+                <div className="dt-cards d-sm-none">
+                    {loading ? <span className="skeleton" style={{ height: 120 }} /> : error ? <ErrorState text={error} onRetry={onRetry} />
+                        : rows.length === 0 ? <EmptyState text={q ? `Tidak ada hasil untuk "${q}"` : emptyText} />
+                        : rows.map((r, i) => (
+                            <div key={r[rowKey] ?? i} className={`dt-card ${onRowClick ? 'clickable' : ''}`} onClick={onRowClick ? () => onRowClick(r) : undefined}>{card(r)}</div>
+                        ))}
+                </div>
+            )}
+
+            <div className={`table-responsive ${card ? 'd-none d-sm-block' : ''}`}>
                 <table className={`table table-hover table-bordernone align-middle ${stickyFirst ? 'table-sticky' : ''}`}>
                     <thead>
                         <tr>

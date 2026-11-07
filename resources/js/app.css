@@ -66,6 +66,62 @@ body.dark-only .alert-light-warning { background: rgba(255, 170, 5, .12); color:
     .page-wrapper .page-body-wrapper .page-title .breadcrumb .breadcrumb-item a svg { width: 14px; height: 14px; }
 }
 
+/* Tabel versi kartu di HP (DataTable prop `card`) */
+.dt-cards { display: grid; gap: 10px; }
+.dt-card { border: 1px solid #ececf3; border-radius: 12px; padding: 12px 14px; background: var(--bs-body-bg, #fff); }
+.dt-card.clickable { cursor: pointer; }
+.dt-card.clickable:active { background: rgba(115, 102, 255, .05); }
+.dt-card + .dt-card { margin-top: 0; }
+.modal .dt-card + .dt-card { margin-top: 10px; }
+.dt-card-total { background: rgba(115, 102, 255, .05); border-color: rgba(115, 102, 255, .2); }
+.dt-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; min-width: 0; }
+.dt-card-head > .fw-semibold { font-size: 14px; }
+.dt-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 8px 0 10px; }
+.dt-card-grid dt { font-weight: 400; font-size: 11px; color: #8a8aa0; letter-spacing: normal; }
+.dt-card-grid dd { margin: 1px 0 0; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dt-card .laporan-persen { min-width: 0 !important; }
+body.dark-only .dt-card { border-color: #374558; background: #262932; }
+@media (max-width: 575.98px) {
+    .dt-has-cards .dt-search { width: 100% !important; }
+    .dt-has-cards .dt-cols { display: none; }
+    .dt-has-cards > .d-flex > .ms-auto { flex: 1 1 100%; margin-left: 0 !important; }
+}
+
+/* Laporan: tampilan HP */
+.laporan-judul small { display: block; margin-top: 2px; font-size: 12.5px; }
+@media (max-width: 575.98px) {
+    /* Filter: Bulanan/Tahunan selebar layar, pilihan lain 2 kolom */
+    .laporan-filter { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; }
+    .laporan-filter > .btn-group, .laporan-filter > .btn, .laporan-filter > .d-flex { grid-column: 1 / -1; }
+    .laporan-filter > .btn-group .btn { flex: 1 1 50%; }
+    .laporan-filter > .d-flex { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; }
+    .laporan-filter .btn, .laporan-filter .search-select-toggle { font-size: 13px; padding-top: 7px; padding-bottom: 7px; }
+    .laporan-filter .search-select-toggle { width: 100% !important; min-width: 0; }
+    .laporan-filter > .btn { justify-content: center; }
+
+    /* Kartu ringkasan: Total Omset menonjol, sisanya ringkas */
+    .laporan-ringkasan > .col-12:first-child .stat-card .card-body { flex-direction: row; align-items: center !important; }
+    .laporan-ringkasan > .col-12:first-child .stat-card h4 { font-size: 20px; }
+    .laporan-ringkasan > .col-12:first-child .stat-card .f-light:first-child { min-height: 0; }
+    .laporan-progres { margin-bottom: 12px !important; border-radius: 14px; }
+    .laporan-progres .card-body { padding: 14px; }
+    .laporan-progres h4 { font-size: 18px; }
+    .laporan-progres small, .laporan-progres span { font-size: 12px; letter-spacing: normal; }
+
+    /* Kartu konten, judul & catatan */
+    .laporan-hal .card { margin-bottom: 12px; }
+    .laporan-judul h5 { font-size: 15px; line-height: 1.3; }
+    .laporan-judul small { font-size: 12px; }
+    .laporan-hal .card .card-header { padding: 14px 14px 0; }
+    .laporan-hal .card .card-body { padding: 14px; }
+    .laporan-tren-info { font-size: 12.5px; line-height: 1.35; }
+    .laporan-catatan { font-size: 11.5px; line-height: 1.5; }
+
+    /* Popup rincian layar penuh */
+    .modal-fullscreen-sm-down .modal-body { padding: 14px; }
+    .modal-fullscreen-sm-down .modal-footer .laporan-tutup { width: 100%; }
+}
+
 /* Logo MSS */
 .sidebar-wrapper .logo-wrapper img, .page-header .logo-wrapper img { max-height: 42px; width: auto; }
 .sidebar-wrapper .logo-wrapper { display: flex; align-items: center; height: 81px; padding-top: 0 !important; padding-bottom: 0 !important; }

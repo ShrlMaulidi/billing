@@ -1,6 +1,6 @@
 import { Deferred } from '@inertiajs/react';
 import { useState } from 'react';
-import { ArrowLeft, CheckCircle, DollarSign, Eye, FileText, MapPin, Percent, TrendingDown, TrendingUp, Users } from 'react-feather';
+import { ArrowLeft, CheckCircle, ChevronRight, DollarSign, Eye, FileText, MapPin, Percent, TrendingDown, TrendingUp, Users } from 'react-feather';
 import { Button, Card, CardBody, CardHeader, Modal, ModalBody, ModalFooter, ModalHeader, Progress } from 'reactstrap';
 import Chart from '../../Components/Chart';
 import DataTable, { sumFooter } from '../../Components/DataTable';
@@ -29,7 +29,7 @@ const statusBadge = (status) => <StatusBadge value={status} text={LABEL_STATUS[s
 
 function PersenMasuk({ value }) {
     return (
-        <div style={{ minWidth: 110 }}>
+        <div className="laporan-persen" style={{ minWidth: 110 }}>
             <div className="small text-end">{persen(value)}</div>
             <Progress value={value} color={value >= 100 ? 'success' : value > 0 ? 'warning' : 'danger'} style={{ height: 6 }} />
         </div>
@@ -46,7 +46,7 @@ function GrafikTren({ tren }) {
     return (
         <>
             {selisih !== null && (
-                <div className={`d-flex align-items-center gap-1 mb-2 ${naik ? 'font-success' : 'font-danger'}`}>
+                <div className={`laporan-tren-info d-flex flex-wrap align-items-center gap-1 mb-2 ${naik ? 'font-success' : 'font-danger'}`}>
                     {naik ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                     <span className="fw-semibold">{naik ? 'Naik' : 'Turun'} {persen(Math.abs(selisih))}</span>
                     <span className="f-light">pembayaran masuk {bulan[bulan.length - 1]} dibanding {bulan[bulan.length - 2]}</span>
@@ -67,12 +67,24 @@ function GrafikTren({ tren }) {
                 xaxis: { categories: bulan, tooltip: { enabled: false } },
                 yaxis: { labels: { formatter: juta } },
                 tooltip: { shared: true, intersect: false, y: { formatter: rupiah } },
+                // HP: grafik lebih pendek, batang lebih rapat, label lebih kecil
+                responsive: [{
+                    breakpoint: 576,
+                    options: {
+                        chart: { height: 230 },
+                        plotOptions: { bar: { columnWidth: '72%', borderRadius: 3 } },
+                        stroke: { width: 1 },
+                        legend: { fontSize: '11px', itemMargin: { horizontal: 6 } },
+                        xaxis: { labels: { rotate: -45, hideOverlappingLabels: true, style: { fontSize: '10px' } } },
+                        yaxis: { labels: { style: { fontSize: '10px' }, formatter: juta } },
+                    },
+                }],
             }} />
         </>
     );
 }
 
-/** Komposisi pembayaran masuk per tipe pelanggan pada periode terpilih. */
+/** Komposisi pembayaran masuk per tipe klien pada periode terpilih. */
 function GrafikTipe({ perTipe }) {
     const total = perTipe.reduce((t, r) => t + r.masuk, 0);
     if (total === 0) return <EmptyState text="Belum ada pembayaran masuk pada periode ini" />;
@@ -86,9 +98,33 @@ function GrafikTipe({ perTipe }) {
             dataLabels: { enabled: true, formatter: (v) => `${Math.round(v)}%`, dropShadow: { enabled: false } },
             tooltip: { y: { formatter: rupiah } },
             plotOptions: { pie: { donut: { size: '62%', labels: { show: true, total: { show: true, label: 'Total Masuk', formatter: () => rupiah(total) }, value: { formatter: (v) => rupiah(Number(v)) } } } } },
+            responsive: [{
+                breakpoint: 576,
+                options: {
+                    chart: { height: 270 },
+                    legend: { fontSize: '11px', itemMargin: { horizontal: 6, vertical: 2 } },
+                    dataLabels: { style: { fontSize: '10px' } },
+                    plotOptions: { pie: { donut: { labels: { name: { fontSize: '12px' }, value: { fontSize: '14px' }, total: { fontSize: '12px' } } } } },
+                },
+            }],
         }} />
     );
 }
+
+/** Judul kartu: judul tebal + periode di baris kecil (tidak memanjang di layar HP). */
+function JudulKartu({ judul, sub, className = 'mb-3' }) {
+    return (
+        <div className={`laporan-judul ${className}`}>
+            <h5 className="mb-0">{judul}</h5>
+            {sub && <small className="f-light">{sub}</small>}
+        </div>
+    );
+}
+
+/** Pasangan label–nilai di kartu mobile. */
+const Nilai = ({ label, children, className = '' }) => (
+    <div><dt>{label}</dt><dd className={className}>{children}</dd></div>
+);
 
 const uang = (key, label) => ({ key, label, align: 'end', render: (r) => rupiah(r[key]) });
 
@@ -114,14 +150,14 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
     return (
         <>
             <PageHeader title={lokasi ? `${judul} — ${lokasi.nama_lokasi}` : judul} crumbs={['Laporan']} />
-            <div className="container-fluid">
-                <div className="d-flex flex-wrap gap-2 mb-3">
+            <div className="container-fluid laporan-hal">
+                <div className="laporan-filter d-flex flex-wrap gap-2 mb-3">
                     {lokasi && (
                         <Button color="light" onClick={() => applyFilters({ ...filters, lokasi: '', status: '' })}><ArrowLeft size={14} className="me-1" />Semua Lokasi</Button>
                     )}
                     <PeriodeLaporan filters={filters} tahunList={tahunList} />
                     {tipeOptions.length > 1 && (
-                        <Select ariaLabel="Tipe pelanggan" style={{ width: 200 }} value={filters.tipe} emptyLabel="Semua Tipe" options={tipeOptions}
+                        <Select ariaLabel="Tipe klien" style={{ width: 200 }} value={filters.tipe} emptyLabel="Semua Tipe" options={tipeOptions}
                             onChange={(v) => applyFilters({ ...filters, tipe: v })} />
                     )}
                     {!pilihLokasi && (
@@ -130,16 +166,17 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                     )}
                 </div>
 
-                <div className="row">
+                {/* HP: Total Omset selebar layar, empat kartu lain 2×2, lalu kartu persentase */}
+                <div className="row stat-compact laporan-ringkasan">
                     {[
-                        ['Total Omset Perusahaan', ringkasan.omset, TrendingUp, 'primary', 'Seluruh tagihan, termasuk pajak'],
-                        ['Omset Sebelum Pajak', ringkasan.sebelum_pajak, FileText, 'info', 'Total omset dikurangi pajak'],
-                        ['Total Pajak', ringkasan.pajak, Percent, 'secondary', 'PPN & PPh'],
-                        ['Pembayaran Masuk', ringkasan.masuk, CheckCircle, 'success', `${persen(ringkasan.persen_masuk)} dari total omset`],
-                        ['Sisa Pembayaran', ringkasan.sisa, DollarSign, 'danger', `${persen(ringkasan.persen_belum)} belum masuk`],
-                    ].map(([t, v, i, c, s]) => <div className="col-xxl-4 col-md-6" key={t}><StatCard title={t} value={rupiah(v)} icon={i} color={c} sub={s} /></div>)}
-                    <div className="col-xxl-4 col-md-6">
-                        <div className="card mb-4">
+                        ['Total Omset Perusahaan', ringkasan.omset, TrendingUp, 'primary', 'Seluruh tagihan, termasuk pajak', 'col-12'],
+                        ['Omset Sebelum Pajak', ringkasan.sebelum_pajak, FileText, 'info', 'Total omset dikurangi pajak', 'col-6'],
+                        ['Total Pajak', ringkasan.pajak, Percent, 'secondary', 'PPN & PPh', 'col-6'],
+                        ['Pembayaran Masuk', ringkasan.masuk, CheckCircle, 'success', `${persen(ringkasan.persen_masuk)} dari total omset`, 'col-6'],
+                        ['Sisa Pembayaran', ringkasan.sisa, DollarSign, 'danger', `${persen(ringkasan.persen_belum)} belum masuk`, 'col-6'],
+                    ].map(([t, v, i, c, s, col]) => <div className={`${col} col-md-6 col-xxl-4`} key={t}><StatCard title={t} value={rupiah(v)} icon={i} color={c} sub={s} /></div>)}
+                    <div className="col-12 col-md-6 col-xxl-4">
+                        <div className="card mb-4 laporan-progres">
                             <div className="card-body">
                                 <div className="d-flex justify-content-between mb-2">
                                     <span className="f-light">Sudah Masuk</span>
@@ -165,7 +202,7 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                     <div className="row">
                         <div className={semuaTipe ? 'col-xl-8' : 'col-12'}>
                             <Card>
-                                <CardHeader className="pb-0"><h5 className="mb-0">Tren Pemasukan per Bulan</h5></CardHeader>
+                                <CardHeader className="pb-0"><JudulKartu judul="Tren Pemasukan per Bulan" sub={filters.mode === 'tahunan' ? subjudul : `12 bulan sampai ${subjudul}`} className="" /></CardHeader>
                                 <CardBody>
                                     <Deferred data="tren" fallback={<div className="skeleton" style={{ height: 320 }} />}>
                                         <GrafikTren tren={tren ?? []} />
@@ -176,7 +213,7 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                         {semuaTipe && (
                             <div className="col-xl-4">
                                 <Card>
-                                    <CardHeader className="pb-0"><h5 className="mb-0">Pemasukan per Tipe — {subjudul}</h5></CardHeader>
+                                    <CardHeader className="pb-0"><JudulKartu judul="Pemasukan per Tipe" sub={subjudul} className="" /></CardHeader>
                                     <CardBody><GrafikTipe perTipe={perTipe} /></CardBody>
                                 </Card>
                             </div>
@@ -187,15 +224,27 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                 {semuaTipe && (
                     <Card>
                         <CardBody>
-                            <h5 className="mb-3">Ringkasan per Tipe Pelanggan — {subjudul}</h5>
+                            <JudulKartu judul="Ringkasan per Tipe Klien" sub={subjudul} />
                             <DataTable
                                 data={perTipe}
                                 rowKey="tipe"
                                 searchable={false}
                                 exportable={false}
                                 footer={sumFooter(UANG, rupiah)}
+                                card={(r) => (
+                                    <>
+                                        <div className="dt-card-head">{tipeBadge(r.tipe)}<small className="f-light">{angka(r.jumlah)} pelanggan</small></div>
+                                        <dl className="dt-card-grid">
+                                            <Nilai label="Total Omset">{rupiah(r.omset)}</Nilai>
+                                            <Nilai label="Pembayaran Masuk" className="font-success">{rupiah(r.masuk)}</Nilai>
+                                            <Nilai label="Sisa Pembayaran" className={r.sisa > 0 ? 'font-danger' : ''}>{rupiah(r.sisa)}</Nilai>
+                                            <Nilai label="Pajak">{rupiah(r.pajak)}</Nilai>
+                                        </dl>
+                                        <PersenMasuk value={r.persen_masuk} />
+                                    </>
+                                )}
                                 columns={[
-                                    { key: 'tipe', label: 'Tipe Pelanggan', render: (r) => tipeBadge(r.tipe) },
+                                    { key: 'tipe', label: 'Tipe Klien', render: (r) => tipeBadge(r.tipe) },
                                     { key: 'jumlah', label: 'Pelanggan', align: 'end', render: (r) => angka(r.jumlah) },
                                     uang('omset', 'Total Omset'), uang('sebelum_pajak', 'Sebelum Pajak'), uang('pajak', 'Pajak'),
                                     uang('masuk', 'Pembayaran Masuk'), uang('sisa', 'Sisa Pembayaran'),
@@ -209,8 +258,7 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                 {pilihLokasi && (
                     <Card>
                         <CardBody>
-                            <h5 className="mb-1">Perbandingan Lokasi Shafa.net — {subjudul}</h5>
-                            <p className="f-light mb-3">Klik salah satu lokasi untuk melihat status pembayaran pelanggannya.</p>
+                            <JudulKartu judul="Perbandingan Lokasi Shafa.net" sub={`${subjudul} · klik lokasi untuk melihat pelanggannya`} />
                             <DataTable
                                 data={perLokasi}
                                 pageSize={25}
@@ -218,6 +266,27 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                                 footer={(col, data) => (UANG.includes(col.key) ? sumFooter(UANG, rupiah)(col, data) : sumFooter(JUMLAH, angka)(col, data))}
                                 onRowClick={(r) => bukaLokasi(r.id)}
                                 emptyText="Belum ada lokasi Shafa.net"
+                                card={(r) => (
+                                    <>
+                                        <div className="dt-card-head">
+                                            <span className="d-inline-flex align-items-center gap-1 min-w-0">
+                                                <MapPin size={14} className="font-primary flex-shrink-0" /><span className="fw-semibold text-truncate">{r.nama_lokasi}</span>
+                                            </span>
+                                            <ChevronRight size={16} className="f-light flex-shrink-0" />
+                                        </div>
+                                        <small className="f-light d-block mb-2">{r.kode_lokasi} · {angka(r.jumlah)} pelanggan</small>
+                                        <dl className="dt-card-grid">
+                                            <Nilai label="Total Omset">{rupiah(r.omset)}</Nilai>
+                                            <Nilai label="Pembayaran Masuk" className="font-success">{rupiah(r.masuk)}</Nilai>
+                                            <Nilai label="Sisa Pembayaran" className={r.sisa > 0 ? 'font-danger' : ''}>{rupiah(r.sisa)}</Nilai>
+                                            <Nilai label="Pajak">{rupiah(r.pajak)}</Nilai>
+                                        </dl>
+                                        <PersenMasuk value={r.persen_masuk} />
+                                        <small className="d-block mt-2">
+                                            <span className="font-success">{angka(r.lunas)} lunas</span> · <span className="font-warning">{angka(r.sebagian)} sebagian</span> · <span className="font-danger">{angka(r.belum_lunas)} belum bayar</span>
+                                        </small>
+                                    </>
+                                )}
                                 actions={(r) => <ActionButton icon={Users} label={`Lihat Pelanggan ${r.nama_lokasi}`} onClick={(e) => { e.stopPropagation(); bukaLokasi(r.id); }} />}
                                 columns={[
                                     {
@@ -240,7 +309,7 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                 {!pilihLokasi && (
                 <Card>
                     <CardBody>
-                        <h5 className="mb-3">Status Pembayaran Pelanggan{lokasi ? ` ${lokasi.nama_lokasi}` : ''} — {subjudul}</h5>
+                        <JudulKartu judul={`Status Pembayaran Pelanggan${lokasi ? ` ${lokasi.nama_lokasi}` : ''}`} sub={subjudul} />
                         <DataTable
                             data={rows}
                             rowKey="key"
@@ -249,6 +318,37 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                             footer={(col, data) => (col.key === 'saldo' ? saldo(data.reduce((t, r) => t + r.saldo, 0)) : sumFooter(UANG, rupiah)(col, data))}
                             emptyText="Tidak ada tagihan pada periode ini"
                             actions={(r) => <ActionButton icon={Eye} label="Rincian per Periode" color="info" onClick={() => setDetail(r)} />}
+                            card={(r) => (
+                                <>
+                                    <div className="dt-card-head">
+                                        <span className="fw-semibold text-truncate">{r.nama}</span>
+                                        {statusBadge(r.status)}
+                                    </div>
+                                    {(semuaTipe || r.keterangan) && (
+                                        <div className="d-flex flex-wrap align-items-center gap-1 mb-2">
+                                            {semuaTipe && tipeBadge(r.tipe)}
+                                            {r.keterangan && <small className="f-light">{r.keterangan}</small>}
+                                        </div>
+                                    )}
+                                    <dl className="dt-card-grid">
+                                        <Nilai label="Total Tagihan">{rupiah(r.omset)}</Nilai>
+                                        <Nilai label="Sudah Masuk" className="font-success">{rupiah(r.masuk)}</Nilai>
+                                        <Nilai label="Sisa" className={r.sisa > 0 ? 'font-danger' : ''}>{rupiah(r.sisa)}</Nilai>
+                                        {tampilSaldo ? <Nilai label="Saldo Mitra">{saldo(r.saldo)}</Nilai> : <Nilai label="Pajak">{rupiah(r.pajak)}</Nilai>}
+                                    </dl>
+                                    <PersenMasuk value={r.persen_masuk} />
+                                    {r.periode_belum.length > 0 && (
+                                        <div className="d-flex flex-wrap gap-1 mt-2">
+                                            {r.periode_belum.map((p) => (
+                                                <span key={p.periode} className={`badge badge-light-${p.status === 'sebagian' ? 'warning' : 'danger'}`}>
+                                                    {bulanSingkat(p.periode)}{p.status === 'sebagian' ? ' (sebagian)' : ''}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <Button color="light" size="sm" className="w-100 mt-2" onClick={() => setDetail(r)}><Eye size={14} className="me-1" />Rincian per Periode</Button>
+                                </>
+                            )}
                             columns={[
                                 { key: 'nama', label: 'Nama Pelanggan', render: (r) => <>{r.nama}{r.keterangan && <><br /><small className="f-light">{r.keterangan}</small></>}</> },
                                 ...(semuaTipe ? [{ key: 'tipe', label: 'Tipe', sortValue: (r) => LABEL_TIPE[r.tipe], render: (r) => tipeBadge(r.tipe) }] : []),
@@ -271,12 +371,12 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                             ]}
                         />
                         {tampilSaldo && (
-                            <small className="f-light d-block mt-2">
+                            <small className="laporan-catatan f-light d-block mt-2">
                                 Saldo Mitra = pendapatan reseller − pemasukan via mitra + sudah setor − sudah WD (sama dengan Dashboard Cabang).
                                 <span className="font-success"> Plus</span>: hak mitra yang masih di MSS dan bisa ditarik. <span className="font-danger">Minus</span>: mitra masih harus setor ke MSS.
                             </small>
                         )}
-                        <small className="f-light d-block mt-2">
+                        <small className="laporan-catatan f-light d-block mt-2">
                             Mitra Reseller: kewajiban setor ke MSS (PPN, admin fee, bagi hasil, PPh) dari pembayaran pelanggan mitra. Shafa.net: tagihan paket pelanggan end user.
                             Korporat &amp; Instansi Pemerintah: harga langganan per bulan + PPN. {filters.mode === 'tahunan' ? `Mode tahunan: Januari sampai ${periode.length ? BULAN[Number(periode[periode.length - 1].slice(5, 7)) - 1] : '-'} ${filters.tahun}.` : ''}
                         </small>
@@ -285,7 +385,7 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                 )}
             </div>
 
-            <Modal isOpen={!!detail} toggle={() => setDetail(null)} centered scrollable size="lg">
+            <Modal isOpen={!!detail} toggle={() => setDetail(null)} centered scrollable size="lg" fullscreen="sm">
                 <ModalHeader toggle={() => setDetail(null)}>Rincian Pembayaran — {detail?.nama}</ModalHeader>
                 <ModalBody>
                     {detail && (
@@ -294,7 +394,33 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                                 {tipeBadge(detail.tipe)} {statusBadge(detail.status)}
                                 {detail.keterangan && <small className="f-light">{detail.keterangan}</small>}
                             </div>
-                            <div className="table-responsive">
+                            {/* HP: daftar per periode; layar lebar: tabel */}
+                            <div className="d-sm-none">
+                                {detail.periode.map((p) => (
+                                    <div key={p.periode} className="dt-card">
+                                        <div className="dt-card-head">
+                                            <span className="fw-semibold">{BULAN[Number(p.periode.slice(5, 7)) - 1]} {p.periode.slice(0, 4)}</span>
+                                            {statusBadge(p.status)}
+                                        </div>
+                                        <dl className="dt-card-grid mb-0">
+                                            <Nilai label="Tagihan">{rupiah(p.tagihan)}</Nilai>
+                                            <Nilai label="Sudah Masuk" className="font-success">{rupiah(p.masuk)}</Nilai>
+                                            <Nilai label="Sisa" className={p.sisa > 0 ? 'font-danger' : ''}>{rupiah(p.sisa)}</Nilai>
+                                            {detail.saldo !== null ? <Nilai label="Saldo Mitra">{saldo(p.saldo)}</Nilai> : <Nilai label="Pajak">{rupiah(p.pajak)}</Nilai>}
+                                        </dl>
+                                    </div>
+                                ))}
+                                <div className="dt-card dt-card-total">
+                                    <div className="dt-card-head"><span className="fw-semibold">Total</span><span className="fw-semibold">{persen(detail.persen_masuk)} masuk</span></div>
+                                    <dl className="dt-card-grid mb-0">
+                                        <Nilai label="Tagihan">{rupiah(detail.omset)}</Nilai>
+                                        <Nilai label="Sudah Masuk" className="font-success">{rupiah(detail.masuk)}</Nilai>
+                                        <Nilai label="Sisa" className={detail.sisa > 0 ? 'font-danger' : ''}>{rupiah(detail.sisa)}</Nilai>
+                                        {detail.saldo !== null ? <Nilai label="Saldo Mitra">{saldo(detail.saldo)}</Nilai> : <Nilai label="Pajak">{rupiah(detail.pajak)}</Nilai>}
+                                    </dl>
+                                </div>
+                            </div>
+                            <div className="table-responsive d-none d-sm-block">
                                 <table className="table table-sm align-middle mb-0">
                                     <thead>
                                         <tr>
@@ -331,7 +457,7 @@ export default function Laporan({ filters, judul, periode, ringkasan, perTipe, r
                         </>
                     )}
                 </ModalBody>
-                <ModalFooter><Button color="light" onClick={() => setDetail(null)}>Tutup</Button></ModalFooter>
+                <ModalFooter><Button color="light" className="laporan-tutup" onClick={() => setDetail(null)}>Tutup</Button></ModalFooter>
             </Modal>
         </>
     );
