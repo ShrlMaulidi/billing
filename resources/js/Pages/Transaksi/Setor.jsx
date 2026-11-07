@@ -48,7 +48,7 @@ const kirim = async (request) => {
 };
 
 /**
- * Pembayaran Masuk: pilih tipe pelanggan dulu, lalu nama pelanggan; isi formulir menyesuaikan tipe.
+ * Pembayaran Masuk: pilih tipe klien dulu, lalu nama pelanggan; isi formulir menyesuaikan tipe.
  * Setoran Mitra Reseller / Shafa.net langsung menambah saldo mitra pada periodenya; input & pembatalan hanya oleh user pusat.
  */
 export default function Setor({ filters, rows, kewajiban, periodeOptions, periodeSekarang, ppnBawaan, rekeningOptions, tipeOptions, namaOptions }) {
@@ -162,7 +162,7 @@ export default function Setor({ filters, rows, kewajiban, periodeOptions, period
                 ]}
                 fields={[
                     {
-                        name: 'tipe', label: 'Tipe Pelanggan', type: 'select', required: true, col: 'col-12', options: tipeOptions,
+                        name: 'tipe', label: 'Tipe Klien', type: 'select', required: true, col: 'col-12', options: tipeOptions,
                         resets: bawaan, help: 'Pilih tipe dulu, lalu nama pelanggannya',
                     },
                     ...fieldsCabang,

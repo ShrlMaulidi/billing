@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Pelanggan korporat & instansi pemerintah (menu Data Pelanggan). Berbeda dengan reseller & retail yang
+ * Pelanggan korporat & instansi pemerintah (menu Data Klien). Berbeda dengan reseller & retail yang
  * disimpan sebagai cabang (Lokasi), pelanggan ini berlangganan langsung dan tidak terikat cabang.
  * Path file KTP/NPWP disembunyikan dari array agar lokasi file privat tidak terkirim ke browser.
  */

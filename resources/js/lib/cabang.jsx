@@ -1,5 +1,5 @@
 /**
- * Form cabang / lokasi, dipakai menu Kelola Data › Cabang (edit) dan Data Pelanggan (tambah & edit tipe Mitra Reseller / Retail).
+ * Form cabang / lokasi, dipakai menu Kelola Data › Cabang (edit) dan Data Klien (tambah & edit tipe Mitra Reseller / Retail).
  * Tarif pajak awal hanya diisi saat tambah cabang; setelah itu diubah per bulan di Pengaturan Pajak.
  */
 const TIPE_TARIF = [{ value: 'persentase', label: 'Persentase' }, { value: 'nominal', label: 'Nominal' }];

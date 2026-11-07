@@ -10,7 +10,7 @@ import { deleteFrom, saveTo, useBisa } from '../../lib/ui';
 const kosong = (v) => v === null || v === undefined;
 const TIPE = { reseller: ['Mitra Reseller', 'primary'], retail: ['Retail / Shafa.net', 'warning'] };
 
-/** Cabang baru ditambahkan lewat menu Data Pelanggan (pilih tipe Mitra Reseller / Retail); di sini hanya edit & hapus. */
+/** Cabang baru ditambahkan lewat menu Data Klien (pilih tipe Mitra Reseller / Retail); di sini hanya edit & hapus. */
 export default function Cabang({ filters, rows, periodeSekarang }) {
     const { auth } = usePage().props;
     const bisa = useBisa();
@@ -26,7 +26,7 @@ export default function Cabang({ filters, rows, periodeSekarang }) {
                     <Info size={16} className="flex-shrink-0" />
                     <span>
                         Pajak dan bagi hasil yang ditampilkan adalah tarif bulan berjalan (<strong>{periode(periodeSekarang)}</strong>). Untuk mengubahnya per bulan, buka <Link href="/kelola-data/pajak" prefetch className="fw-semibold">Pengaturan Pajak</Link>.
-                        {!auth.user?.id_lokasi && <> Cabang baru ditambahkan lewat menu <Link href="/data-pelanggan" prefetch className="fw-semibold">Data Pelanggan</Link>.</>}
+                        {!auth.user?.id_lokasi && <> Cabang baru ditambahkan lewat menu <Link href="/data-pelanggan" prefetch className="fw-semibold">Data Klien</Link>.</>}
                     </span>
                 </div>
             }

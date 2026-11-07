@@ -49,7 +49,7 @@ class PembayaranMasukTest extends TestCase
             'ppn_persen' => 'PPN harus antara 0 dan 100', 'periode' => 'Periode tidak valid',
         ]);
         $this->postJson('/transaksi/setor-kewajiban/instansi', ['tipe' => 'reseller'])->assertStatus(422)->assertJsonValidationErrors([
-            'tipe' => 'Tipe pelanggan tidak valid', 'pelanggan_instansi_id' => 'Nama pelanggan wajib diisi', 'nominal' => 'Nominal pembayaran wajib diisi', 'ppn_persen' => 'PPN wajib diisi',
+            'tipe' => 'Tipe klien tidak valid', 'pelanggan_instansi_id' => 'Nama pelanggan wajib diisi', 'nominal' => 'Nominal pembayaran wajib diisi', 'ppn_persen' => 'PPN wajib diisi',
         ]);
 
         $this->assertDatabaseCount('pembayaran_instansi', 0);

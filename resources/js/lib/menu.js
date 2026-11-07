@@ -10,7 +10,7 @@ export const MENU = [
     {
         title: 'Data & Transaksi',
         items: [
-            { title: 'Data Pelanggan', icon: 'social', href: '/data-pelanggan', izin: 'data_pelanggan.view', pusat: true },
+            { title: 'Data Klien', icon: 'social', href: '/data-pelanggan', izin: 'data_pelanggan.view', pusat: true },
             {
                 title: 'Pelanggan', icon: 'contact', base: '/pelanggan',
                 children: [

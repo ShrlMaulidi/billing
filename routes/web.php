@@ -61,7 +61,7 @@ Route::middleware('auth')->group(function () {
     // Pengaturan pajak per cabang per bulan; mengubah tarif & bagi hasil hanya untuk user semua cabang (lihat grup semua_cabang)
     Route::get('/kelola-data/pajak', [PajakController::class, 'index'])->middleware('permission:kelola_data.pajak.view')->name('kelola-data.pajak');
 
-    // Cabang & area (database). Cabang (Mitra Reseller / Retail) ditambahkan lewat menu Data Pelanggan, dan bisa diubah/dihapus dari kedua menu
+    // Cabang & area (database). Cabang (Mitra Reseller / Retail) ditambahkan lewat menu Data Klien, dan bisa diubah/dihapus dari kedua menu
     Route::get('/kelola-data/cabang', [CabangController::class, 'index'])->middleware('permission:kelola_data.cabang.view')->name('kelola-data.cabang');
     Route::post('/cabang', [CabangController::class, 'store'])->middleware('permission:data_pelanggan.create')->name('cabang.store');
     Route::put('/cabang/{lokasi}', [CabangController::class, 'update'])->middleware('permission:kelola_data.cabang.update|data_pelanggan.update')->name('cabang.update');
@@ -151,7 +151,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/laporan/korporat', [LaporanController::class, 'korporat'])->middleware('permission:laporan.korporat.view')->name('laporan.korporat');
         Route::get('/laporan/pemerintah', [LaporanController::class, 'pemerintah'])->middleware('permission:laporan.pemerintah.view')->name('laporan.pemerintah');
 
-        // Data Pelanggan semua tipe; korporat & instansi pemerintah memuat NIK dan dokumen identitas
+        // Data Klien semua tipe; korporat & instansi pemerintah memuat NIK dan dokumen identitas
         Route::prefix('data-pelanggan')->name('data-pelanggan.')->controller(DataPelangganController::class)->group(function () {
             Route::get('/', 'index')->middleware('permission:data_pelanggan.view')->name('index');
             Route::post('/instansi', 'store')->middleware('permission:data_pelanggan.create')->name('instansi.store');

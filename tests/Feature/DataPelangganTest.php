@@ -71,7 +71,7 @@ class DataPelangganTest extends TestCase
     public function test_store_requires_main_fields(): void
     {
         $this->postJson('/data-pelanggan/instansi', [])->assertStatus(422)->assertJsonValidationErrors([
-            'tipe' => 'Tipe pelanggan wajib diisi', 'nama' => 'Nama wajib diisi', 'alamat' => 'Alamat wajib diisi', 'kapasitas' => 'Kapasitas wajib diisi',
+            'tipe' => 'Tipe klien wajib diisi', 'nama' => 'Nama wajib diisi', 'alamat' => 'Alamat wajib diisi', 'kapasitas' => 'Kapasitas wajib diisi',
             'harga' => 'Harga wajib diisi', 'tanggal_aktif' => 'Tanggal aktif wajib diisi', 'jns_tagihan' => 'Jenis tagihan wajib diisi', 'status' => 'Status wajib diisi',
         ]);
 

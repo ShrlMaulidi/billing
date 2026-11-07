@@ -257,7 +257,7 @@ class TransaksiController extends Controller
             'ppn_persen' => ['required', 'numeric', 'between:0,100'],
             'periode' => ['required', Rule::in($this->periodePembayaranMasuk(bayarDiMuka: true))],
         ], $this->pesanValidasi(), [
-            'tipe' => 'Tipe pelanggan', 'pelanggan_instansi_id' => 'Nama pelanggan', 'nominal' => 'Nominal pembayaran', 'ppn_persen' => 'PPN', 'periode' => 'Periode',
+            'tipe' => 'Tipe klien', 'pelanggan_instansi_id' => 'Nama pelanggan', 'nominal' => 'Nominal pembayaran', 'ppn_persen' => 'PPN', 'periode' => 'Periode',
         ]);
 
         $ppn = (int) round($data['nominal'] * $data['ppn_persen'] / 100);

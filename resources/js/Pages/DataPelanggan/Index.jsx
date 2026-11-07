@@ -74,7 +74,8 @@ const dokumen = (r) => {
 const strip = (v) => v || '-';
 
 /**
- * Data Pelanggan semua tipe: Mitra Reseller, Korporat, Instansi Pemerintah, Retail / Shafa.net.
+ * Data Klien (semua klien perusahaan): Mitra Reseller, Korporat, Instansi Pemerintah, Retail / Shafa.net.
+ * Berbeda dengan menu Pelanggan yang berisi pelanggan end user.
  * Tambah data dimulai dengan memilih tipe; isi formulir menyesuaikan tipe yang dipilih.
  */
 export default function DataPelanggan({ filters, rows, tipeOptions, periodeSekarang, hariIni, salesOptions }) {
@@ -89,10 +90,10 @@ export default function DataPelanggan({ filters, rows, tipeOptions, periodeSekar
 
     const fields = [
         {
-            name: 'tipe', label: 'Tipe Pelanggan', type: 'select', required: true, col: 'col-12', options: tipeOptions, show: (v) => !v.id, resets: bawaan,
+            name: 'tipe', label: 'Tipe Klien', type: 'select', required: true, col: 'col-12', options: tipeOptions, show: (v) => !v.id, resets: bawaan,
             help: 'Isi formulir menyesuaikan tipe yang dipilih',
         },
-        { name: 'tipe_tampil', label: 'Tipe Pelanggan', type: 'static', col: 'col-12', show: (v) => !!v.id, render: (v) => tipeBadge(v) },
+        { name: 'tipe_tampil', label: 'Tipe Klien', type: 'static', col: 'col-12', show: (v) => !!v.id, render: (v) => tipeBadge(v) },
         ...cabangFields({ adminFullTerkunci: !!auth.user?.id_lokasi }).map((f) => ({ ...f, show: (v) => isCabang(v.tipe) && (!f.show || f.show(v)) })),
         ...['korporat', 'pemerintah'].flatMap((tipe) => instansiFields(tipe, salesOptions).map((f) => ({ ...f, show: (v) => v.tipe === tipe && (!f.show || f.show(v)) }))),
     ];
@@ -139,7 +140,7 @@ export default function DataPelanggan({ filters, rows, tipeOptions, periodeSekar
         <>
             <CrudPage
                 key={filters.tipe ?? 'semua'}
-                title="Data Pelanggan" crumbs={['Data & Transaksi']} entity="Data Pelanggan" rows={data} filters={filters}
+                title="Data Klien" crumbs={['Data & Transaksi']} entity="Data Klien" rows={data} filters={filters}
                 filterFields={[{ name: 'tipe', label: 'Tipe', options: tipeOptions, width: 220 }]}
                 tableProps={{ rowKey: 'key' }}
                 columns={columns}

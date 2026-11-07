@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 /**
- * Menu Data Pelanggan: daftar semua tipe pelanggan perusahaan.
+ * Menu Data Klien: daftar semua klien perusahaan (berbeda dengan menu Pelanggan yang berisi pelanggan end user).
  * - Mitra Reseller & Retail / Shafa.net disimpan sebagai cabang (Lokasi) dan disimpan lewat CabangController.
  * - Korporat & Instansi Pemerintah disimpan di pelanggan_instansi (beserta dokumen KTP/NPWP) lewat controller ini.
  * Seluruh route-nya di grup semua_cabang: data ini memuat NIK & dokumen identitas, bukan data cabang.
@@ -162,7 +162,7 @@ class DataPelangganController extends Controller
             'file' => ':attribute harus berupa file',
             'tanggal_berhenti.after_or_equal' => 'Tanggal berhenti tidak boleh sebelum tanggal aktif',
         ], [
-            'tipe' => 'Tipe pelanggan', 'nama' => 'Nama', 'alamat' => 'Alamat', 'kapasitas' => 'Kapasitas', 'harga' => 'Harga', 'metro' => 'Metro',
+            'tipe' => 'Tipe klien', 'nama' => 'Nama', 'alamat' => 'Alamat', 'kapasitas' => 'Kapasitas', 'harga' => 'Harga', 'metro' => 'Metro',
             'nik' => 'NIK', 'npwp' => 'NPWP', 'file_ktp' => 'File KTP', 'file_npwp' => 'File NPWP', 'tanggal_aktif' => 'Tanggal aktif', 'tanggal_berhenti' => 'Tanggal berhenti',
             'jns_tagihan' => 'Jenis tagihan', 'status' => 'Status', 'sales_id' => 'Sales',
         ]);
@@ -171,7 +171,7 @@ class DataPelangganController extends Controller
         if ($data['status'] === 'berlangganan') {
             $data['tanggal_berhenti'] = null;
         }
-        // Tipe pelanggan tidak bisa diganti lewat edit; Metro, NIK & KTP hanya untuk korporat
+        // Tipe klien tidak bisa diganti lewat edit; Metro, NIK & KTP hanya untuk korporat
         $tipe = $instansi?->tipe ?? $data['tipe'];
         unset($data['tipe']);
         if ($tipe === 'pemerintah') {
