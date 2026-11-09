@@ -88,7 +88,8 @@ export default function HakAkses({ roles, selected, menus, permissions }) {
                             </CardHeader>
                             <CardBody>
                                 {role?.is_locked && <div className="alert alert-light-warning">Role Super Admin terkunci: memiliki semua akses dan tidak dapat diubah.</div>}
-                                <div className="table-responsive">
+                                {/* Baris menu bergulir di dalam kotak ini, header kolom tetap terlihat */}
+                                <div className="table-responsive perm-scroll">
                                     <table className="table table-bordered perm-table">
                                         <thead>
                                             <tr>

@@ -20,6 +20,12 @@ body.dark-only .table-sticky td:first-child { background: #262932; }
 .wa-preview .bubble { background: #dcf8c6; border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; max-width: 90%; color: #222; font-size: 13px; }
 .perm-table td, .perm-table th { text-align: center; vertical-align: middle; }
 .perm-table td:first-child, .perm-table th:first-child { text-align: left; }
+/* Header matriks tetap terlihat saat baris digulir. Garis bawah memakai box-shadow karena border tabel collapse tidak ikut menempel */
+.perm-scroll { max-height: max(360px, calc(100vh - 230px)); overflow: auto; }
+.perm-scroll .perm-table { margin-bottom: 0; }
+.perm-scroll .perm-table > thead > tr > th { position: sticky; top: 0; z-index: 3; background-color: var(--bs-body-bg, #fff); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .12); }
+body.dark-only .perm-scroll .perm-table > thead > tr > th { background-color: #262932; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .15); }
+@media (max-width: 991.98px) { .perm-scroll { max-height: max(320px, calc(100vh - 300px)); } }
 .page-header .header-wrapper .nav-right .nav-menus .ip-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid rgba(115, 102, 255, .2); border-radius: 999px; background: rgba(115, 102, 255, .07); color: var(--theme-default); font-size: 12px; line-height: 1; white-space: nowrap; vertical-align: middle; }
 .page-header .header-wrapper .nav-right .nav-menus .ip-chip svg { width: 14px; height: 14px; stroke: currentColor; }
 .page-header .header-wrapper .nav-right .nav-menus .ip-chip-label { font-size: 10px; font-weight: 600; letter-spacing: .06em; opacity: .7; }
