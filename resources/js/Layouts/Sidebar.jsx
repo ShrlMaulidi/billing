@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Grid, X } from 'react-feather';
+import { Grid, Key, LogOut, User, X } from 'react-feather';
 import { menuUntuk } from '../lib/menu';
 import { useBisa } from '../lib/ui';
 import Icon from '../Components/Icon';
@@ -76,6 +76,17 @@ export default function Sidebar({ closed, onToggle }) {
                                     );
                                 }),
                             ])}
+                            {/* Layar kecil: dropdown profil di header hanya terbuka lewat hover, jadi tidak terjangkau di layar sentuh */}
+                            <li className="sidebar-main-title d-lg-none"><div><h6>Akun</h6></div></li>
+                            <li className="sidebar-list d-lg-none">
+                                <Link href="/profil" prefetch onClick={closeOnMobile} className="sidebar-link sidebar-title link-nav"><User className="stroke-icon" /><span>Profil Saya</span></Link>
+                            </li>
+                            <li className="sidebar-list d-lg-none">
+                                <Link href="/profil?tab=password" prefetch onClick={closeOnMobile} className="sidebar-link sidebar-title link-nav"><Key className="stroke-icon" /><span>Ganti Password</span></Link>
+                            </li>
+                            <li className="sidebar-list d-lg-none">
+                                <Link href="/logout" method="post" as="button" className="sidebar-link sidebar-title link-nav sidebar-logout"><LogOut className="stroke-icon" /><span>Logout</span></Link>
+                            </li>
                         </ul>
                     </div>
                 </nav>

@@ -1,8 +1,8 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ArrowDownCircle, ArrowUpCircle, Bell, Box, CheckCircle, Circle, CreditCard, Database, FileText, GitBranch, List, Map, MapPin, Menu, Percent, Server, Shield,
-    ShoppingBag, Slash, UploadCloud, UserCheck, Users, UserX, X, XCircle, Zap,
+    ArrowDownCircle, ArrowUpCircle, Bell, Box, CheckCircle, Circle, CreditCard, Database, FileText, GitBranch, Key, List, LogOut, Map, MapPin, Menu, Percent, Server, Shield,
+    ShoppingBag, Slash, UploadCloud, User, UserCheck, Users, UserX, X, XCircle, Zap,
 } from 'react-feather';
 import { MENU, menuUntuk } from '../lib/menu';
 import { useBisa } from '../lib/ui';
@@ -43,7 +43,7 @@ export default function MobileNav() {
     // Submenu ikut dicari (mis. Laporan › Semua Laporan di navbar bawah) dengan ikon induknya
     const allItems = MENU.flatMap((g) => g.items.flatMap((i) => (i.children ? i.children.map((c) => ({ ...c, icon: i.icon })) : [i])));
     const primary = PRIMARY.filter((p) => bisa(allItems.find((i) => i.href === p.href)?.izin));
-    const sheetHrefs = sections.flatMap((s) => s.items.map((i) => i.href));
+    const sheetHrefs = [...sections.flatMap((s) => s.items.map((i) => i.href)), '/profil'];
     const path = url.split('?')[0];
     const isActive = (href) => path === href || path.startsWith(`${href}/`);
     const [open, setOpen] = useState(false);
@@ -102,6 +102,24 @@ export default function MobileNav() {
                             </div>
                         </section>
                     ))}
+                    {/* Dropdown profil di header hanya terbuka lewat hover, jadi tidak terjangkau di layar sentuh */}
+                    <section>
+                        <div className="msheet-title">Akun</div>
+                        <div className="msheet-grid">
+                            <Link href="/profil" prefetch className={`msheet-item ${url === '/profil' ? 'active' : ''}`} tabIndex={open ? 0 : -1}>
+                                <span className="msheet-icon"><User size={20} /></span>
+                                <span>Profil Saya</span>
+                            </Link>
+                            <Link href="/profil?tab=password" prefetch className={`msheet-item ${url === '/profil?tab=password' ? 'active' : ''}`} tabIndex={open ? 0 : -1}>
+                                <span className="msheet-icon"><Key size={20} /></span>
+                                <span>Ganti Password</span>
+                            </Link>
+                            <Link href="/logout" method="post" as="button" className="msheet-item msheet-logout" tabIndex={open ? 0 : -1}>
+                                <span className="msheet-icon"><LogOut size={20} /></span>
+                                <span>Logout</span>
+                            </Link>
+                        </div>
+                    </section>
                 </div>
             </div>
         </>
