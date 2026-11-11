@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Grid, Key, LogOut, User, X } from 'react-feather';
 import { menuUntuk } from '../lib/menu';
@@ -85,7 +85,11 @@ export default function Sidebar({ closed, onToggle }) {
                                 <Link href="/profil?tab=password" prefetch onClick={closeOnMobile} className="sidebar-link sidebar-title link-nav"><Key className="stroke-icon" /><span>Ganti Password</span></Link>
                             </li>
                             <li className="sidebar-list d-lg-none">
-                                <Link href="/logout" method="post" as="button" className="sidebar-link sidebar-title link-nav sidebar-logout"><LogOut className="stroke-icon" /><span>Logout</span></Link>
+                                {/* Berupa <a> agar mendapat gaya menu sidebar tema (yang hanya berlaku untuk <a>); logout tetap lewat POST */}
+                                <a href="/logout" role="button" className="sidebar-link sidebar-title link-nav"
+                                    onClick={(e) => { e.preventDefault(); router.post('/logout'); }}>
+                                    <LogOut className="stroke-icon" /><span>Logout</span>
+                                </a>
                             </li>
                         </ul>
                     </div>

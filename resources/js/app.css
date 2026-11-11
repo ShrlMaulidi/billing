@@ -339,7 +339,6 @@ body.dark-only .btn-action-dark { --c: #a9a9c0; }
     /* Logout berupa <button> agar POST: samakan dengan item menu lain, warna merah sebagai penanda keluar */
     button.msheet-item { width: 100%; border: 0; background: none; font-family: inherit; cursor: pointer; }
     .msheet-logout .msheet-icon { background: rgba(220, 53, 69, .1); color: #dc3545; }
-    .sidebar-wrapper .sidebar-links .sidebar-logout { width: 100%; border: 0; background: none; text-align: left; font-family: inherit; cursor: pointer; }
 
     /* Ruang di bawah halaman agar footer & konten tidak tertutup navbar */
     .page-wrapper.nav-mode-navbar .page-body-wrapper { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
