@@ -77,7 +77,7 @@ export default function Pajak({ filters, rows, tahunOptions, periodeSekarang }) 
                             ]}
                             actions={bisaUbah ? (r) => <ActionButton icon={Edit2} label={`Edit ${BULAN[r.bulan - 1]}`} color="warning" onClick={() => setEdit({ admin_fee_tipe: 'nominal', metode_bagi_hasil: 'persentase', ...r })} /> : undefined}
                             toolbar={
-                                <div className="d-flex flex-wrap gap-2">
+                                <div className="filter-bar d-flex flex-wrap gap-2">
                                     <Select ariaLabel="Cabang" style={{ width: 220 }} value={filters.cabang} onChange={(v) => applyFilters({ ...filters, cabang: v })} options={cabangOptions} />
                                     <Select ariaLabel="Tahun" style={{ width: 110 }} value={filters.tahun} onChange={(v) => applyFilters({ ...filters, tahun: v })}
                                         options={tahunOptions.map((y) => ({ value: y, label: String(y) }))} />

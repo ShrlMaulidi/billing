@@ -50,10 +50,10 @@ export default function DataTable({
 
     return (
         <div className={card ? 'dt-has-cards' : undefined}>
-            <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
+            <div className="dt-toolbar d-flex flex-wrap gap-2 align-items-center mb-3">
                 {title && <h5 className="mb-0 me-2">{title}</h5>}
                 {toolbar}
-                <div className="ms-auto d-flex flex-wrap gap-2">
+                <div className="dt-tools ms-auto d-flex flex-wrap gap-2">
                     {searchable && (
                         <div className="input-group dt-search" style={{ width: 220 }}>
                             <span className="input-group-text"><Search size={14} /></span>
@@ -71,7 +71,7 @@ export default function DataTable({
                         </DropdownMenu>
                     </UncontrolledDropdown>
                     {exportable && (
-                        <UncontrolledDropdown>
+                        <UncontrolledDropdown className="dt-export">
                             <DropdownToggle color="success" caret><Download size={14} className="me-1" />Export</DropdownToggle>
                             <DropdownMenu end>
                                 <DropdownItem onClick={() => dummy('Export Excel')}>Excel (.xlsx)</DropdownItem>
@@ -135,7 +135,7 @@ export default function DataTable({
                 </table>
             </div>
 
-            <div className="d-flex flex-wrap align-items-center gap-2 mt-3">
+            <div className="dt-paging d-flex flex-wrap align-items-center gap-2 mt-3">
                 <small className="f-light">
                     Menampilkan {filtered.length ? (current - 1) * per + 1 : 0}–{Math.min(current * per, filtered.length)} dari {filtered.length} data
                 </small>

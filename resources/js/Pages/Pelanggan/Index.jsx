@@ -236,7 +236,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                                 <span>{pesan}</span>
                             </div>
                         ))}
-                        <div className="btn-group flex-wrap mb-3">
+                        <div className="pelanggan-tab btn-group flex-wrap mb-3">
                             {TAB.map(([s, label, path]) => (
                                 <Link key={label} href={`/pelanggan${path}`} data={filters.cabang ? { cabang: filters.cabang } : {}} prefetch
                                     className={`btn btn-sm ${(status ?? '') === s ? 'btn-primary' : 'btn-outline-primary'}`}>

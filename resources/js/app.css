@@ -93,6 +93,34 @@ body.dark-only .dt-card { border-color: #374558; background: #262932; }
     .dt-has-cards > .d-flex > .ms-auto { flex: 1 1 100%; margin-left: 0 !important; }
 }
 
+/* Toolbar tabel & filter di HP: seragam di semua menu (DataTable, FilterBar, filter Pengaturan Pajak).
+   Tombol aksi selebar layar, filter grid 2 kolom, Cari + kolom + Export satu baris, tinggi kontrol 40 px. */
+@media (max-width: 575.98px) {
+    .dt-toolbar { display: grid !important; grid-template-columns: minmax(0, 1fr); gap: 10px !important; }
+    .dt-toolbar > h5 { margin: 0 !important; }
+    .dt-toolbar > .btn, .dt-toolbar > a.btn { width: 100%; display: inline-flex; align-items: center; justify-content: center; }
+    .dt-toolbar > .dt-tools { width: 100%; margin-left: 0 !important; flex-wrap: nowrap !important; gap: 8px !important; }
+    .dt-tools .dt-search { flex: 1 1 auto; width: auto !important; min-width: 0; }
+    .dt-tools .dt-cols > .btn { width: 42px; padding-left: 0; padding-right: 0; display: inline-flex; align-items: center; justify-content: center; }
+    .dt-tools .dt-export > .btn { white-space: nowrap; }
+    .filter-bar { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px !important; width: 100%; }
+    .filter-bar > * { width: 100% !important; min-width: 0; }
+    .filter-bar > :last-child:nth-child(odd), .filter-bar > .filter-switch { grid-column: 1 / -1; }
+    .filter-switch { min-height: 40px; }
+    .dt-toolbar .btn, .dt-toolbar .form-select, .dt-toolbar .form-control, .dt-toolbar .input-group-text,
+    .filter-bar .form-select, .filter-bar .form-control { min-height: 40px; font-size: 14px; }
+    .dt-toolbar .btn { padding-top: 8px; padding-bottom: 8px; }
+    /* Filter di luar tabel (Dashboard, Income Summary) ikut selebar layar */
+    .d-flex.justify-content-end > .filter-bar { flex: 1 1 100%; }
+    /* Tab status Pelanggan: satu baris yang bisa digeser, tidak menumpuk */
+    .pelanggan-tab { display: flex; flex-wrap: nowrap !important; width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .pelanggan-tab::-webkit-scrollbar { display: none; }
+    .pelanggan-tab > .btn { flex: 0 0 auto; white-space: nowrap; }
+    /* Paginasi: info & jumlah baris di atas, tombol halaman di tengah */
+    .dt-paging { justify-content: space-between; }
+    .dt-paging .pagination { width: 100%; margin-left: 0 !important; justify-content: center; }
+}
+
 /* Laporan: tampilan HP */
 .laporan-judul small { display: block; margin-top: 2px; font-size: 12.5px; }
 @media (max-width: 575.98px) {
