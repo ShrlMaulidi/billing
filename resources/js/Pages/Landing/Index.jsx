@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Menu, MessageCircle, X } from 'react-feather';
 import { rupiah } from '../../lib/format';
 
@@ -182,10 +182,39 @@ function Judul({ atas, bawah, gelap = false }) {
 }
 
 /** Landing page company profile PT Media Solusi Sukses; halaman pertama website, tanpa layout aplikasi. */
+/**
+ * Animasi muncul saat elemen [data-muncul] masuk layar: satu IntersectionObserver untuk semua elemen (tanpa event scroll),
+ * tiap elemen dianimasikan sekali per muat halaman (refresh = animasi lagi). Hanya opacity & transform (ringan, diproses GPU).
+ * Pengunjung dengan "kurangi animasi" langsung melihat semua elemen.
+ */
+function useAnimasiMuncul(ref) {
+    useEffect(() => {
+        const elemen = ref.current?.querySelectorAll('[data-muncul]') ?? [];
+        const tampilkan = (el) => el.classList.add('is-terlihat');
+        if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            elemen.forEach(tampilkan);
+            return undefined;
+        }
+        const pengamat = new IntersectionObserver((entri) => entri.forEach((e) => {
+            if (e.isIntersecting) {
+                tampilkan(e.target);
+                pengamat.unobserve(e.target);
+            }
+        }), { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+        elemen.forEach((el) => pengamat.observe(el));
+        return () => pengamat.disconnect();
+    }, [ref]);
+}
+
+/** Urutan animasi bertahap (CSS var --urut × 80 ms). */
+const urut = (i) => ({ '--urut': i });
+
 export default function Landing({ paket }) {
     const { auth } = usePage().props;
     const [menuTerbuka, setMenuTerbuka] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+    const halaman = useRef(null);
+    useAnimasiMuncul(halaman);
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 40);
@@ -197,7 +226,7 @@ export default function Landing({ paket }) {
     const masuk = <Link href={auth.user ? '/dashboard' : '/login'} className="lp-login">{auth.user ? 'Dashboard' : 'Masuk'}</Link>;
 
     return (
-        <div className="lp">
+        <div className="lp lp-animasi" ref={halaman}>
             <Head title="PT Media Solusi Sukses · Internet Service Provider">
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
                 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
@@ -237,12 +266,12 @@ export default function Landing({ paket }) {
 
             <section id="tentang" className="lp-sec">
                 <div className="lp-wrap lp-about">
-                    <div>
+                    <div data-muncul="kiri">
                         <Judul atas="About" bawah="Company" />
                         {PERUSAHAAN.tentang.map((t) => <p key={t}>{t}</p>)}
                         <p className="lp-culture"><strong>Budaya kerja:</strong> {PERUSAHAAN.budaya.join(' · ')}</p>
                     </div>
-                    <blockquote className="lp-quote">
+                    <blockquote className="lp-quote" data-muncul="kanan" style={urut(1)}>
                         <p>“{PERUSAHAAN.ceo.pesan}”</p>
                         <footer><strong>{PERUSAHAAN.ceo.nama}</strong>, {PERUSAHAAN.ceo.jabatan}</footer>
                     </blockquote>
@@ -251,10 +280,10 @@ export default function Landing({ paket }) {
 
             <section className="lp-sec lp-dark">
                 <div className="lp-wrap lp-vm">
-                    <div>
+                    <div data-muncul="kiri">
                         <Judul atas="Vision" bawah="& Mission" gelap />
                     </div>
-                    <div>
+                    <div data-muncul="atas" style={urut(1)}>
                         <h3>Visi</h3>
                         <p>{PERUSAHAAN.visi}</p>
                         <h3>Misi</h3>
@@ -265,20 +294,20 @@ export default function Landing({ paket }) {
 
             <section id="layanan" className="lp-sec">
                 <div className="lp-wrap">
-                    <div className="lp-sec-head">
+                    <div className="lp-sec-head" data-muncul="atas">
                         <Judul atas="Our" bawah="Service" />
                         <p>Untuk pelanggan individual, perusahaan, dan institusi. Didukung teknisi berpengalaman dan NOC yang beroperasi 24 jam, 7 hari.</p>
                     </div>
                     <div className="lp-service-wrap">
                         <ol className="lp-services">
                             {LAYANAN.map(([judul, teks], i) => (
-                                <li key={judul}>
+                                <li key={judul} data-muncul="atas" style={urut(i)}>
                                     <span className="lp-num">{String(i + 1).padStart(2, '0')}</span>
                                     <div><h3>{judul}</h3><p>{teks}</p></div>
                                 </li>
                             ))}
                         </ol>
-                        <figure className="lp-photo">
+                        <figure className="lp-photo" data-muncul="zoom" style={urut(1)}>
                             <img src="/images/landing/noc.jpg" alt="Operator NOC MSS melayani pelanggan" loading="lazy" />
                             <figcaption>Network Operator Center: pemantauan jaringan & layanan pelanggan 24 jam.</figcaption>
                         </figure>
@@ -289,15 +318,15 @@ export default function Landing({ paket }) {
             {paket.length > 0 && (
                 <section id="paket" className="lp-sec lp-soft">
                     <div className="lp-wrap">
-                        <div className="lp-sec-head">
+                        <div className="lp-sec-head" data-muncul="atas">
                             <Judul atas="Paket" bawah="Internet Rumah" />
                             <p>Harga per bulan. Ketersediaan tergantung jangkauan jaringan di lokasi Anda.</p>
                         </div>
                         <table className="lp-price">
                             <thead><tr><th>Paket</th><th>Kecepatan</th><th className="text-end">Harga / bulan</th><th aria-label="Aksi" /></tr></thead>
                             <tbody>
-                                {paket.map((p) => (
-                                    <tr key={p.nama}>
+                                {paket.map((p, i) => (
+                                    <tr key={p.nama} data-muncul="atas" style={urut(i)}>
                                         <td><strong>{p.nama}</strong>{p.keterangan && <small>{p.keterangan}</small>}</td>
                                         <td>{p.kecepatan ? `Hingga ${p.kecepatan}` : '-'}</td>
                                         <td className="text-end lp-price-num">{rupiah(p.harga)}</td>
@@ -315,70 +344,71 @@ export default function Landing({ paket }) {
             {/* Latar selang-seling: putih setelah Paket (abu muda), abu muda bila Paket tidak tampil (setelah Layanan yang putih) */}
             <section id="partner" className={`lp-sec ${paket.length > 0 ? '' : 'lp-soft'}`}>
                 <div className="lp-wrap">
-                    <div className="lp-sec-head">
+                    <div className="lp-sec-head" data-muncul="atas">
                         <Judul atas="Our" bawah="Partner" />
                         <p>Penyedia jaringan dan infrastruktur yang bekerja sama dengan MSS.</p>
                     </div>
-                    <LogoBerjalan items={PARTNER} />
+                    <div data-muncul="pudar" style={urut(1)}><LogoBerjalan items={PARTNER} /></div>
                 </div>
             </section>
 
             <section className="lp-sec lp-dark lp-network">
                 <div className="lp-wrap lp-network-grid">
-                    <div>
+                    <div data-muncul="kiri">
                         <Judul atas="Jaringan" bawah="& Lisensi" gelap />
                         <p>Terhubung ke internet exchange nasional dan upstream internasional melalui Cyber Building Jakarta dan Singapura.</p>
                         <dl className="lp-spec">
                             {LISENSI.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
                         </dl>
                     </div>
-                    <img src="/images/landing/jaringan.jpg" alt="" loading="lazy" className="lp-network-img" />
+                    <img src="/images/landing/jaringan.jpg" alt="" loading="lazy" className="lp-network-img" data-muncul="kanan" style={urut(1)} />
                 </div>
             </section>
 
             {/* Setelah Jaringan & Lisensi: perangkat & sistem pemantauan yang menjalankan jaringan tersebut */}
             <section id="teknologi" className="lp-sec lp-soft">
                 <div className="lp-wrap">
-                    <div className="lp-sec-head">
+                    <div className="lp-sec-head" data-muncul="atas">
                         <Judul atas="Technology" bawah="Partner" />
                         <p>Perangkat jaringan dan sistem pemantauan yang menopang layanan MSS.</p>
                     </div>
-                    <LogoBerjalan items={TEKNOLOGI} />
+                    <div data-muncul="pudar" style={urut(1)}><LogoBerjalan items={TEKNOLOGI} /></div>
                 </div>
             </section>
 
             <section id="klien" className="lp-sec">
                 <div className="lp-wrap">
-                    <div className="lp-sec-head">
+                    <div className="lp-sec-head" data-muncul="atas">
                         <Judul atas="Our" bawah="Client" />
                         <p>Instansi pemerintah, BUMN, rumah sakit, kampus, dan sekolah yang mempercayakan koneksinya kepada MSS.</p>
                     </div>
                     <ul className="lp-logos lp-logos-client">
-                        {KLIEN.map((k) => (
-                            <li key={k.key}>
+                        {/* Bertahap kiri → kanan per baris (6 kolom) */}
+                        {KLIEN.map((k, i) => (
+                            <li key={k.key} data-muncul="atas" style={urut(i % 6)}>
                                 <LogoKlien klien={k} />
                                 <span>{k.nama}</span>
                             </li>
                         ))}
                     </ul>
 
-                    <div className="lp-sec-head lp-partner-head">
+                    <div className="lp-sec-head lp-partner-head" data-muncul="atas">
                         <Judul atas="Our" bawah="Client Reseller" />
                     </div>
                     <ul className="lp-logos lp-logos-partner">
-                        {MITRA.map((m) => <li key={m.logo}><img src={m.logo} alt={m.nama} title={m.nama} loading="lazy" decoding="async" /></li>)}
+                        {MITRA.map((m, i) => <li key={m.logo} data-muncul="atas" style={urut(i % 8)}><img src={m.logo} alt={m.nama} title={m.nama} loading="lazy" decoding="async" /></li>)}
                     </ul>
                 </div>
             </section>
 
             <section id="kontak" className="lp-contact">
                 <div className="lp-wrap lp-contact-grid">
-                    <div>
+                    <div data-muncul="atas">
                         <Judul atas="Let’s connect" bawah="with us" gelap />
                         <a href={linkWa()} target="_blank" rel="noopener noreferrer" className="lp-btn lp-btn-gold"><MessageCircle size={18} /> WhatsApp Marketing</a>
                     </div>
-                    {PERUSAHAAN.kantor.map((k) => (
-                        <address key={k.judul}>
+                    {PERUSAHAAN.kantor.map((k, i) => (
+                        <address key={k.judul} data-muncul="atas" style={urut(i + 1)}>
                             <h3>{k.judul}</h3>
                             <p>{k.alamat}</p>
                             <a href={`tel:${k.tlp.replace(/[^\d+]/g, '')}`}>{k.tlp}</a>

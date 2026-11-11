@@ -526,6 +526,40 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
     .lp-marquee-track li[aria-hidden] { display: none; }
 }
 
+/* Animasi landing: hero saat halaman dimuat, elemen lain saat masuk layar (useAnimasiMuncul).
+   Hanya opacity & transform agar diproses GPU dan tidak memicu hitung ulang layout. */
+.lp-animasi { --lp-ease: cubic-bezier(.22, .61, .36, 1); }
+@keyframes lp-naik { from { opacity: 0; transform: translate3d(0, 28px, 0); } to { opacity: 1; transform: none; } }
+@keyframes lp-zoom-hero { from { transform: scale(1.08); } to { transform: scale(1); } }
+@keyframes lp-pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes lp-denyut { 0% { transform: scale(1); opacity: .55; } 70%, 100% { transform: scale(1.7); opacity: 0; } }
+.lp-animasi .lp-hero-img { animation: lp-zoom-hero 2.4s var(--lp-ease) both; }
+.lp-animasi .lp-hero-body > *, .lp-animasi .lp-facts > div { animation: lp-naik .9s var(--lp-ease) both; }
+.lp-animasi .lp-hero-body > :nth-child(1) { animation-delay: .15s; }
+.lp-animasi .lp-hero-body > :nth-child(2) { animation-delay: .3s; }
+.lp-animasi .lp-hero-body > :nth-child(3) { animation-delay: .45s; }
+.lp-animasi .lp-hero-body > :nth-child(4) { animation-delay: .6s; }
+.lp-animasi .lp-facts > div:nth-child(1) { animation-delay: .75s; }
+.lp-animasi .lp-facts > div:nth-child(2) { animation-delay: .85s; }
+.lp-animasi .lp-facts > div:nth-child(3) { animation-delay: .95s; }
+.lp-animasi .lp-facts > div:nth-child(4) { animation-delay: 1.05s; }
+.lp-animasi [data-muncul] { opacity: 0; transition: opacity .8s var(--lp-ease), transform .8s var(--lp-ease); transition-delay: calc(var(--urut, 0) * 80ms); }
+.lp-animasi [data-muncul="atas"] { transform: translate3d(0, 32px, 0); }
+.lp-animasi [data-muncul="kiri"] { transform: translate3d(-40px, 0, 0); }
+.lp-animasi [data-muncul="kanan"] { transform: translate3d(40px, 0, 0); }
+.lp-animasi [data-muncul="zoom"] { transform: scale(.94); }
+.lp-animasi [data-muncul].is-terlihat { opacity: 1; transform: none; }
+.lp-animasi .lp-wa { animation: lp-pop .5s cubic-bezier(.34, 1.56, .64, 1) 1.4s both; }
+.lp-animasi .lp-wa::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #25d366; z-index: -1; animation: lp-denyut 2.8s ease-out 2.2s infinite; }
+@media (prefers-reduced-motion: reduce) {
+    .lp-animasi .lp-hero-img, .lp-animasi .lp-hero-body > *, .lp-animasi .lp-facts > div, .lp-animasi .lp-wa, .lp-animasi .lp-wa::after { animation: none; }
+    .lp-animasi [data-muncul] { opacity: 1; transform: none; transition: none; }
+}
+/* Gerakan geser samping dikurangi di layar sempit agar tidak memicu scroll horizontal */
+@media (max-width: 575.98px) {
+    .lp-animasi [data-muncul="kiri"], .lp-animasi [data-muncul="kanan"] { transform: translate3d(0, 28px, 0); }
+}
+
 /* Kontak & footer */
 .lp-contact { background: var(--navy); padding: 90px 0; border-top: 4px solid var(--gold); }
 .lp-contact-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 48px; }
