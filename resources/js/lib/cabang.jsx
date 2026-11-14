@@ -28,7 +28,7 @@ export const cabangFields = ({ adminFullTerkunci }) => [
     },
     { name: 'judul_pajak', type: 'static', col: 'col-12', show: baru, render: () => <h6 className="border-top pt-3 mb-0">Pajak &amp; Bagi Hasil</h6> },
     { name: 'ppn_persen', label: 'PPN (%)', type: 'number', required: true, show: baru },
-    { name: 'pph_persen', label: 'PPh 25 (%)', type: 'number', required: true, show: baru },
+    { name: 'pph_persen', label: 'PPh (%)', type: 'number', required: true, show: baru },
     { name: 'bhp_persen', label: 'BHP (%)', type: 'number', required: true, show: baru },
     { name: 'uso_persen', label: 'USO (%)', type: 'number', required: true, show: baru },
     { name: 'admin_fee_tipe', label: 'Tipe Admin Fee', type: 'radio', options: TIPE_TARIF, show: baru },

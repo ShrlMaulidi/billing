@@ -406,7 +406,7 @@ CRUD area per cabang (kode, nama, cakupan, status). Pelanggan di area yang dihap
 ### 9.3 Pengaturan Pajak `/kelola-data/pajak` ([PajakController](../app/Http/Controllers/PajakController.php), [PajakCabang](../app/Models/PajakCabang.php))
 
 - Tabel Januari–Desember untuk satu cabang. Tahun yang bisa dipilih: tahun lalu sampai tahun depan.
-- Tarif: PPN %, PPh 25 %, BHP %, USO %, admin fee (`persentase` atau `nominal` per transaksi), bagi hasil (`persentase` atau `nominal` per bulan). Persentase dibatasi 0–100.
+- Tarif: PPN %, PPh %, BHP %, USO %, admin fee (`persentase` atau `nominal` per transaksi), bagi hasil (`persentase` atau `nominal` per bulan). Persentase dibatasi 0–100.
 - Bulan tanpa baris memakai tarif tersimpan terakhir sebelumnya (`PajakCabang::setahun()`, `PajakCabang::berlaku()`).
 - `PUT /pajak/{lokasi}` mengubah **satu bulan saja**, hanya oleh user pusat.
 - BHP dan USO disimpan tetapi belum dipakai dalam rumus rekap.

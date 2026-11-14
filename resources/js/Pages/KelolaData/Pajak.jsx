@@ -69,7 +69,7 @@ export default function Pajak({ filters, rows, tahunOptions, periodeSekarang }) 
                                     ),
                                 },
                                 { ...cell('ppn_persen', pct('ppn_persen')), label: 'PPN' },
-                                { ...cell('pph_persen', pct('pph_persen')), label: 'PPh 25' },
+                                { ...cell('pph_persen', pct('pph_persen')), label: 'PPh' },
                                 { ...cell('bhp_persen', pct('bhp_persen')), label: 'BHP' },
                                 { ...cell('uso_persen', pct('uso_persen')), label: 'USO' },
                                 { ...cell('admin_fee', adminFee), label: 'Admin Fee' },
@@ -95,7 +95,7 @@ export default function Pajak({ filters, rows, tahunOptions, periodeSekarang }) 
                 initial={edit ?? {}}
                 fields={[
                     { name: 'ppn_persen', label: 'PPN (%)', type: 'number', required: true },
-                    { name: 'pph_persen', label: 'PPh 25 (%)', type: 'number', required: true },
+                    { name: 'pph_persen', label: 'PPh (%)', type: 'number', required: true },
                     { name: 'bhp_persen', label: 'BHP (%)', type: 'number', required: true },
                     { name: 'uso_persen', label: 'USO (%)', type: 'number', required: true },
                     { name: 'admin_fee_tipe', label: 'Tipe Admin Fee', type: 'radio', options: TIPE },

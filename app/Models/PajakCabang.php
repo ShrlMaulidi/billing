@@ -22,7 +22,7 @@ class PajakCabang extends Model
     public const TARIF = ['ppn_persen', 'pph_persen', 'bhp_persen', 'uso_persen', 'admin_fee_tipe', 'admin_fee', 'metode_bagi_hasil', 'nilai_bagi_hasil'];
 
     public const ATRIBUT = [
-        'ppn_persen' => 'PPN', 'pph_persen' => 'PPh 25', 'bhp_persen' => 'BHP', 'uso_persen' => 'USO',
+        'ppn_persen' => 'PPN', 'pph_persen' => 'PPh', 'bhp_persen' => 'BHP', 'uso_persen' => 'USO',
         'admin_fee_tipe' => 'Tipe admin fee', 'admin_fee' => 'Admin fee', 'metode_bagi_hasil' => 'Metode bagi hasil', 'nilai_bagi_hasil' => 'Nilai bagi hasil',
     ];
 

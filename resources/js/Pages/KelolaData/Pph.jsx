@@ -15,7 +15,7 @@ export default function Pph({ filters, rows }) {
                 { key: 'keterangan', label: 'Keterangan' }, { key: 'created_at', label: 'Waktu Upload', render: (r) => waktu(r.created_at) }, { key: 'uploaded_by', label: 'Petugas' },
             ]}
             fields={[
-                { name: 'nama_pph', label: 'Nama PPh', required: true, placeholder: 'PPh 25 Oktober 2026' },
+                { name: 'nama_pph', label: 'Nama PPh', required: true, placeholder: 'PPh Oktober 2026' },
                 { name: 'id_lokasi', label: 'Cabang', type: 'select', required: true, options: cabangOptions },
                 { name: 'periode', label: 'Periode (Bulan)', type: 'month', required: true },
                 { name: 'lampiran', label: 'Lampiran', type: 'file', required: true },
