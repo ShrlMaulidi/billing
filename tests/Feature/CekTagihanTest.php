@@ -7,7 +7,9 @@ use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\Rekening;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class CekTagihanTest extends TestCase
@@ -48,6 +50,42 @@ class CekTagihanTest extends TestCase
             ->where('hasil.0.pembayaran_terakhir', ['periode_pembayaran' => '2026-08-01', 'paid_at' => '2026-08-05'])
             ->where('hasil.0.rekening', [['nama_rekening' => 'BCA', 'no_rekening' => '111', 'atas_nama' => 'MSS']])
             ->missing('hasil.0.alamat')->missing('hasil.0.tlp')->missing('hasil.0.username_pppoe'));
+    }
+
+    public function test_member_card_qr_link_opens_that_customers_bills_without_login(): void
+    {
+        $budi = $this->pelanggan(['id_pelanggan' => 'MSS001', 'nama' => 'Budi Santoso', 'tgl_registrasi' => '2026-10-01']);
+        $this->actingAs(User::factory()->create());
+        $link = null;
+        $this->get('/kelola-data/kartu-member')->assertInertia(function ($page) use (&$link) {
+            $link = $page->toArray()['props']['rows'][0]['link_kartu'];
+        });
+        auth()->logout();
+
+        $this->assertStringContainsString("/cek-tagihan/kartu/{$budi->id}?signature=", $link);
+        $this->get($link)->assertOk()->assertInertia(fn ($page) => $page->component('CekTagihan/Index')
+            ->where('cari', 'MSS001')->has('hasil', 1)->where('hasil.0.id_pelanggan', 'MSS001')->where('hasil.0.nama', 'Bu** Sa*****')
+            ->missing('hasil.0.tlp')->missing('hasil.0.alamat'));
+    }
+
+    public function test_member_card_link_rejects_a_changed_or_missing_signature(): void
+    {
+        $budi = $this->pelanggan(['id_pelanggan' => 'MSS001', 'nama' => 'Budi']);
+        $sari = $this->pelanggan(['id_pelanggan' => 'MSS002', 'nama' => 'Sari', 'username_pppoe' => 'sari']);
+        $link = URL::signedRoute('cek-tagihan.kartu', ['pelanggan' => $budi->id], absolute: false);
+
+        // Mengganti ID di link untuk mengintip pelanggan lain ditolak
+        $this->get(str_replace("/kartu/{$budi->id}?", "/kartu/{$sari->id}?", $link))->assertForbidden();
+        $this->get("/cek-tagihan/kartu/{$budi->id}")->assertForbidden();
+        $this->get($link)->assertOk();
+    }
+
+    public function test_member_card_link_of_a_stopped_customer_shows_no_bills(): void
+    {
+        $budi = $this->pelanggan(['id_pelanggan' => 'MSS001', 'nama' => 'Budi', 'status' => 'berhenti']);
+
+        $this->get(URL::signedRoute('cek-tagihan.kartu', ['pelanggan' => $budi->id], absolute: false))
+            ->assertOk()->assertInertia(fn ($page) => $page->where('cari', 'MSS001')->has('hasil', 0));
     }
 
     public function test_phone_number_matches_in_any_format_and_postpaid_bills_follow_usage_month(): void

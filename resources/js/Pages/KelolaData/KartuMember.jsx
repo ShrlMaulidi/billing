@@ -1,21 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Eye, Printer } from 'react-feather';
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from 'reactstrap';
 import CrudPage from '../../Components/CrudPage';
 import { ActionButton } from '../../Components/ui';
 import { rupiah, tanggal } from '../../lib/format';
 
-// Pola QR tiruan (placeholder) — nanti diganti library QR sungguhan
-function FakeQr({ text }) {
-    let h = 0;
-    for (const c of text) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    const cells = [];
-    for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) {
-        const finder = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13);
-        const on = finder ? (x % 6 === 0 || y % 6 === 0 || (x % 14 > 1 && x % 14 < 5 && y % 14 > 1 && y % 14 < 5)) : ((h >> ((x * 7 + y * 3) % 31)) ^ (x * y)) & 1;
-        if (on) cells.push(<rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" />);
-    }
-    return <svg viewBox="0 0 21 21" width="100%" height="100%">{cells}</svg>;
+/**
+ * QR asli berisi link Cek Tagihan bertanda tangan milik pelanggan (dari server). Library QR dimuat saat kartu tampil
+ * agar tidak membebani halaman lain. SVG dihasilkan library dari teks link, bukan masukan pengguna.
+ */
+function QrKartu({ link }) {
+    const [svg, setSvg] = useState('');
+    useEffect(() => {
+        let aktif = true;
+        if (!link) return undefined;
+        import('qrcode').then((qr) => qr.toString(link, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' }))
+            .then((hasil) => aktif && setSvg(hasil))
+            .catch(() => aktif && setSvg(''));
+        return () => { aktif = false; };
+    }, [link]);
+    return svg ? <div className="qr-svg" dangerouslySetInnerHTML={{ __html: svg }} /> : null;
 }
 
 export function MemberCard({ p }) {
@@ -25,7 +29,7 @@ export function MemberCard({ p }) {
             <h5 className="text-white mt-3 mb-0">{p.nama}</h5>
             <div style={{ fontSize: 13, opacity: 0.9 }}>{p.id_pelanggan}</div>
             <div style={{ fontSize: 12, opacity: 0.85, marginTop: 10, maxWidth: 220 }}>{p.paket} · {rupiah(p.harga)}<br />Jatuh tempo tiap tgl {p.tgl_jatuh_tempo}<br />{p.tlp}</div>
-            <div className="qr"><FakeQr text={p.id_pelanggan} /></div>
+            <div className="qr" title="Scan untuk cek tagihan"><QrKartu link={p.link_kartu} /></div>
         </div>
     );
 }

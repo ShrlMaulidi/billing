@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Pelanggan;
 use App\Models\Rekening;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -14,6 +15,7 @@ use Inertia\Response;
  * per bulan yang belum dibayar, sama seperti invoice di dashboard.
  * Halaman publik: hanya pelanggan aktif, data minimum (nama disamarkan, tanpa alamat/telepon), pencarian lewat POST
  * agar nomor HP tidak tercatat di URL/log, dan dibatasi throttle:cek-tagihan.
+ * QR kartu member membuka kartu() lewat link bertanda tangan: ID di link tidak bisa diganti untuk melihat pelanggan lain.
  */
 class CekTagihanController extends Controller
 {
@@ -33,26 +35,47 @@ class CekTagihanController extends Controller
         );
         $cari = trim($data['cari']);
 
-        $pelanggan = $this->cariPelanggan($cari);
+        return Inertia::render('CekTagihan/Index', ['cari' => $cari, 'hasil' => $this->hasil($this->cariPelanggan($cari))]);
+    }
 
-        return Inertia::render('CekTagihan/Index', [
-            'cari' => $cari,
-            'hasil' => $pelanggan->map(fn (Pelanggan $p) => [
-                'id_pelanggan' => $p->id_pelanggan,
-                'nama' => $this->samarkan($p->nama),
-                'paket' => $p->paket?->nama_paket,
-                'jns_tagihan' => $p->jns_tagihan,
-                // Kantor cabang untuk kop invoice (data usaha, bukan data pribadi pelanggan)
-                'cabang' => $p->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
-                'tagihan' => $p->tagihanBelumDibayar(),
-                'pembayaran_terakhir' => ($bayar = $p->pembayaran->sortByDesc('periode')->first()) ? [
-                    'periode_pembayaran' => $bayar->periodePembayaran(),
-                    'paid_at' => $bayar->paid_at?->toDateString(),
-                ] : null,
-                'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $p->id_lokasi))
-                    ->orderBy('nama_rekening')->get()->map->only(['nama_rekening', 'no_rekening', 'atas_nama']),
-            ])->values(),
-        ]);
+    /** Dibuka dari QR kartu member (link bertanda tangan, lihat KelolaDataController::kartuMember). Pelanggan nonaktif tampil "tidak ditemukan". */
+    public function kartu(Pelanggan $pelanggan): Response
+    {
+        $hasil = $this->query()->whereKey($pelanggan->id)->get();
+
+        return Inertia::render('CekTagihan/Index', ['cari' => $pelanggan->id_pelanggan ?? '', 'hasil' => $this->hasil($hasil)]);
+    }
+
+    /**
+     * Data tagihan yang aman ditampilkan ke publik.
+     *
+     * @param  Collection<int, Pelanggan>  $pelanggan
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function hasil(Collection $pelanggan): Collection
+    {
+        return $pelanggan->map(fn (Pelanggan $p) => [
+            'id_pelanggan' => $p->id_pelanggan,
+            'nama' => $this->samarkan($p->nama),
+            'paket' => $p->paket?->nama_paket,
+            'jns_tagihan' => $p->jns_tagihan,
+            // Kantor cabang untuk kop invoice (data usaha, bukan data pribadi pelanggan)
+            'cabang' => $p->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
+            'tagihan' => $p->tagihanBelumDibayar(),
+            'pembayaran_terakhir' => ($bayar = $p->pembayaran->sortByDesc('periode')->first()) ? [
+                'periode_pembayaran' => $bayar->periodePembayaran(),
+                'paid_at' => $bayar->paid_at?->toDateString(),
+            ] : null,
+            'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $p->id_lokasi))
+                ->orderBy('nama_rekening')->get()->map->only(['nama_rekening', 'no_rekening', 'atas_nama']),
+        ])->values();
+    }
+
+    /** Pelanggan aktif beserta relasi yang dipakai hasil(). */
+    private function query(): Builder
+    {
+        return Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi', 'pembayaran:id,pelanggan_id,periode,jns_tagihan,paid_at'])
+            ->where('status', 'aktif');
     }
 
     /**
@@ -63,8 +86,7 @@ class CekTagihanController extends Controller
      */
     private function cariPelanggan(string $cari): Collection
     {
-        $query = fn () => Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi', 'pembayaran:id,pelanggan_id,periode,jns_tagihan,paid_at'])
-            ->where('status', 'aktif');
+        $query = fn () => $this->query();
 
         $perId = $query()->where('id_pelanggan', $cari)->get();
         if ($perId->isNotEmpty()) {

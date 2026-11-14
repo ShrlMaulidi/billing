@@ -28,6 +28,9 @@ Route::get('/', LandingController::class)->name('landing');
 // Cek tagihan pelanggan tanpa login; pencarian lewat POST agar nomor HP tidak tercatat di URL
 Route::get('/cek-tagihan', [CekTagihanController::class, 'index'])->name('cek-tagihan');
 Route::post('/cek-tagihan', [CekTagihanController::class, 'cari'])->middleware('throttle:cek-tagihan')->name('cek-tagihan.cari');
+// Tujuan QR kartu member: link bertanda tangan (tanda tangan relatif agar tetap sah di balik proxy/Cloudflare), tanpa login
+Route::get('/cek-tagihan/kartu/{pelanggan}', [CekTagihanController::class, 'kartu'])->whereNumber('pelanggan')
+    ->middleware(['signed:relative', 'throttle:cek-tagihan'])->name('cek-tagihan.kartu');
 // Tujuan redirect web proxy router untuk pelanggan terisolir (tanpa login)
 Route::get('/isolir', [IsolirController::class, 'halaman'])->name('isolir');
 Route::middleware('guest')->group(function () {
