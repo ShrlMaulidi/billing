@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Hidden(['password'])]
 class Tunnel extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Tunnel';
+
+    public const JENIS_AUDIT = 'tunnel';
+
     protected function casts(): array
     {
         return [

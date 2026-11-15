@@ -1,9 +1,11 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\Lokasi;
 use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 use Spatie\Permission\Models\Role;
 
 Artisan::command('inspire', function () {
@@ -53,3 +55,7 @@ Artisan::command('user:create {username} {--name= : Nama tampilan} {--role=Super
 
     return 0;
 })->purpose('Buat user login atau reset kata sandinya');
+
+// Catatan audit (menu Logs) lebih tua dari masa simpan dipangkas tiap hari. Butuh cron di server:
+// * * * * * cd /var/www/mss-billing && php artisan schedule:run >> /dev/null 2>&1
+Schedule::command('model:prune', ['--model' => [AuditLog::class]])->dailyAt('02:00');

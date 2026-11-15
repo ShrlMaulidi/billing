@@ -11,6 +11,7 @@ use App\Models\Router;
 use App\Models\User;
 use App\Services\Mikrotik\IsolirService;
 use App\Services\Mikrotik\RouterOsException;
+use App\Support\Audit;
 use App\Support\IpPool;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -230,7 +231,13 @@ class PelangganController extends Controller
     {
         $this->pastikanCabang($request, $pelanggan->id_lokasi);
 
-        return $this->jalankan(fn () => $isolir->isolir($pelanggan));
+        // Perubahan kolom pelanggan oleh isolir cukup tercatat sekali sebagai aksi "isolir"
+        return $this->jalankan(function () use ($isolir, $pelanggan) {
+            $pesan = Audit::diam(fn () => $isolir->isolir($pelanggan));
+            Audit::catat('Pelanggan', 'isolir', "Mematikan (isolir) internet pelanggan {$pelanggan->labelAudit()}", $pelanggan, ['status_langganan' => ['dari' => 'on', 'ke' => 'off']]);
+
+            return $pesan;
+        });
     }
 
     /** On: kembalikan ke profile asal (atau profile pilihan bila asal tidak diketahui). */
@@ -239,7 +246,13 @@ class PelangganController extends Controller
         $this->pastikanCabang($request, $pelanggan->id_lokasi);
         $profile = $request->validate(['profile' => ['nullable', 'string', 'max:100']])['profile'] ?? null;
 
-        return $this->jalankan(fn () => $isolir->aktifkan($pelanggan, $profile));
+        return $this->jalankan(function () use ($isolir, $pelanggan, $profile) {
+            $pesan = Audit::diam(fn () => $isolir->aktifkan($pelanggan, $profile));
+            Audit::catat('Pelanggan', 'aktifkan', "Menyalakan kembali internet pelanggan {$pelanggan->labelAudit()}", $pelanggan,
+                ['status_langganan' => ['dari' => 'off', 'ke' => 'on'], ...($profile ? ['profile' => ['ke' => $profile]] : [])]);
+
+            return $pesan;
+        });
     }
 
     /** Kesalahan dari router dikembalikan sebagai 422 berisi pesan yang bisa ditampilkan. */

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class PenarikanSaldo extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Penarikan Saldo';
+
+    public const JENIS_AUDIT = 'penarikan saldo';
+
     public const STATUS = ['pending', 'disetujui', 'ditolak'];
 
     /** Status yang sudah mengurangi saldo mitra. */

@@ -10,7 +10,6 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -261,21 +260,7 @@ class PembayaranController extends Controller
      */
     private function catat(Pelanggan $pelanggan, array $data, Request $request): Pembayaran
     {
-        return DB::transaction(function () use ($pelanggan, $data, $request) {
-            $pembayaran = $pelanggan->pembayaran()->create([
-                ...$data,
-                'id_lokasi' => $pelanggan->id_lokasi,
-                'nama_pelanggan' => $pelanggan->nama,
-                'nama_paket' => $pelanggan->paket->nama_paket,
-                'jns_tagihan' => $pelanggan->jns_tagihan,
-                'is_prorate' => $data['periode'] === $pelanggan->periodeProrate(),
-                'user_id' => $request->user()->id,
-                'paid_at' => now(),
-            ]);
-            $pembayaran->update(['no_invoice' => sprintf('INV%s-%05d', str_replace('-', '', substr($data['periode'], 0, 7)), $pembayaran->id)]);
-
-            return $pembayaran;
-        });
+        return Pembayaran::catatUntuk($pelanggan, $data, $request->user()->id);
     }
 
     private function namaPeriode(Pembayaran $pembayaran): string

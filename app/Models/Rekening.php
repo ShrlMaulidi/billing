@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +14,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable(['nama_rekening', 'atas_nama', 'no_rekening', 'id_lokasi', 'tampil_invoice'])]
 class Rekening extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Rekening';
+
+    public const JENIS_AUDIT = 'rekening';
+
     protected function casts(): array
     {
         return [

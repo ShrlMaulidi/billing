@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Attributes\Table;
@@ -24,6 +25,13 @@ use Illuminate\Support\Carbon;
 ])]
 class Pelanggan extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Pelanggan';
+
+    public const JENIS_AUDIT = 'pelanggan';
+
     public const KONEKSI = ['pppoe' => 'PPPoE', 'hotspot' => 'Hotspot', 'static' => 'Static', 'ip_binding' => 'IP Binding'];
 
     public const SKEMA_TAGIHAN = ['full' => 'Tagihan Full', 'prorate' => 'Prorate'];

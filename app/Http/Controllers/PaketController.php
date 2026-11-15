@@ -6,6 +6,7 @@ use App\Models\Paket;
 use App\Models\Router;
 use App\Services\Mikrotik\IsolirService;
 use App\Services\Mikrotik\RouterOsException;
+use App\Support\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -63,6 +64,7 @@ class PaketController extends Controller
     {
         $this->pastikanCabangPaket($request, $paket);
         [$berhasil, $pesan] = $this->sinkronSemua($paket, $isolir);
+        Audit::catat('Paket', 'sinkron', "Sinkron paket {$paket->nama_paket} ke Mikrotik: ".($berhasil ? 'berhasil' : 'gagal'), $paket, ['hasil' => ['ke' => $pesan]]);
 
         return response()->json(['message' => $pesan], $berhasil ? 200 : 422);
     }

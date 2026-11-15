@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['pelanggan_instansi_id', 'periode', 'nominal', 'ppn_persen', 'ppn', 'total', 'user_id'])]
 class PembayaranInstansi extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Pembayaran Masuk';
+
+    public const JENIS_AUDIT = 'pembayaran instansi';
+
     /** Tarif PPN bawaan form Pembayaran Masuk & perkiraan tagihan periode yang belum dibayar. */
     public const PPN_BAWAAN = 11;
 
@@ -36,5 +44,11 @@ class PembayaranInstansi extends Model
     public function petugas(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /** Label di deskripsi Logs. */
+    public function labelAudit(): string
+    {
+        return trim(($this->pelanggan?->nama ?? '#'.$this->pelanggan_instansi_id).' periode '.substr((string) $this->periode, 0, 7));
     }
 }

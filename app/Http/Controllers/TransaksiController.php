@@ -8,6 +8,7 @@ use App\Models\PembayaranInstansi;
 use App\Models\PenarikanSaldo;
 use App\Models\Rekening;
 use App\Models\SetoranMitra;
+use App\Support\Audit;
 use App\Support\RekapCabang;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
@@ -130,10 +131,10 @@ class TransaksiController extends Controller
                     return 'Saldo cabang saat ini Rp'.number_format($saldo, 0, ',', '.').', tidak cukup untuk penarikan ini';
                 }
                 $path = $data['bukti_transfer']->store(PenarikanSaldo::FOLDER_BUKTI, 'local');
-                $penarikan->update([
+                Audit::diam(fn () => $penarikan->update([
                     'status' => 'disetujui', 'bukti_transfer' => $path, 'catatan' => $data['catatan'] ?? null,
                     'diproses_oleh' => $request->user()->id, 'diproses_at' => now(),
-                ]);
+                ]));
                 Log::info('Penarikan saldo disetujui', ['penarikan_id' => $penarikan->id, 'id_lokasi' => $penarikan->id_lokasi, 'nominal' => $penarikan->nominal, 'oleh' => $request->user()->id]);
 
                 return null;
@@ -146,9 +147,13 @@ class TransaksiController extends Controller
             throw $e;
         }
 
-        return $gagal
-            ? response()->json(['message' => $gagal], 422)
-            : response()->json(['message' => "Penarikan {$penarikan->nama_request} disetujui, saldo mitra berkurang Rp".number_format($penarikan->nominal, 0, ',', '.')]);
+        if ($gagal) {
+            return response()->json(['message' => $gagal], 422);
+        }
+        Audit::catat('Penarikan Saldo', 'approve', "Menyetujui penarikan {$penarikan->nama_request} Rp".number_format($penarikan->nominal, 0, ',', '.'), $penarikan,
+            ['status' => ['dari' => 'pending', 'ke' => 'disetujui'], 'catatan' => ['ke' => $data['catatan'] ?? null]]);
+
+        return response()->json(['message' => "Penarikan {$penarikan->nama_request} disetujui, saldo mitra berkurang Rp".number_format($penarikan->nominal, 0, ',', '.')]);
     }
 
     public function tolakPenarikan(Request $request, PenarikanSaldo $penarikan): JsonResponse
@@ -161,14 +166,17 @@ class TransaksiController extends Controller
             if ($penarikan->status !== 'pending') {
                 return false;
             }
-            $penarikan->update(['status' => 'ditolak', 'catatan' => $data['catatan'], 'diproses_oleh' => $request->user()->id, 'diproses_at' => now()]);
+            Audit::diam(fn () => $penarikan->update(['status' => 'ditolak', 'catatan' => $data['catatan'], 'diproses_oleh' => $request->user()->id, 'diproses_at' => now()]));
 
             return true;
         });
+        if (! $berhasil) {
+            return response()->json(['message' => 'Pengajuan ini sudah diproses'], 422);
+        }
+        Audit::catat('Penarikan Saldo', 'reject', "Menolak penarikan {$penarikan->nama_request} Rp".number_format($penarikan->nominal, 0, ',', '.'), $penarikan,
+            ['status' => ['dari' => 'pending', 'ke' => 'ditolak'], 'catatan' => ['ke' => $data['catatan']]]);
 
-        return $berhasil
-            ? response()->json(['message' => "Penarikan {$penarikan->nama_request} ditolak"])
-            : response()->json(['message' => 'Pengajuan ini sudah diproses'], 422);
+        return response()->json(['message' => "Penarikan {$penarikan->nama_request} ditolak"]);
     }
 
     /** Foto bukti transfer; hanya untuk user yang berhak atas cabang penarikan (mitra cabang itu atau user pusat). */

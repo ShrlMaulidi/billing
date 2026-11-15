@@ -21,7 +21,6 @@ class SistemTest extends TestCase
     }
 
     #[TestWith(['/payment-gateway', 'PaymentGateway/Index'])]
-    #[TestWith(['/logs', 'Logs/Index'])]
     public function test_menu_without_table_renders_no_rows(string $url, string $component): void
     {
         $this->actingAs(User::factory()->create());

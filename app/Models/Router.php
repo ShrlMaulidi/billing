@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Hidden(['password'])]
 class Router extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Router';
+
+    public const JENIS_AUDIT = 'router';
+
     protected function casts(): array
     {
         return [

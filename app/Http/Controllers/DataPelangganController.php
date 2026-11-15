@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Lokasi;
 use App\Models\PelangganInstansi;
 use App\Models\User;
+use App\Support\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -92,6 +93,8 @@ class DataPelangganController extends Controller
     {
         $path = $instansi->{PelangganInstansi::DOKUMEN[$jenis]};
         abort_unless($path && Storage::disk('local')->exists($path), 404);
+        // Dokumen identitas: setiap akses tercatat
+        Audit::catat('Data Klien', 'lihat', 'Membuka dokumen '.strtoupper($jenis)." klien {$instansi->nama}", $instansi);
 
         return Storage::disk('local')->response($path, null, ['X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store']);
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Pengaturan;
 use App\Models\Router;
+use App\Support\Audit;
 use App\Support\IsolirScript;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -45,14 +46,21 @@ class IsolirController extends Controller
 
     public function simpanPengaturan(Request $request): JsonResponse
     {
-        Pengaturan::simpanSemua($request->validate([
+        $data = $request->validate([
             'isolir_nama_isp' => ['required', 'string', 'max:100'],
             'isolir_pesan' => ['required', 'string', 'max:1000'],
             'isolir_whatsapp' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+ -]+$/'],
             'isolir_pembayaran' => ['nullable', 'string', 'max:2000'],
         ], $this->pesanValidasi(), [
             'isolir_nama_isp' => 'Nama ISP', 'isolir_pesan' => 'Pesan', 'isolir_whatsapp' => 'Nomor WhatsApp', 'isolir_pembayaran' => 'Info pembayaran',
-        ]));
+        ]);
+        $lama = Pengaturan::whereIn('kunci', array_keys($data))->pluck('nilai', 'kunci');
+        Pengaturan::simpanSemua($data);
+        $perubahan = collect($data)->filter(fn ($nilai, $kunci) => (string) $lama->get($kunci) !== (string) $nilai)
+            ->map(fn ($nilai, $kunci) => ['dari' => $lama->get($kunci), 'ke' => $nilai])->all();
+        if ($perubahan) {
+            Audit::catat('Template Isolir', 'update', 'Mengubah isi halaman isolir', null, $perubahan);
+        }
 
         return response()->json(['message' => 'Halaman isolir diperbarui']);
     }
@@ -82,6 +90,8 @@ class IsolirController extends Controller
                 'errors' => ['alamat_izin' => ['Alamat tidak valid: '.implode(', ', $salah)]],
             ], 422);
         }
+
+        Audit::catat('Template Isolir', 'export', "Membuat script isolir profile {$data['profile']} ({$data['jaringan']})");
 
         return response()->json(['script' => (new IsolirScript([...$data, 'port_proxy' => (int) $data['port_proxy'], 'alamat_izin' => $izin]))->semua()]);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +18,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable(['tipe', 'kode_lokasi', 'nama_lokasi', 'alamat_lokasi', 'tlp_lokasi', 'tlp_owner', 'nama_mitra', 'group_wa', 'terima_cash', 'admin_full', 'status'])]
 class Lokasi extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Data Klien';
+
+    public const JENIS_AUDIT = 'cabang';
+
     /** @var array<string, string> */
     public const TIPE = ['reseller' => 'Mitra Reseller', 'retail' => 'Retail / Shafa.net'];
 

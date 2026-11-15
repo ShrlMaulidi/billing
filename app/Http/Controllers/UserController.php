@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\Audit;
 use App\Support\HakAkses;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class UserController extends Controller
         $data = $this->validated($request);
         $user = User::create($data);
         $user->syncRoles($data['role']);
+        Audit::catat('User', 'update', "Memberi role {$data['role']} kepada user {$user->name}", $user, ['role' => ['ke' => $data['role']]]);
 
         return response()->json(['message' => "User {$user->name} ditambahkan"]);
     }
@@ -45,8 +47,12 @@ class UserController extends Controller
         if (! $gantiPassword) {
             unset($data['password']);
         }
+        $roleLama = $user->getRoleNames()->first();
         $user->update($data);
         $user->syncRoles($data['role']);
+        if ($roleLama !== $data['role']) {
+            Audit::catat('User', 'update', "Mengganti role user {$user->name}: {$roleLama} → {$data['role']}", $user, ['role' => ['dari' => $roleLama, 'ke' => $data['role']]]);
+        }
         if ($gantiPassword || $user->status !== 'aktif') {
             $this->putusSesi($user);
         }

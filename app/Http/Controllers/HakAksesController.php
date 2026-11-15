@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Audit;
 use App\Support\HakAkses;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,6 +46,7 @@ class HakAksesController extends Controller
             'keterangan' => ['nullable', 'string', 'max:255'],
         ], $this->pesanValidasi(), ['nama' => 'Nama role', 'keterangan' => 'Keterangan']);
         $role = Role::create(['name' => $data['nama'], 'guard_name' => 'web', 'keterangan' => $data['keterangan'] ?? null]);
+        Audit::catat('Hak Akses', 'create', "Menambah role {$role->name}", $role, ['nama' => ['ke' => $role->name], 'keterangan' => ['ke' => $role->keterangan]]);
 
         return response()->json(['message' => "Role {$role->name} ditambahkan", 'id' => $role->id]);
     }
@@ -56,7 +58,14 @@ class HakAksesController extends Controller
             'permissions' => ['present', 'array'],
             'permissions.*' => ['string', Rule::in(HakAkses::permissions())],
         ], $this->pesanValidasi(), ['permissions' => 'Permission', 'permissions.*' => 'Permission']);
+        $sebelum = $role->permissions->pluck('name');
         $role->syncPermissions($data['permissions']);
+        $ditambah = collect($data['permissions'])->diff($sebelum)->values()->all();
+        $dicabut = $sebelum->diff($data['permissions'])->values()->all();
+        if ($ditambah || $dicabut) {
+            Audit::catat('Hak Akses', 'update', "Mengubah hak akses role {$role->name} (+".count($ditambah).' / −'.count($dicabut).')', $role,
+                array_filter(['izin ditambah' => $ditambah ? ['ke' => $ditambah] : null, 'izin dicabut' => $dicabut ? ['dari' => $dicabut] : null]));
+        }
 
         return response()->json(['message' => "Hak akses role {$role->name} disimpan"]);
     }
@@ -68,6 +77,7 @@ class HakAksesController extends Controller
             return response()->json(['message' => "Role {$role->name} masih dipakai user, ganti role user tersebut dulu"], 422);
         }
         $role->delete();
+        Audit::catat('Hak Akses', 'delete', "Menghapus role {$role->name}", $role, ['nama' => ['dari' => $role->name]]);
 
         return response()->json(['message' => "Role {$role->name} dihapus"]);
     }

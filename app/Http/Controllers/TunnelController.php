@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tunnel;
 use App\Services\Tunnel\TunnelRadius;
+use App\Support\Audit;
 use App\Support\RouterOsScript;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -112,6 +113,9 @@ class TunnelController extends Controller
             '# Cek: interface harus R (running) dan mendapat IP '.$tunnel->ip_tunnel,
             '/interface l2tp-client print where comment="Tunnel billing MSS"',
         );
+
+        // Password tunnel & API tidak ikut dicatat
+        Audit::catat('Tunnel', 'export', "Membuat script tunnel {$tunnel->nama_tunnel} untuk router mitra", $tunnel);
 
         return response()->json([
             'script' => implode("\n", $baris),

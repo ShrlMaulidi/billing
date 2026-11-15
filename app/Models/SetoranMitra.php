@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['id_lokasi', 'periode', 'nominal', 'metode', 'rekening_id', 'bukti_setor', 'keterangan', 'user_id'])]
 class SetoranMitra extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Pembayaran Masuk';
+
+    public const JENIS_AUDIT = 'setoran mitra';
+
     /** Folder bukti setor di disk privat "local"; dibuka lewat route yang memeriksa hak akses cabang. */
     public const FOLDER_BUKTI = 'bukti-setoran';
 
@@ -39,5 +47,11 @@ class SetoranMitra extends Model
     public function petugas(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /** Label di deskripsi Logs. */
+    public function labelAudit(): string
+    {
+        return trim(($this->lokasi?->nama_lokasi ?? '#'.$this->id_lokasi).' periode '.substr((string) $this->periode, 0, 7));
     }
 }

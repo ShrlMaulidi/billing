@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Support\Audit;
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Pembayaran tagihan satu periode (bulan) pelanggan. Kolom periode = periode pemakaian; jns_tagihan = jenis tagihan saat dibayar.
@@ -19,6 +23,13 @@ use Illuminate\Support\Carbon;
 ])]
 class Pembayaran extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Pembayaran';
+
+    public const JENIS_AUDIT = 'pembayaran';
+
     protected function casts(): array
     {
         return [
@@ -76,5 +87,41 @@ class Pembayaran extends Model
             'nominal' => (int) round($nilai),
             default => 0,
         };
+    }
+
+    /** Label di deskripsi Logs. */
+    /**
+     * Simpan pembayaran satu periode beserta snapshot nama, paket, dan jenis tagihan; no. invoice dibentuk dari periode + id.
+     * Dipakai input manual dan pembayaran massal. Tercatat sekali di Logs (sudah lengkap dengan no. invoice).
+     *
+     * @param  array{periode: string, harga: int, metode: string, rekening_id: ?int, diskon_tipe: ?string, diskon_nilai: mixed, diskon: int, jml_bayar: int}  $data
+     *
+     * @throws UniqueConstraintViolationException periode sudah dibayar (klik ganda / input bersamaan)
+     */
+    public static function catatUntuk(Pelanggan $pelanggan, array $data, ?int $userId, ?Carbon $dibayarPada = null): self
+    {
+        $pembayaran = DB::transaction(fn () => Audit::diam(function () use ($pelanggan, $data, $userId, $dibayarPada) {
+            $pembayaran = $pelanggan->pembayaran()->create([
+                ...$data,
+                'id_lokasi' => $pelanggan->id_lokasi,
+                'nama_pelanggan' => $pelanggan->nama,
+                'nama_paket' => $pelanggan->paket->nama_paket,
+                'jns_tagihan' => $pelanggan->jns_tagihan,
+                'is_prorate' => $data['periode'] === $pelanggan->periodeProrate(),
+                'user_id' => $userId,
+                'paid_at' => $dibayarPada ?? now(),
+            ]);
+            $pembayaran->update(['no_invoice' => sprintf('INV%s-%05d', str_replace('-', '', substr($data['periode'], 0, 7)), $pembayaran->id)]);
+
+            return $pembayaran;
+        }));
+        $pembayaran->catatAudit('create');
+
+        return $pembayaran;
+    }
+
+    public function labelAudit(): string
+    {
+        return trim(($this->no_invoice ?? '#'.$this->getKey()).' · '.$this->nama_pelanggan);
     }
 }

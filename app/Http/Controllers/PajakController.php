@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Lokasi;
 use App\Models\PajakCabang;
+use App\Support\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -43,10 +44,14 @@ class PajakController extends Controller
         ], $this->pesanValidasi(), ['tahun' => 'Tahun', 'bulan' => 'Bulan', ...PajakCabang::ATRIBUT]);
         $periode = Carbon::create($data['tahun'], $data['bulan']);
 
-        $lokasi->pajak()->updateOrCreate(
-            ['periode' => $periode->format('Y-m-d')],
-            collect($data)->only(PajakCabang::TARIF)->all(),
-        );
+        $baru = collect($data)->only(PajakCabang::TARIF)->all();
+        $lama = $lokasi->pajak()->where('periode', $periode->format('Y-m-d'))->first()?->only(PajakCabang::TARIF) ?? [];
+        $lokasi->pajak()->updateOrCreate(['periode' => $periode->format('Y-m-d')], $baru);
+        $perubahan = collect($baru)->filter(fn ($nilai, $kolom) => ! array_key_exists($kolom, $lama) || (string) $lama[$kolom] !== (string) $nilai)
+            ->map(fn ($nilai, $kolom) => ['dari' => $lama[$kolom] ?? null, 'ke' => $nilai])->all();
+        if ($perubahan) {
+            Audit::catat('Pengaturan Pajak', 'update', "Mengubah tarif {$lokasi->nama_lokasi} {$periode->locale('id')->translatedFormat('F Y')}", $lokasi, $perubahan);
+        }
 
         return response()->json(['message' => "Tarif {$lokasi->nama_lokasi} {$periode->locale('id')->translatedFormat('F Y')} disimpan"]);
     }

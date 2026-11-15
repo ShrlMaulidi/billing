@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Support\HakAkses;
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Support\TercatatAudit;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -22,7 +23,12 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, HasRoles, Notifiable, TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'User';
+
+    public const JENIS_AUDIT = 'user';
 
     /** Sama dengan default kolom, agar user yang baru dibuat langsung terbaca aktif. */
     protected $attributes = ['status' => 'aktif'];

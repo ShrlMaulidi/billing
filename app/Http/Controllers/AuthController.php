@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Audit;
 use App\Support\HakAkses;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,7 @@ class AuthController extends Controller
             RateLimiter::hit($key, self::JEDA_DETIK);
             RateLimiter::hit($keyIp, self::JEDA_IP_DETIK);
             Log::warning('Login gagal', ['username' => $data['username'], 'ip' => $request->ip(), 'user_agent' => $request->userAgent()]);
+            Audit::catat('Akses', 'login_gagal', "Login gagal: username/email \"{$data['username']}\" atau kata sandi salah", pelaku: $data['username']);
             throw ValidationException::withMessages(['username' => 'Username/email atau kata sandi salah.']);
         }
 
@@ -60,6 +62,7 @@ class AuthController extends Controller
         $user = $request->user();
         if (! $user->bolehMasuk()) {
             Log::warning('Login ditolak: akun nonaktif / tanpa hak akses', ['username' => $data['username'], 'status' => $user->status, 'ip' => $request->ip()]);
+            Audit::catat('Akses', 'login_gagal', $user->status !== 'aktif' ? 'Login ditolak: akun nonaktif' : 'Login ditolak: role belum punya hak akses', $user);
             Auth::logout();
             throw ValidationException::withMessages(['username' => $user->status !== 'aktif'
                 ? 'Akun ini sedang dinonaktifkan. Hubungi Super Admin.'
@@ -69,12 +72,16 @@ class AuthController extends Controller
         RateLimiter::clear($key);
         $request->session()->regenerate();
         $user->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->save();
+        Audit::catat('Akses', 'login', 'Login berhasil', $user);
 
         return redirect()->intended(HakAkses::halamanAwal($user));
     }
 
     public function destroy(Request $request): RedirectResponse
     {
+        if ($request->user()) {
+            Audit::catat('Akses', 'logout', 'Logout', $request->user());
+        }
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

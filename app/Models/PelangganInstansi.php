@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Table;
@@ -19,6 +20,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Hidden(['file_ktp', 'file_npwp'])]
 class PelangganInstansi extends Model
 {
+    use TercatatAudit;
+
+    /** Nama modul & jenis data di menu Logs (jejak audit). */
+    public const MODUL_AUDIT = 'Data Klien';
+
+    public const JENIS_AUDIT = 'klien';
+
     /** @var array<string, string> */
     public const TIPE = ['korporat' => 'Korporat', 'pemerintah' => 'Instansi Pemerintah'];
 
