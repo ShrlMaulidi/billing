@@ -10,6 +10,7 @@ const TAMPILAN = {
     lunas: { ikon: CheckCircle, kelas: 'is-paid', judul: 'Pembayaran berhasil', teks: 'Terima kasih. Tagihan Anda sudah tercatat lunas.' },
     pending: { ikon: Clock, kelas: 'is-wait', judul: 'Menunggu pembayaran', teks: 'Selesaikan pembayaran sesuai instruksi Midtrans (mis. transfer ke nomor Virtual Account). Status akan berubah otomatis setelah pembayaran diterima.' },
     selisih: { ikon: Clock, kelas: 'is-wait', judul: 'Pembayaran sedang diperiksa', teks: 'Pembayaran Anda sudah kami terima dan sedang diperiksa petugas. Hubungi kami bila status belum berubah.' },
+    ditarik: { ikon: XCircle, kelas: 'is-due', judul: 'Pembayaran dikembalikan', teks: 'Pembayaran ini sudah dikembalikan (refund) atau dibatalkan oleh bank penerbit kartu. Hubungi kami untuk informasi lebih lanjut.' },
     gagal: { ikon: XCircle, kelas: 'is-due', judul: 'Pembayaran tidak berhasil', teks: 'Pembayaran dibatalkan, ditolak, atau melewati batas waktu. Silakan buat pembayaran baru dari halaman Cek Tagihan.' },
 };
 

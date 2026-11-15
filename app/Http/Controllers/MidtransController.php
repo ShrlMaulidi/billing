@@ -7,10 +7,12 @@ use App\Models\Pembayaran;
 use App\Models\TransaksiMidtrans;
 use App\Services\Midtrans\MidtransClient;
 use App\Support\Audit;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -24,12 +26,18 @@ use Throwable;
  *
  * Keamanan: nominal selalu dihitung ulang di server dari tagihan yang belum dibayar; notifikasi diterima hanya bila
  * signature_key sah, lalu status & nominal dicek ulang langsung ke API Midtrans; pemrosesan idempoten (satu transaksi
- * hanya bisa mencatat satu pembayaran) dan dikunci per transaksi.
+ * hanya bisa mencatat satu pembayaran) dan dikunci per order. Refund/chargeback setelah lunas ditandai untuk ditinjau.
  */
 class MidtransController extends Controller
 {
     /** Status Midtrans → status transaksi billing. */
     private const STATUS = ['settlement' => 'lunas', 'capture' => 'lunas', 'pending' => 'pending', 'expire' => 'expire', 'cancel' => 'cancel', 'deny' => 'deny', 'failure' => 'failure'];
+
+    /** Status Midtrans yang menarik kembali uang yang sudah lunas (refund oleh merchant / chargeback kartu kredit). */
+    private const DITARIK = ['refund', 'partial_refund', 'chargeback', 'partial_chargeback'];
+
+    /** Panjang bagian acak order ID: halaman selesai bisa dibuka dengan order ID, jadi harus mustahil ditebak. */
+    private const PANJANG_ACAK_ORDER = 12;
 
     public function __construct(private MidtransClient $midtrans) {}
 
@@ -102,7 +110,7 @@ class MidtransController extends Controller
         $jam = max(1, (int) config('services.midtrans.kedaluwarsa_jam', 24));
         $transaksi = TransaksiMidtrans::create([
             // Awalan unik per website + periode + pelanggan + acak: tidak bentrok dengan website lain di akun Midtrans yang sama
-            'order_id' => sprintf('%s-%s-%d-%s', config('services.midtrans.prefix', 'MSSB'), str_replace('-', '', substr($tagihan['periode'], 0, 7)), $pelanggan->id, Str::lower(Str::random(6))),
+            'order_id' => sprintf('%s-%s-%d-%s', config('services.midtrans.prefix', 'MSSB'), str_replace('-', '', substr($tagihan['periode'], 0, 7)), $pelanggan->id, Str::lower(Str::random(self::PANJANG_ACAK_ORDER))),
             'pelanggan_id' => $pelanggan->id,
             'periode' => $tagihan['periode'],
             'gross_amount' => $tagihan['nominal'],
@@ -132,9 +140,25 @@ class MidtransController extends Controller
         return $transaksi->redirect_url ? $transaksi : null;
     }
 
-    /** Ambil status dari API Midtrans lalu proses; aman dipanggil berkali-kali (webhook ganda, halaman selesai). */
+    /**
+     * Ambil status dari API Midtrans lalu proses; aman dipanggil berkali-kali (webhook ganda, halaman selesai).
+     * Satu proses per order lewat kunci cache: lockForUpdate tidak berlaku di SQLite, dan status diambil di dalam kunci
+     * agar hasil cek yang lebih lama tidak menimpa yang lebih baru.
+     */
     private function sinkron(TransaksiMidtrans $transaksi): TransaksiMidtrans
     {
+        try {
+            return Cache::lock('midtrans:'.$transaksi->order_id, 30)->block(10, fn () => $this->prosesStatus($transaksi->fresh()));
+        } catch (LockTimeoutException) {
+            return $transaksi;
+        }
+    }
+
+    private function prosesStatus(TransaksiMidtrans $transaksi): TransaksiMidtrans
+    {
+        if ($transaksi->status === 'ditarik') {
+            return $transaksi;
+        }
         try {
             $status = $this->midtrans->status($transaksi->order_id);
         } catch (Throwable $e) {
@@ -142,18 +166,28 @@ class MidtransController extends Controller
 
             return $transaksi;
         }
+        $statusMidtrans = (string) ($status['transaction_status'] ?? '');
+        if (($status['order_id'] ?? null) !== $transaksi->order_id || $statusMidtrans === '') {
+            return $transaksi;
+        }
 
-        return Audit::sebagai('Midtrans', fn () => DB::transaction(function () use ($transaksi, $status) {
+        return Audit::sebagai('Midtrans', fn () => DB::transaction(function () use ($transaksi, $status, $statusMidtrans) {
             $transaksi = TransaksiMidtrans::lockForUpdate()->findOrFail($transaksi->id);
+            $info = ['payment_type' => $status['payment_type'] ?? $transaksi->payment_type, 'transaction_id' => $status['transaction_id'] ?? $transaksi->transaction_id];
             if (in_array($transaksi->status, TransaksiMidtrans::LUNAS, true)) {
+                // Uang ditarik kembali setelah lunas: jangan dihapus otomatis, tandai agar admin meninjau & membatalkan pembayarannya
+                if (in_array($statusMidtrans, self::DITARIK, true)) {
+                    $transaksi->update(['status' => 'ditarik', 'catatan' => "Midtrans: {$statusMidtrans} setelah lunas, tinjau & batalkan pembayaran bila perlu", ...$info]);
+                    Audit::catat('Pembayaran', 'update', "Pembayaran Midtrans {$transaksi->order_id} berstatus {$statusMidtrans} (uang ditarik kembali), tinjau pembayaran pelanggan ini", $transaksi);
+                }
+
                 return $transaksi;
             }
-            $baru = self::STATUS[$status['transaction_status'] ?? ''] ?? $transaksi->status;
-            // Kartu kredit: capture baru dianggap lunas bila lolos pemeriksaan fraud
-            if (($status['transaction_status'] ?? null) === 'capture' && ($status['fraud_status'] ?? 'accept') !== 'accept') {
+            $baru = self::STATUS[$statusMidtrans] ?? $transaksi->status;
+            // Kartu kredit: capture baru dianggap lunas bila Midtrans menyatakan lolos pemeriksaan fraud
+            if ($statusMidtrans === 'capture' && ($status['fraud_status'] ?? null) !== 'accept') {
                 $baru = 'pending';
             }
-            $info = ['payment_type' => $status['payment_type'] ?? $transaksi->payment_type, 'transaction_id' => $status['transaction_id'] ?? $transaksi->transaction_id];
             if ($baru !== 'lunas') {
                 $transaksi->update(['status' => $baru, ...$info]);
 

@@ -60,7 +60,9 @@ class MidtransClient
      */
     public function tandaTanganSah(array $notifikasi): bool
     {
-        if (! $this->aktif() || ! isset($notifikasi['order_id'], $notifikasi['status_code'], $notifikasi['gross_amount'], $notifikasi['signature_key'])) {
+        $kolom = ['order_id', 'status_code', 'gross_amount', 'signature_key'];
+        // Hanya teks/angka: array atau objek di payload palsu langsung ditolak, bukan memicu error
+        if (! $this->aktif() || collect($kolom)->contains(fn (string $k) => ! isset($notifikasi[$k]) || ! is_scalar($notifikasi[$k]))) {
             return false;
         }
         $data = $notifikasi['order_id'].$notifikasi['status_code'].$notifikasi['gross_amount'];

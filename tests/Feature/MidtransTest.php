@@ -50,7 +50,7 @@ class MidtransTest extends TestCase
             && $r->header('X-Override-Notification')[0] === route('midtrans.notifikasi')
             && $r->hasHeader('Authorization', 'Basic '.base64_encode(self::KEY.':'))
             && $r['transaction_details']['gross_amount'] === 200000
-            && str_starts_with($r['transaction_details']['order_id'], 'MSSB-202611-'.$this->budi->id.'-')
+            && preg_match('/^MSSB-202611-'.$this->budi->id.'-[a-z0-9]{12}$/', $r['transaction_details']['order_id']) === 1
             && $r['callbacks']['finish'] === route('midtrans.selesai'));
         $transaksi = TransaksiMidtrans::sole();
         $this->assertSame(['pending', 200000, '2026-11-01'], [$transaksi->status, $transaksi->gross_amount, $transaksi->periode]);
@@ -82,6 +82,8 @@ class MidtransTest extends TestCase
         $transaksi = $this->transaksi();
 
         $this->postJson('/midtrans/notifikasi', [...$this->notifikasi($transaksi), 'signature_key' => str_repeat('a', 128)])->assertForbidden();
+        $this->postJson('/midtrans/notifikasi', [...$this->notifikasi($transaksi), 'signature_key' => ['a']])->assertForbidden();
+        $this->postJson('/midtrans/notifikasi', [...$this->notifikasi($transaksi), 'order_id' => ['x' => 1]])->assertForbidden();
 
         Http::assertNothingSent();
         $this->assertSame('pending', $transaksi->fresh()->status);
@@ -131,6 +133,40 @@ class MidtransTest extends TestCase
         $this->postJson('/midtrans/notifikasi', $this->notifikasi($transaksi, 'settlement'))->assertOk();
 
         $this->assertSame('pending', $transaksi->fresh()->status);
+        $this->assertDatabaseCount('pembayaran', 0);
+    }
+
+    public function test_refund_or_chargeback_after_paid_is_flagged_for_review(): void
+    {
+        $transaksi = $this->transaksi();
+        Http::fake(['api.sandbox.midtrans.com/v2/'.$transaksi->order_id.'/status' => Http::sequence()
+            ->push($this->statusApi($transaksi, 'settlement'))->push($this->statusApi($transaksi, 'chargeback'))->push($this->statusApi($transaksi, 'settlement'))]);
+
+        $this->postJson('/midtrans/notifikasi', $this->notifikasi($transaksi))->assertOk();
+        $this->assertSame('lunas', $transaksi->fresh()->status);
+        $this->postJson('/midtrans/notifikasi', $this->notifikasi($transaksi))->assertOk();
+        $this->postJson('/midtrans/notifikasi', $this->notifikasi($transaksi))->assertOk();
+
+        // Pembayaran tidak dihapus otomatis; transaksi ditandai & tercatat di Logs agar admin meninjau
+        $this->assertSame('ditarik', $transaksi->fresh()->status);
+        $this->assertSame(1, Pembayaran::count());
+        $this->assertTrue(AuditLog::where('deskripsi', 'like', '%chargeback%')->exists());
+    }
+
+    public function test_card_capture_without_fraud_accept_and_mismatched_order_are_not_recorded(): void
+    {
+        $kartu = $this->transaksi();
+        $lain = $this->transaksi(['order_id' => 'MSSB-202610-1-cccccccccccc', 'periode' => '2026-10-01']);
+        Http::fake([
+            'api.sandbox.midtrans.com/v2/'.$kartu->order_id.'/status' => Http::response(['fraud_status' => null, 'payment_type' => 'credit_card'] + $this->statusApi($kartu, 'capture')),
+            // Respons API untuk order lain tidak boleh dipakai
+            'api.sandbox.midtrans.com/v2/'.$lain->order_id.'/status' => Http::response($this->statusApi($kartu, 'settlement')),
+        ]);
+
+        $this->postJson('/midtrans/notifikasi', $this->notifikasi($kartu))->assertOk();
+        $this->postJson('/midtrans/notifikasi', $this->notifikasi($lain))->assertOk();
+
+        $this->assertSame(['pending', 'pending'], [$kartu->fresh()->status, $lain->fresh()->status]);
         $this->assertDatabaseCount('pembayaran', 0);
     }
 

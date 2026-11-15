@@ -12,7 +12,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['order_id', 'pelanggan_id', 'periode', 'gross_amount', 'status', 'payment_type', 'transaction_id', 'redirect_url', 'kedaluwarsa_at', 'dibayar_at', 'pembayaran_id', 'catatan'])]
 class TransaksiMidtrans extends Model
 {
-    /** Status yang berarti uang sudah diterima Midtrans. */
+    /**
+     * Status yang berarti uang sudah diterima Midtrans. Status lain: pending, expire, cancel, deny, failure,
+     * selisih (nominal beda, periksa manual), ditarik (refund/chargeback setelah lunas, tinjau manual).
+     */
     public const LUNAS = ['lunas', 'lunas_ganda'];
 
     protected function casts(): array

@@ -57,6 +57,10 @@ export async function api(method, url, data) {
         },
         body: data === undefined ? undefined : multipart ? data : JSON.stringify(data),
     });
+    // Halaman publik (Cek Tagihan): token kedaluwarsa cukup muat ulang, jangan dibawa ke login staf
+    if (res.status === 419 && window.location.pathname.startsWith('/cek-tagihan')) {
+        throw { status: 419, message: 'Halaman sudah terlalu lama dibuka. Muat ulang halaman (refresh) lalu coba lagi.' };
+    }
     if (res.status === 401 || res.status === 419) {
         window.location.href = '/login';
         throw { status: res.status, message: 'Sesi berakhir, silakan login kembali' };
