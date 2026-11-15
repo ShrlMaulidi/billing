@@ -7,6 +7,7 @@ use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\Rekening;
+use App\Models\TransaksiMidtrans;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
@@ -47,9 +48,53 @@ class CekTagihanTest extends TestCase
             ])
             ->where('hasil.0.tagihan.1.periode', '2026-10-01')
             ->where('hasil.0.cabang', ['nama_lokasi' => 'MSS Garut', 'alamat_lokasi' => null, 'tlp_lokasi' => '0262123'])
-            ->where('hasil.0.pembayaran_terakhir', ['periode_pembayaran' => '2026-08-01', 'paid_at' => '2026-08-05'])
+            ->has('hasil.0.lunas', 1)->where('hasil.0.lunas.0.periode_pembayaran', '2026-08-01')->where('hasil.0.lunas.0.paid_at', '2026-08-05')
             ->where('hasil.0.rekening', [['nama_rekening' => 'BCA', 'no_rekening' => '111', 'atas_nama' => 'MSS']])
             ->missing('hasil.0.alamat')->missing('hasil.0.tlp')->missing('hasil.0.username_pppoe'));
+    }
+
+    public function test_paid_periods_show_as_paid_with_payment_method_and_a_masked_receipt(): void
+    {
+        // Juli cash, Agustus transfer BCA, September Midtrans (QRIS), Oktober belum dibayar
+        $budi = $this->pelanggan(['id_pelanggan' => 'MSS001', 'nama' => 'Budi Santoso', 'tgl_registrasi' => '2026-07-01', 'alamat' => 'Jl. Rahasia 1', 'tlp' => '081234567890']);
+        $bca = Rekening::create(['nama_rekening' => 'BCA', 'atas_nama' => 'MSS', 'no_rekening' => '111', 'tampil_invoice' => true]);
+        $cash = $this->bayar($budi, '2026-07-01', 'cash');
+        $this->bayar($budi, '2026-08-01', 'transfer', $bca->id);
+        $midtrans = $this->bayar($budi, '2026-09-01', 'midtrans');
+        TransaksiMidtrans::create(['order_id' => 'MSSB-202609-1-abc123', 'pelanggan_id' => $budi->id, 'periode' => '2026-09-01', 'gross_amount' => 200000, 'status' => 'lunas', 'payment_type' => 'qris', 'pembayaran_id' => $midtrans->id]);
+
+        $link = [];
+        $this->post('/cek-tagihan', ['cari' => 'MSS001'])->assertInertia(function ($page) use (&$link) {
+            $page->has('hasil.0.tagihan', 1)->where('hasil.0.tagihan.0.periode', '2026-10-01')
+                ->has('hasil.0.lunas', 3)
+                ->where('hasil.0.lunas.0.metode_label', 'Midtrans · QRIS')
+                ->where('hasil.0.lunas.1.metode_label', 'Transfer Bank · BCA')
+                ->where('hasil.0.lunas.2.metode_label', 'Cash');
+            $link = array_column($page->toArray()['props']['hasil'][0]['lunas'], 'link_kwitansi');
+        });
+
+        $this->get($link[0])->assertOk()->assertInertia(fn ($page) => $page->component('CekTagihan/Kwitansi')
+            ->where('kwitansi.metode_label', 'Midtrans · QRIS')->where('kwitansi.no_invoice', $midtrans->no_invoice)
+            ->where('kwitansi.nama_pelanggan', 'Bu** Sa*****')->where('kwitansi.jml_bayar', 200000)
+            ->missing('kwitansi.alamat')->missing('kwitansi.tlp')->missing('kwitansi.petugas'));
+        $this->get($link[1])->assertInertia(fn ($page) => $page->where('kwitansi.metode_label', 'Transfer Bank · BCA')->where('kwitansi.rekening', 'BCA · 111 a.n. MSS'));
+        $this->get($link[2])->assertInertia(fn ($page) => $page->where('kwitansi.metode_label', 'Cash')->where('kwitansi.periode', $cash->periode));
+    }
+
+    public function test_receipt_link_rejects_a_changed_missing_or_expired_signature(): void
+    {
+        $budi = $this->pelanggan(['id_pelanggan' => 'MSS001', 'nama' => 'Budi']);
+        $sari = $this->pelanggan(['id_pelanggan' => 'MSS002', 'nama' => 'Sari']);
+        $milikBudi = $this->bayar($budi, '2026-10-01', 'cash');
+        $milikSari = $this->bayar($sari, '2026-10-01', 'cash');
+        $link = URL::temporarySignedRoute('cek-tagihan.kwitansi', now()->addDay(), ['pembayaran' => $milikBudi->id], absolute: false);
+
+        // Mengganti ID di link untuk mengintip kwitansi pelanggan lain ditolak
+        $this->get(str_replace("/kwitansi/{$milikBudi->id}?", "/kwitansi/{$milikSari->id}?", $link))->assertForbidden();
+        $this->get("/cek-tagihan/kwitansi/{$milikBudi->id}")->assertForbidden();
+        $this->get($link)->assertOk();
+        $this->travel(25)->hours();
+        $this->get($link)->assertForbidden();
     }
 
     public function test_member_card_qr_link_opens_that_customers_bills_without_login(): void
@@ -118,6 +163,14 @@ class CekTagihanTest extends TestCase
         }
         $this->from('/cek-tagihan')->post('/cek-tagihan', ['cari' => 'TIDAKADA'])
             ->assertRedirect('/cek-tagihan')->assertSessionHasErrors(['cari' => 'Terlalu banyak percobaan. Coba lagi dalam 1 menit.']);
+    }
+
+    private function bayar(Pelanggan $pelanggan, string $periode, string $metode, ?int $rekeningId = null): Pembayaran
+    {
+        return Pembayaran::catatUntuk($pelanggan->load('paket'), [
+            'periode' => $periode, 'harga' => 200000, 'metode' => $metode, 'rekening_id' => $rekeningId,
+            'diskon_tipe' => null, 'diskon_nilai' => 0, 'diskon' => 0, 'jml_bayar' => 200000,
+        ], null);
     }
 
     private function pelanggan(array $attrs): Pelanggan

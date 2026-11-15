@@ -10,7 +10,7 @@ import { angka, METODE, periode, rupiah, waktu } from '../../lib/format';
 
 const ICON = { cash: DollarSign, transfer: CreditCard, tripay: Zap, xendit: Layers, pakar_digital: Smartphone, moota: Hash };
 const COLOR = { cash: 'success', transfer: 'primary', tripay: 'warning', xendit: 'info', pakar_digital: 'secondary', moota: 'dark' };
-const WARNA_GRAFIK = { cash: '#54ba4a', transfer: '#7366ff', tripay: '#ffaa05', xendit: '#16c7f9', pakar_digital: '#f73164', moota: '#52526c' };
+const WARNA_GRAFIK = { cash: '#54ba4a', transfer: '#7366ff', midtrans: '#0f9fbf', tripay: '#ffaa05', xendit: '#16c7f9', pakar_digital: '#f73164', moota: '#52526c' };
 
 export default function IncomeSummary({ filters, total, metode, rekening, pembayaran }) {
     const [drawer, setDrawer] = useState(null); // { metode, rekening? , title }

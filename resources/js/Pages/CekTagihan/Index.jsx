@@ -1,8 +1,9 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { ArrowLeft, CreditCard, MessageCircle, Printer, Search } from 'react-feather';
+import { ArrowLeft, CheckCircle, CreditCard, FileText, MessageCircle, Printer, Search } from 'react-feather';
 import InvoiceTagihan from '../../Components/InvoiceTagihan';
 import { periode, rupiah, tanggal } from '../../lib/format';
+import { api } from '../../lib/ui';
 
 const WA_MARKETING = '6281384141950';
 const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
@@ -10,19 +11,42 @@ const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
 const linkWa = (pesan) => `https://wa.me/${WA_MARKETING}?text=${encodeURIComponent(pesan)}`;
 
 /**
- * Tombol "Bayar di sini" pada invoice. Payment gateway belum terhubung: untuk sementara menampilkan cara bayar manual.
- * Nanti cukup ganti isi bayar() dengan pembuatan transaksi ke payment gateway.
+ * Tombol "Bayar di sini" pada invoice. Bila pembayaran online aktif untuk pelanggan ini (Midtrans, cabang non Admin Full),
+ * server membuat transaksi lalu browser diarahkan ke halaman pembayaran Midtrans; nominal dihitung ulang di server.
+ * Selain itu menampilkan cara bayar manual.
  */
 function TombolBayar({ invoice, pelanggan }) {
     const [info, setInfo] = useState(false);
-    const bayar = () => setInfo(true);
+    const [proses, setProses] = useState(false);
+    const [galat, setGalat] = useState('');
+
+    const bayar = async () => {
+        if (!pelanggan.bayar_online) {
+            setInfo(true);
+            return;
+        }
+        setProses(true);
+        setGalat('');
+        try {
+            const res = await api('POST', '/cek-tagihan/bayar', { id_pelanggan: pelanggan.id_pelanggan, periode: invoice.periode });
+            if (!res.redirect_url) throw { message: 'Pembayaran online sedang tidak tersedia. Silakan coba lagi.' };
+            window.location.assign(res.redirect_url);
+        } catch (err) {
+            setGalat(err.errors?.bayar?.[0] ?? err.message);
+            setProses(false);
+        }
+    };
 
     return (
         <>
-            <button type="button" className="lp-btn lp-btn-gold ct-bayar" onClick={bayar}><CreditCard size={18} /> Bayar di sini</button>
+            <button type="button" className="lp-btn lp-btn-gold ct-bayar" onClick={bayar} disabled={proses}>
+                <CreditCard size={18} /> {proses ? 'Menyiapkan pembayaran…' : pelanggan.bayar_online ? 'Bayar Online' : 'Bayar di sini'}
+            </button>
+            {pelanggan.bayar_online && !galat && <p className="ct-bayar-catatan">Transfer bank (VA), QRIS, atau e-wallet lewat Midtrans. Status lunas otomatis.</p>}
+            {galat && <div className="ct-bayar-info ct-bayar-galat" role="alert">{galat}</div>}
             {info && (
                 <div className="ct-bayar-info" role="status">
-                    <strong>Pembayaran online segera hadir.</strong> Sementara ini, silakan transfer ke rekening di bagian Info Pembayaran atau bayar tunai di kantor
+                    <strong>Bayar lewat transfer atau tunai.</strong> Silakan transfer ke rekening di bagian Info Pembayaran atau bayar tunai di kantor
                     {pelanggan.cabang?.nama_lokasi ? ` ${pelanggan.cabang.nama_lokasi}` : ' cabang'}, lalu{' '}
                     <a href={linkWa(`Halo MSS, saya sudah membayar invoice ${invoice.no_tagihan} (ID ${pelanggan.id_pelanggan ?? '-'}) sebesar ${rupiah(invoice.nominal)}. Berikut bukti transfernya.`)}
                         target="_blank" rel="noopener noreferrer">kirim bukti via WhatsApp</a>.
@@ -32,7 +56,28 @@ function TombolBayar({ invoice, pelanggan }) {
     );
 }
 
-/** Ringkasan satu pelanggan + invoice tiap bulan yang belum dibayar (data pribadi disamarkan oleh server). */
+/** Riwayat periode yang sudah lunas (cash, transfer, atau Midtrans): tidak bisa dibayar lagi, kwitansi bisa dibuka. */
+function RiwayatLunas({ lunas }) {
+    return (
+        <div className="ct-riwayat no-print">
+            <h3>Riwayat Pembayaran</h3>
+            <ul>
+                {lunas.map((b) => (
+                    <li key={b.no_invoice ?? b.periode}>
+                        <div className="ct-riwayat-info">
+                            <strong>Periode {periode(b.periode_pembayaran)}</strong>
+                            <span><span className="ct-badge-lunas"><CheckCircle size={13} /> Lunas</span> {rupiah(b.jml_bayar)} · via {b.metode_label}</span>
+                            <small>Dibayar {tanggal(b.paid_at)}{b.no_invoice ? ` · No. ${b.no_invoice}` : ''}</small>
+                        </div>
+                        <Link href={b.link_kwitansi} className="ct-print"><FileText size={16} /> Lihat Kwitansi</Link>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+/** Ringkasan satu pelanggan + invoice tiap bulan yang belum dibayar + riwayat lunas (data pribadi disamarkan oleh server). */
 function HasilPelanggan({ pelanggan: p }) {
     const total = p.tagihan.reduce((s, t) => s + (t.nominal ?? 0), 0);
 
@@ -62,9 +107,7 @@ function HasilPelanggan({ pelanggan: p }) {
                 <p className="ct-paid">Tidak ada tagihan yang belum dibayar. Terima kasih telah membayar tepat waktu.</p>
             )}
 
-            {p.pembayaran_terakhir && (
-                <p className="ct-last no-print">Pembayaran terakhir: periode {periode(p.pembayaran_terakhir.periode_pembayaran)}, dibayar {tanggal(p.pembayaran_terakhir.paid_at)}.</p>
-            )}
+            {p.lunas.length > 0 && <RiwayatLunas lunas={p.lunas} />}
         </section>
     );
 }

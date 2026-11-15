@@ -25,7 +25,7 @@ class RekapCabang
     private const NOMINAL_KOSONG = ['lunas', 'belum_lunas', 'pengeluaran'];
 
     /** Metode pembayaran lewat payment gateway (selain cash & transfer manual). */
-    public const PAYMENT_GATEWAY = ['tripay', 'xendit', 'pakar_digital', 'moota'];
+    public const PAYMENT_GATEWAY = ['tripay', 'xendit', 'pakar_digital', 'moota', 'midtrans'];
 
     /**
      * @param  EloquentCollection<int, Lokasi>  $lokasi

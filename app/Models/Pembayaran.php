@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,15 @@ class Pembayaran extends Model
     public const MODUL_AUDIT = 'Pembayaran';
 
     public const JENIS_AUDIT = 'pembayaran';
+
+    /** Nama metode untuk kwitansi (selaras METODE di resources/js/lib/format.js). */
+    public const METODE = ['cash' => 'Cash', 'transfer' => 'Transfer Bank', 'midtrans' => 'Midtrans', 'tripay' => 'Tripay', 'xendit' => 'Xendit', 'pakar_digital' => 'Pakar Digital', 'moota' => 'Moota'];
+
+    /** Kanal pembayaran Midtrans (payment_type) yang mudah dipahami pelanggan. */
+    public const KANAL_MIDTRANS = [
+        'bank_transfer' => 'Virtual Account', 'echannel' => 'Mandiri Bill', 'permata' => 'Virtual Account Permata', 'qris' => 'QRIS', 'gopay' => 'GoPay',
+        'shopeepay' => 'ShopeePay', 'credit_card' => 'Kartu Kredit', 'cstore' => 'Gerai Retail', 'akulaku' => 'Akulaku', 'kredivo' => 'Kredivo',
+    ];
 
     protected function casts(): array
     {
@@ -62,6 +72,28 @@ class Pembayaran extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /** Transaksi Midtrans yang mencatat pembayaran ini (hanya untuk metode midtrans). */
+    public function transaksiMidtrans(): HasOne
+    {
+        return $this->hasOne(TransaksiMidtrans::class);
+    }
+
+    /**
+     * Metode bayar untuk kwitansi: "Cash", "Transfer Bank · BCA", atau "Midtrans · QRIS".
+     * Muat relasi rekening (transfer) dan transaksiMidtrans (midtrans) lebih dulu.
+     */
+    public function keteranganMetode(): string
+    {
+        $nama = self::METODE[$this->metode] ?? str($this->metode)->replace('_', ' ')->title()->toString();
+        $rincian = match ($this->metode) {
+            'transfer' => $this->rekening?->nama_rekening,
+            'midtrans' => ($tipe = $this->transaksiMidtrans?->payment_type) ? (self::KANAL_MIDTRANS[$tipe] ?? str($tipe)->replace('_', ' ')->title()->toString()) : null,
+            default => null,
+        };
+
+        return $rincian ? "{$nama} · {$rincian}" : $nama;
+    }
+
     /** Periode pembayaran (Y-m-01): prabayar = bulan pemakaian, pascabayar = bulan berikutnya. */
     public function periodePembayaran(): string
     {
@@ -92,7 +124,7 @@ class Pembayaran extends Model
     /** Label di deskripsi Logs. */
     /**
      * Simpan pembayaran satu periode beserta snapshot nama, paket, dan jenis tagihan; no. invoice dibentuk dari periode + id.
-     * Dipakai input manual dan pembayaran massal. Tercatat sekali di Logs (sudah lengkap dengan no. invoice).
+     * Dipakai input manual, pembayaran massal, dan Midtrans. Tercatat sekali di Logs (sudah lengkap dengan no. invoice).
      *
      * @param  array{periode: string, harga: int, metode: string, rekening_id: ?int, diskon_tipe: ?string, diskon_nilai: mixed, diskon: int, jml_bayar: int}  $data
      *

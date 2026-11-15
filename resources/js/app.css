@@ -684,7 +684,38 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
 .ct-bayar-info strong { color: var(--ink); }
 .ct-bayar-info a { color: var(--ink) !important; font-weight: 600; text-decoration: underline !important; }
 .ct-paid { color: #2e7d32 !important; font-weight: 500; }
+/* Bayar online (Midtrans) & halaman status setelah bayar */
+.ct-bayar-catatan { margin: 6px 0 0 !important; font-size: 12.5px; color: var(--muted); }
+.ct-bayar-galat { background: #fdecee; border-left-color: #c62828; color: #8a1c1c !important; }
+.ct-selesai { max-width: 560px; margin: 0 auto; text-align: center; padding: 40px 24px; border: 1px solid var(--line); border-top: 4px solid var(--navy); background: #fff; }
+.ct-selesai > svg { margin-bottom: 12px; }
+.ct-selesai.is-paid > svg { color: #2e7d32; }
+.ct-selesai.is-wait > svg { color: #b48a12; }
+.ct-selesai.is-due > svg { color: #c62828; }
+.ct-selesai h1 { font-family: Poppins, Rubik, sans-serif; font-size: 26px; font-weight: 700; margin-bottom: 8px !important; }
+.ct-selesai dl { margin: 22px 0 0; text-align: left; border-top: 1px solid var(--line); }
+.ct-selesai dl div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.ct-selesai dt { font-weight: 400; color: var(--muted); }
+.ct-selesai dd { margin: 0; font-weight: 600; text-align: right; }
+.ct-selesai-aksi { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
+.ct-wa { border-color: var(--line); color: var(--ink) !important; }
+@media (max-width: 575.98px) {
+    .ct-selesai { padding: 28px 16px; }
+    .ct-selesai h1 { font-size: 22px; }
+    .ct-selesai-aksi .lp-btn { flex: 1 1 100%; justify-content: center; }
+}
 .ct-last { font-size: 14px; margin-top: 16px !important; }
+/* Riwayat periode lunas + tautan kwitansi */
+.ct-riwayat { margin-top: 24px; }
+.ct-riwayat h3 { font-family: Poppins, Rubik, sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 12px !important; }
+.ct-riwayat ul { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: #fff; }
+.ct-riwayat li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; }
+.ct-riwayat li + li { border-top: 1px solid var(--line); }
+.ct-riwayat-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ct-riwayat-info > span { color: var(--ink); font-size: 14.5px; }
+.ct-riwayat-info small { color: var(--muted); font-size: 12.5px; }
+.ct-badge-lunas { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; margin-right: 6px; border-radius: 999px; background: #e6f4ec; color: #1e7b45; font-size: 12px; font-weight: 600; }
+.ct-riwayat .ct-print { flex-shrink: 0; }
 .lp-menu .lp-cek { color: var(--navy) !important; background: var(--gold); padding: 8px 14px; border-radius: 4px; font-weight: 600; }
 .lp-menu .lp-cek:hover { background: #e6b92f; }
 @media (max-width: 991.98px) { .lp-menu .lp-cek { margin-top: 10px; width: auto; border-bottom: 0; } }
@@ -771,6 +802,8 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
     .ct-bayar { min-width: 0; width: 100%; }
     .ct-bayar-info { font-size: 13px; }
     .ct-last { font-size: 13px; }
+    .ct-riwayat li { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; }
+    .ct-riwayat .ct-print { align-self: flex-start; }
     .ct-result + .ct-result { margin-top: 36px; }
     .ct .lp-footer { padding-bottom: 18px; }
 }

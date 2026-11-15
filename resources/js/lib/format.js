@@ -12,7 +12,7 @@ export const waktu = (d) => (d ? `${tanggal(d)} ${toDate(d).toTimeString().slice
 export const periode = (d) => (d ? new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(toDate(d)) : '-');
 
 export const BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-export const METODE = { cash: 'Cash', transfer: 'Transfer Bank', tripay: 'Tripay', xendit: 'Xendit', pakar_digital: 'Pakar Digital', moota: 'Moota' };
+export const METODE = { cash: 'Cash', transfer: 'Transfer Bank', midtrans: 'Midtrans', tripay: 'Tripay', xendit: 'Xendit', pakar_digital: 'Pakar Digital', moota: 'Moota' };
 
 export const maskRekening = (no) => (no && no.length > 4 ? `${'•'.repeat(no.length - 4)}${no.slice(-4)}` : no);
 export const label = (s) => (s ? String(s).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '-');

@@ -151,7 +151,7 @@ class PembayaranController extends Controller
     public function kwitansi(Request $request, Pembayaran $pembayaran)
     {
         $this->pastikanCabang($request, $pembayaran->id_lokasi);
-        $pembayaran->load(['pelanggan:id,id_pelanggan,alamat,tlp', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi', 'rekening', 'petugas:id,name']);
+        $pembayaran->load(['pelanggan:id,id_pelanggan,alamat,tlp', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi', 'rekening', 'petugas:id,name', 'transaksiMidtrans:id,pembayaran_id,payment_type']);
 
         return Inertia::render('Pelanggan/Kwitansi', [
             'kwitansi' => [
@@ -162,6 +162,7 @@ class PembayaranController extends Controller
                 'tlp' => $pembayaran->pelanggan?->tlp,
                 'cabang' => $pembayaran->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
                 'rekening' => $pembayaran->rekening?->label(),
+                'metode_label' => $pembayaran->keteranganMetode(),
                 'petugas' => $pembayaran->petugas?->name,
             ],
         ]);

@@ -1,0 +1,197 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Pelanggan;
+use App\Models\Pembayaran;
+use App\Models\TransaksiMidtrans;
+use App\Services\Midtrans\MidtransClient;
+use App\Support\Audit;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
+use Throwable;
+
+/**
+ * Pembayaran online Midtrans (Snap) dari halaman Cek Tagihan, untuk pelanggan cabang non Admin Full
+ * (Midtrans = payment gateway perusahaan; cabang Admin Full memakai gateway mitra sendiri).
+ *
+ * Keamanan: nominal selalu dihitung ulang di server dari tagihan yang belum dibayar; notifikasi diterima hanya bila
+ * signature_key sah, lalu status & nominal dicek ulang langsung ke API Midtrans; pemrosesan idempoten (satu transaksi
+ * hanya bisa mencatat satu pembayaran) dan dikunci per transaksi.
+ */
+class MidtransController extends Controller
+{
+    /** Status Midtrans → status transaksi billing. */
+    private const STATUS = ['settlement' => 'lunas', 'capture' => 'lunas', 'pending' => 'pending', 'expire' => 'expire', 'cancel' => 'cancel', 'deny' => 'deny', 'failure' => 'failure'];
+
+    public function __construct(private MidtransClient $midtrans) {}
+
+    /** Tombol "Bayar di sini": buat (atau pakai ulang) transaksi Snap; browser lalu diarahkan ke redirect_url Midtrans. */
+    public function bayar(Request $request): JsonResponse
+    {
+        abort_unless($this->midtrans->aktif(), 404);
+        $data = $request->validate([
+            'id_pelanggan' => ['required', 'string', 'max:30'],
+            'periode' => ['required', 'date_format:Y-m-d'],
+        ]);
+        $pelanggan = Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,admin_full', 'pembayaran:id,pelanggan_id,periode'])
+            ->where('status', 'aktif')->where('id_pelanggan', $data['id_pelanggan'])->first();
+        $tagihan = collect($pelanggan?->tagihanBelumDibayar() ?? [])->firstWhere('periode', $data['periode']);
+        if (! $pelanggan || $pelanggan->lokasi?->admin_full || ! $tagihan || ($tagihan['nominal'] ?? 0) <= 0) {
+            throw ValidationException::withMessages(['bayar' => 'Tagihan ini tidak bisa dibayar online. Silakan muat ulang halaman atau hubungi kami.']);
+        }
+
+        $transaksi = TransaksiMidtrans::where(['pelanggan_id' => $pelanggan->id, 'periode' => $data['periode'], 'gross_amount' => $tagihan['nominal']])
+            ->latest('id')->first();
+        if (! $transaksi?->masihBerlaku()) {
+            $transaksi = $this->buatTransaksi($pelanggan, $tagihan);
+            if (! $transaksi) {
+                throw ValidationException::withMessages(['bayar' => 'Pembayaran online sedang tidak tersedia. Silakan coba lagi nanti atau bayar lewat rekening di bawah.']);
+            }
+        }
+
+        return response()->json(['redirect_url' => $transaksi->redirect_url]);
+    }
+
+    /** Webhook Midtrans (X-Override-Notification). Tanpa login & tanpa CSRF; keabsahan dijamin tanda tangan + cek status ke API. */
+    public function notifikasi(Request $request): JsonResponse
+    {
+        if (! $this->midtrans->tandaTanganSah($request->all())) {
+            return response()->json(['message' => 'Tanda tangan tidak sah'], 403);
+        }
+        $transaksi = TransaksiMidtrans::firstWhere('order_id', (string) $request->input('order_id'));
+        if (! $transaksi) {
+            return response()->json(['message' => 'Transaksi tidak dikenal'], 404);
+        }
+        $this->sinkron($transaksi);
+
+        return response()->json(['message' => 'OK']);
+    }
+
+    /** Halaman tujuan setelah pelanggan selesai di Midtrans; status disinkronkan langsung bila webhook belum masuk. */
+    public function selesai(Request $request): Response
+    {
+        $transaksi = TransaksiMidtrans::with(['pelanggan:id,nama,id_pelanggan', 'pembayaran:id'])->firstWhere('order_id', (string) $request->query('order_id'));
+        if ($transaksi?->status === 'pending' && $this->midtrans->aktif()) {
+            $transaksi = $this->sinkron($transaksi)->load(['pelanggan:id,nama,id_pelanggan', 'pembayaran:id']);
+        }
+
+        return Inertia::render('CekTagihan/Selesai', [
+            'transaksi' => $transaksi ? [
+                'status' => in_array($transaksi->status, TransaksiMidtrans::LUNAS, true) ? 'lunas' : $transaksi->status,
+                'nominal' => $transaksi->gross_amount,
+                'periode' => $transaksi->periode,
+                'id_pelanggan' => $transaksi->pelanggan?->id_pelanggan,
+                // Nama disamarkan seperti di Cek Tagihan
+                'nama' => $transaksi->pelanggan ? CekTagihanController::samarkan($transaksi->pelanggan->nama) : null,
+                'link_kwitansi' => $transaksi->status === 'lunas' && $transaksi->pembayaran ? CekTagihanController::linkKwitansi($transaksi->pembayaran) : null,
+            ] : null,
+        ]);
+    }
+
+    /** @param  array<string, mixed>  $tagihan  satu item Pelanggan::tagihanBelumDibayar() */
+    private function buatTransaksi(Pelanggan $pelanggan, array $tagihan): ?TransaksiMidtrans
+    {
+        $jam = max(1, (int) config('services.midtrans.kedaluwarsa_jam', 24));
+        $transaksi = TransaksiMidtrans::create([
+            // Awalan unik per website + periode + pelanggan + acak: tidak bentrok dengan website lain di akun Midtrans yang sama
+            'order_id' => sprintf('%s-%s-%d-%s', config('services.midtrans.prefix', 'MSSB'), str_replace('-', '', substr($tagihan['periode'], 0, 7)), $pelanggan->id, Str::lower(Str::random(6))),
+            'pelanggan_id' => $pelanggan->id,
+            'periode' => $tagihan['periode'],
+            'gross_amount' => $tagihan['nominal'],
+            'kedaluwarsa_at' => now()->addHours($jam),
+        ]);
+        try {
+            $snap = $this->midtrans->buatTransaksi([
+                'transaction_details' => ['order_id' => $transaksi->order_id, 'gross_amount' => $transaksi->gross_amount],
+                'item_details' => [[
+                    'id' => $tagihan['no_tagihan'],
+                    'price' => $transaksi->gross_amount,
+                    'quantity' => 1,
+                    'name' => Str::limit('Internet '.($tagihan['nama_paket'] ?? '').' '.Carbon::parse($tagihan['periode'])->locale('id')->translatedFormat('M Y'), 50, ''),
+                ]],
+                'customer_details' => ['first_name' => Str::limit($pelanggan->nama, 50, '')],
+                'callbacks' => ['finish' => route('midtrans.selesai')],
+                'expiry' => ['unit' => 'hour', 'duration' => $jam],
+            ], route('midtrans.notifikasi'));
+            $transaksi->update(['redirect_url' => $snap['redirect_url'] ?? null]);
+        } catch (Throwable $e) {
+            report($e);
+            $transaksi->update(['status' => 'failure', 'catatan' => 'Gagal membuat transaksi di Midtrans']);
+
+            return null;
+        }
+
+        return $transaksi->redirect_url ? $transaksi : null;
+    }
+
+    /** Ambil status dari API Midtrans lalu proses; aman dipanggil berkali-kali (webhook ganda, halaman selesai). */
+    private function sinkron(TransaksiMidtrans $transaksi): TransaksiMidtrans
+    {
+        try {
+            $status = $this->midtrans->status($transaksi->order_id);
+        } catch (Throwable $e) {
+            report($e);
+
+            return $transaksi;
+        }
+
+        return Audit::sebagai('Midtrans', fn () => DB::transaction(function () use ($transaksi, $status) {
+            $transaksi = TransaksiMidtrans::lockForUpdate()->findOrFail($transaksi->id);
+            if (in_array($transaksi->status, TransaksiMidtrans::LUNAS, true)) {
+                return $transaksi;
+            }
+            $baru = self::STATUS[$status['transaction_status'] ?? ''] ?? $transaksi->status;
+            // Kartu kredit: capture baru dianggap lunas bila lolos pemeriksaan fraud
+            if (($status['transaction_status'] ?? null) === 'capture' && ($status['fraud_status'] ?? 'accept') !== 'accept') {
+                $baru = 'pending';
+            }
+            $info = ['payment_type' => $status['payment_type'] ?? $transaksi->payment_type, 'transaction_id' => $status['transaction_id'] ?? $transaksi->transaction_id];
+            if ($baru !== 'lunas') {
+                $transaksi->update(['status' => $baru, ...$info]);
+
+                return $transaksi;
+            }
+            if ((int) round((float) ($status['gross_amount'] ?? 0)) !== $transaksi->gross_amount) {
+                $transaksi->update(['status' => 'selisih', 'catatan' => 'Nominal dari Midtrans berbeda dengan tagihan, periksa manual', ...$info]);
+                Audit::catat('Pembayaran', 'update', "Pembayaran Midtrans {$transaksi->order_id} nominalnya berbeda dari tagihan, tidak dicatat otomatis", $transaksi);
+
+                return $transaksi;
+            }
+
+            return $this->catatLunas($transaksi, $status, $info);
+        }));
+    }
+
+    /** @param  array<string, mixed>  $status  @param  array<string, mixed>  $info */
+    private function catatLunas(TransaksiMidtrans $transaksi, array $status, array $info): TransaksiMidtrans
+    {
+        $dibayar = isset($status['settlement_time']) ? Carbon::parse($status['settlement_time']) : now();
+        $pelanggan = Pelanggan::with('paket:id,nama_paket,harga')->find($transaksi->pelanggan_id);
+        if (! $pelanggan?->paket) {
+            $transaksi->update(['status' => 'lunas_ganda', 'dibayar_at' => $dibayar, 'catatan' => 'Pelanggan/paket sudah tidak ada, catat manual', ...$info]);
+
+            return $transaksi;
+        }
+        try {
+            $pembayaran = Pembayaran::catatUntuk($pelanggan, [
+                'periode' => $transaksi->periode, 'harga' => $transaksi->gross_amount, 'metode' => 'midtrans', 'rekening_id' => null,
+                'diskon_tipe' => null, 'diskon_nilai' => 0, 'diskon' => 0, 'jml_bayar' => $transaksi->gross_amount,
+            ], null, $dibayar);
+            $transaksi->update(['status' => 'lunas', 'dibayar_at' => $dibayar, 'pembayaran_id' => $pembayaran->id, ...$info]);
+        } catch (UniqueConstraintViolationException) {
+            // Periode keburu dibayar dengan cara lain (cash/transfer): uang Midtrans perlu dikembalikan / dialihkan manual
+            $transaksi->update(['status' => 'lunas_ganda', 'dibayar_at' => $dibayar, 'catatan' => 'Periode sudah dibayar dengan cara lain, perlu refund/alihkan manual', ...$info]);
+            Audit::catat('Pembayaran', 'update', "Pembayaran Midtrans {$transaksi->order_id} masuk untuk periode yang sudah dibayar pelanggan {$pelanggan->nama}, perlu refund/alihkan manual", $transaksi);
+        }
+
+        return $transaksi;
+    }
+}

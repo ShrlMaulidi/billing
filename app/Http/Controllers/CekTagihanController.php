@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pelanggan;
+use App\Models\Pembayaran;
 use App\Models\Rekening;
+use App\Services\Midtrans\MidtransClient;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -16,11 +19,21 @@ use Inertia\Response;
  * Halaman publik: hanya pelanggan aktif, data minimum (nama disamarkan, tanpa alamat/telepon), pencarian lewat POST
  * agar nomor HP tidak tercatat di URL/log, dan dibatasi throttle:cek-tagihan.
  * QR kartu member membuka kartu() lewat link bertanda tangan: ID di link tidak bisa diganti untuk melihat pelanggan lain.
+ * Periode yang sudah lunas (cash, transfer, atau Midtrans) tampil di riwayat dan tidak bisa dibayar lagi; kwitansinya dibuka
+ * lewat link bertanda tangan yang hanya dibuat untuk pembayaran milik pelanggan hasil pencarian.
  */
 class CekTagihanController extends Controller
 {
+    public function __construct(private MidtransClient $midtrans) {}
+
     /** Batas pelanggan yang ditampilkan untuk satu nomor HP. */
     private const MAKS_HASIL = 5;
+
+    /** Jumlah pembayaran terakhir di riwayat lunas (sama dengan rentang tagihan, 12 bulan). */
+    private const MAKS_RIWAYAT = 12;
+
+    /** Masa berlaku link kwitansi publik; setelah itu pelanggan cukup cek tagihan lagi untuk link baru. */
+    private const JAM_LINK_KWITANSI = 24;
 
     public function index(): Response
     {
@@ -46,6 +59,30 @@ class CekTagihanController extends Controller
         return Inertia::render('CekTagihan/Index', ['cari' => $pelanggan->id_pelanggan ?? '', 'hasil' => $this->hasil($hasil)]);
     }
 
+    /** Kwitansi publik dari riwayat lunas (link bertanda tangan). Data pribadi disamarkan; tanpa alamat, telepon, dan petugas. */
+    public function kwitansi(Pembayaran $pembayaran): Response
+    {
+        $pembayaran->load(['pelanggan:id,id_pelanggan', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi', 'rekening', 'transaksiMidtrans:id,pembayaran_id,payment_type']);
+
+        return Inertia::render('CekTagihan/Kwitansi', [
+            'kwitansi' => [
+                ...$pembayaran->only(['no_invoice', 'periode', 'jns_tagihan', 'nama_paket', 'harga', 'is_prorate', 'diskon_tipe', 'diskon_nilai', 'diskon', 'jml_bayar', 'metode', 'paid_at']),
+                'nama_pelanggan' => self::samarkan((string) $pembayaran->nama_pelanggan),
+                'periode_pembayaran' => $pembayaran->periodePembayaran(),
+                'id_pelanggan' => $pembayaran->pelanggan?->id_pelanggan,
+                'cabang' => $pembayaran->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
+                'rekening' => $pembayaran->rekening?->label(),
+                'metode_label' => $pembayaran->keteranganMetode(),
+            ],
+        ]);
+    }
+
+    /** Link kwitansi publik yang tidak bisa diubah ke pembayaran lain dan kedaluwarsa setelah JAM_LINK_KWITANSI. */
+    public static function linkKwitansi(Pembayaran $pembayaran): string
+    {
+        return URL::temporarySignedRoute('cek-tagihan.kwitansi', now()->addHours(self::JAM_LINK_KWITANSI), ['pembayaran' => $pembayaran->id], absolute: false);
+    }
+
     /**
      * Data tagihan yang aman ditampilkan ke publik.
      *
@@ -56,16 +93,25 @@ class CekTagihanController extends Controller
     {
         return $pelanggan->map(fn (Pelanggan $p) => [
             'id_pelanggan' => $p->id_pelanggan,
-            'nama' => $this->samarkan($p->nama),
+            'nama' => self::samarkan($p->nama),
             'paket' => $p->paket?->nama_paket,
             'jns_tagihan' => $p->jns_tagihan,
             // Kantor cabang untuk kop invoice (data usaha, bukan data pribadi pelanggan)
             'cabang' => $p->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
             'tagihan' => $p->tagihanBelumDibayar(),
-            'pembayaran_terakhir' => ($bayar = $p->pembayaran->sortByDesc('periode')->first()) ? [
-                'periode_pembayaran' => $bayar->periodePembayaran(),
-                'paid_at' => $bayar->paid_at?->toDateString(),
-            ] : null,
+            // Riwayat lunas: periode ini tidak bisa dibayar lagi, kwitansi bisa dibuka
+            'lunas' => $p->pembayaran->sortByDesc('periode')->take(self::MAKS_RIWAYAT)->map(fn (Pembayaran $b) => [
+                'no_invoice' => $b->no_invoice,
+                'periode' => $b->periode,
+                'periode_pembayaran' => $b->periodePembayaran(),
+                'paid_at' => $b->paid_at?->toDateString(),
+                'jml_bayar' => $b->jml_bayar,
+                'metode' => $b->metode,
+                'metode_label' => $b->keteranganMetode(),
+                'link_kwitansi' => self::linkKwitansi($b),
+            ])->values(),
+            // Bayar online lewat Midtrans (gateway perusahaan) hanya untuk pelanggan cabang non Admin Full
+            'bayar_online' => $this->midtrans->aktif() && ! $p->lokasi?->admin_full,
             'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $p->id_lokasi))
                 ->orderBy('nama_rekening')->get()->map->only(['nama_rekening', 'no_rekening', 'atas_nama']),
         ])->values();
@@ -74,7 +120,8 @@ class CekTagihanController extends Controller
     /** Pelanggan aktif beserta relasi yang dipakai hasil(). */
     private function query(): Builder
     {
-        return Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi', 'pembayaran:id,pelanggan_id,periode,jns_tagihan,paid_at'])
+        return Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi,admin_full', 'pembayaran:id,pelanggan_id,no_invoice,periode,jns_tagihan,jml_bayar,metode,rekening_id,paid_at',
+            'pembayaran.rekening:id,nama_rekening', 'pembayaran.transaksiMidtrans:id,pembayaran_id,payment_type'])
             ->where('status', 'aktif');
     }
 
@@ -113,7 +160,7 @@ class CekTagihanController extends Controller
     }
 
     /** "Budi Santoso" → "Bu** Sa****": cukup untuk dikenali pemiliknya tanpa membuka nama lengkap ke publik. */
-    private function samarkan(string $nama): string
+    public static function samarkan(string $nama): string
     {
         return collect(preg_split('/\s+/', trim($nama)))
             ->map(fn (string $kata) => mb_substr($kata, 0, 2).str_repeat('*', max(1, mb_strlen($kata) - 2)))

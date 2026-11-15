@@ -11,6 +11,7 @@ use App\Http\Controllers\IsolirController;
 use App\Http\Controllers\KelolaDataController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\MidtransController;
 use App\Http\Controllers\PajakController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PelangganController;
@@ -31,6 +32,13 @@ Route::post('/cek-tagihan', [CekTagihanController::class, 'cari'])->middleware('
 // Tujuan QR kartu member: link bertanda tangan (tanda tangan relatif agar tetap sah di balik proxy/Cloudflare), tanpa login
 Route::get('/cek-tagihan/kartu/{pelanggan}', [CekTagihanController::class, 'kartu'])->whereNumber('pelanggan')
     ->middleware(['signed:relative', 'throttle:cek-tagihan'])->name('cek-tagihan.kartu');
+// Kwitansi periode lunas dari riwayat Cek Tagihan: link bertanda tangan & kedaluwarsa, ID tidak bisa diganti
+Route::get('/cek-tagihan/kwitansi/{pembayaran}', [CekTagihanController::class, 'kwitansi'])->whereNumber('pembayaran')
+    ->middleware(['signed:relative', 'throttle:cek-tagihan'])->name('cek-tagihan.kwitansi');
+// Pembayaran online Midtrans (tanpa login). Webhook dikecualikan dari CSRF di bootstrap/app.php; keabsahannya lewat signature_key
+Route::post('/cek-tagihan/bayar', [MidtransController::class, 'bayar'])->middleware('throttle:bayar-online')->name('midtrans.bayar');
+Route::get('/cek-tagihan/selesai', [MidtransController::class, 'selesai'])->middleware('throttle:bayar-online')->name('midtrans.selesai');
+Route::post('/midtrans/notifikasi', [MidtransController::class, 'notifikasi'])->middleware('throttle:120,1')->name('midtrans.notifikasi');
 // Tujuan redirect web proxy router untuk pelanggan terisolir (tanpa login)
 Route::get('/isolir', [IsolirController::class, 'halaman'])->name('isolir');
 Route::middleware('guest')->group(function () {

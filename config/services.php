@@ -53,4 +53,16 @@ return [
         'url' => env('ISOLIR_URL'),
     ],
 
+    // Payment gateway perusahaan (pelanggan cabang non Admin Full). Key hanya di .env, tidak pernah dikirim ke browser.
+    'midtrans' => [
+        'server_key' => env('MIDTRANS_SERVER_KEY'),
+        // Dashboard Midtrans baru: notifikasi bisa ditandatangani dengan Signature Secret Key (opsional, selain Server Key)
+        'signature_key' => env('MIDTRANS_SIGNATURE_KEY'),
+        'production' => (bool) env('MIDTRANS_PRODUCTION', false),
+        // Awalan order ID agar tidak bentrok dengan website lain yang memakai akun Midtrans yang sama
+        'prefix' => env('MIDTRANS_ORDER_PREFIX', 'MSSB'),
+        'kedaluwarsa_jam' => (int) env('MIDTRANS_KEDALUWARSA_JAM', 24),
+        'timeout' => (int) env('MIDTRANS_TIMEOUT', 15),
+    ],
+
 ];

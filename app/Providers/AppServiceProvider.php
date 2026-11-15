@@ -41,5 +41,8 @@ class AppServiceProvider extends ServiceProvider
         // Cek tagihan publik (tanpa login): batasi per IP agar data pelanggan tidak bisa ditebak beruntun
         RateLimiter::for('cek-tagihan', fn (Request $request) => Limit::perMinute(10)->by($request->ip())
             ->response(fn () => back()->withErrors(['cari' => 'Terlalu banyak percobaan. Coba lagi dalam 1 menit.'])));
+        // Tombol bayar online (JSON) di halaman Cek Tagihan
+        RateLimiter::for('bayar-online', fn (Request $request) => Limit::perMinute(10)->by($request->ip())
+            ->response(fn () => response()->json(['message' => 'Terlalu banyak percobaan. Coba lagi dalam 1 menit.'], 429)));
     }
 }
