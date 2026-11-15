@@ -5,6 +5,7 @@ namespace App\Services\Midtrans;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 /**
  * Klien API Midtrans (Snap & cek status) tanpa SDK: memakai HTTP client Laravel dengan Server Key dari config.
@@ -52,6 +53,27 @@ class MidtransClient
     public function status(string $orderId): array
     {
         return $this->http()->get($this->urlApi().'/v2/'.rawurlencode($orderId).'/status')->throw()->json();
+    }
+
+    /**
+     * Hentikan transaksi pending (pelanggan ingin ganti metode pembayaran) agar kode QRIS / nomor VA lama tidak bisa dibayar lagi.
+     * Butuh izin "Expire transaction: Write" pada Server Key. Mengembalikan 'belum_ada' bila pelanggan belum memilih
+     * metode apa pun (belum ada transaksi di Midtrans); gagal atau ditolak Midtrans melempar exception.
+     *
+     * @return 'kedaluwarsa'|'belum_ada'
+     */
+    public function kedaluwarsakan(string $orderId): string
+    {
+        $respons = $this->http()->post($this->urlApi().'/v2/'.rawurlencode($orderId).'/expire');
+        if ($respons->status() === 404 || (string) $respons->json('status_code') === '404') {
+            return 'belum_ada';
+        }
+        $respons->throw();
+        if ($respons->json('transaction_status') !== 'expire') {
+            throw new RuntimeException("Midtrans menolak expire {$orderId}: ".$respons->json('status_code').' '.$respons->json('status_message'));
+        }
+
+        return 'kedaluwarsa';
     }
 
     /**

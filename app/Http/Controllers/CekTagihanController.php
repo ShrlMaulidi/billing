@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\Rekening;
+use App\Models\TransaksiMidtrans;
 use App\Services\Midtrans\MidtransClient;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -91,6 +92,10 @@ class CekTagihanController extends Controller
      */
     private function hasil(Collection $pelanggan): Collection
     {
+        // Pembayaran online yang sudah dibuat & masih menunggu dibayar: tombol jadi "Lanjutkan" + "Ganti metode"
+        $berjalan = TransaksiMidtrans::whereIn('pelanggan_id', $pelanggan->pluck('id'))->where('status', 'pending')
+            ->whereNotNull('redirect_url')->where('kedaluwarsa_at', '>', now())->latest('id')->get()->groupBy('pelanggan_id');
+
         return $pelanggan->map(fn (Pelanggan $p) => [
             'id_pelanggan' => $p->id_pelanggan,
             'nama' => self::samarkan($p->nama),
@@ -98,7 +103,11 @@ class CekTagihanController extends Controller
             'jns_tagihan' => $p->jns_tagihan,
             // Kantor cabang untuk kop invoice (data usaha, bukan data pribadi pelanggan)
             'cabang' => $p->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
-            'tagihan' => $p->tagihanBelumDibayar(),
+            'tagihan' => collect($p->tagihanBelumDibayar())->map(fn (array $t) => [
+                ...$t,
+                'online_berjalan' => ($trx = $berjalan->get($p->id)?->first(fn (TransaksiMidtrans $x) => $x->periode === $t['periode'] && $x->gross_amount === $t['nominal']))
+                    ? ['metode' => Pembayaran::KANAL_MIDTRANS[$trx->payment_type] ?? null] : null,
+            ])->all(),
             // Riwayat lunas: periode ini tidak bisa dibayar lagi, kwitansi bisa dibuka
             'lunas' => $p->pembayaran->sortByDesc('periode')->take(self::MAKS_RIWAYAT)->map(fn (Pembayaran $b) => [
                 'no_invoice' => $b->no_invoice,

@@ -44,7 +44,7 @@ class CekTagihanTest extends TestCase
             ->has('hasil.0.tagihan', 2)
             ->where('hasil.0.tagihan.0', [
                 'no_tagihan' => sprintf('TGH202609-%05d', $budi->id), 'nama_paket' => 'Home 20', 'harga_paket' => 200000, 'periode_pembayaran' => '2026-09-01',
-                'periode' => '2026-09-01', 'nominal' => 200000, 'is_prorate' => false, 'hari_prorate' => null, 'jatuh_tempo' => '2026-09-10',
+                'periode' => '2026-09-01', 'nominal' => 200000, 'is_prorate' => false, 'hari_prorate' => null, 'jatuh_tempo' => '2026-09-10', 'online_berjalan' => null,
             ])
             ->where('hasil.0.tagihan.1.periode', '2026-10-01')
             ->where('hasil.0.cabang', ['nama_lokasi' => 'MSS Garut', 'alamat_lokasi' => null, 'tlp_lokasi' => '0262123'])

@@ -60,6 +60,66 @@ class MidtransTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_customer_can_switch_payment_method_after_old_transaction_is_expired(): void
+    {
+        $lama = $this->transaksi(['payment_type' => 'qris']);
+        Http::fake([
+            'api.sandbox.midtrans.com/v2/'.$lama->order_id.'/expire' => Http::response(['status_code' => '407', 'transaction_status' => 'expire']),
+            self::SNAP => Http::response(['token' => 'baru', 'redirect_url' => 'https://app.sandbox.midtrans.com/snap/v4/redirection/baru'], 201),
+        ]);
+        $this->post('/cek-tagihan', ['cari' => 'MSS001'])->assertInertia(fn ($page) => $page->where('hasil.0.tagihan.1.online_berjalan', ['metode' => 'QRIS']));
+
+        // Tanpa ganti: link QRIS yang sama dilanjutkan
+        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01'])->assertJsonPath('redirect_url', $lama->redirect_url);
+        Http::assertNothingSent();
+
+        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01', 'ganti' => true])
+            ->assertOk()->assertJsonPath('redirect_url', 'https://app.sandbox.midtrans.com/snap/v4/redirection/baru');
+
+        // QRIS lama dihentikan di Midtrans lebih dulu, baru transaksi baru dibuat
+        $this->assertSame(['api.sandbox.midtrans.com/v2/'.$lama->order_id.'/expire', 'app.sandbox.midtrans.com/snap/v1/transactions'],
+            Http::recorded()->map(fn ($r) => str_replace('https://', '', $r[0]->url()))->all());
+        $this->assertSame('expire', $lama->fresh()->status);
+        $this->assertSame(2, TransaksiMidtrans::count());
+        $this->post('/cek-tagihan', ['cari' => 'MSS001'])->assertInertia(fn ($page) => $page->where('hasil.0.tagihan.1.online_berjalan', ['metode' => null]));
+    }
+
+    public function test_switching_method_is_refused_when_midtrans_rejects_the_expire_or_it_was_already_paid(): void
+    {
+        $transaksi = $this->transaksi(['payment_type' => 'qris']);
+        Http::fake([
+            'api.sandbox.midtrans.com/v2/'.$transaksi->order_id.'/expire' => Http::sequence()
+                ->push(['status_message' => 'Unauthorized'], 401)
+                ->push(['status_code' => '412', 'status_message' => 'Transaction status cannot be updated']),
+            'api.sandbox.midtrans.com/v2/'.$transaksi->order_id.'/status' => Http::sequence()
+                ->push($this->statusApi($transaksi, 'pending'))->push($this->statusApi($transaksi, 'settlement')),
+        ]);
+
+        // Server Key tanpa izin expire: tidak membuat transaksi kedua yang bisa terbayar ganda
+        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01', 'ganti' => true])
+            ->assertStatus(422)->assertJsonPath('errors.bayar.0', 'Metode pembayaran belum bisa diganti saat ini. Selesaikan pembayaran dengan metode sebelumnya, atau hubungi kami.');
+        $this->assertSame('pending', $transaksi->fresh()->status);
+
+        // Keburu dibayar: tercatat lunas dan pelanggan diberi tahu
+        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01', 'ganti' => true])
+            ->assertStatus(422)->assertJsonPath('errors.bayar.0', 'Tagihan ini sudah dibayar. Silakan muat ulang halaman.');
+        $this->assertSame('lunas', $transaksi->fresh()->status);
+        $this->assertSame(1, TransaksiMidtrans::count());
+        Http::assertNotSent(fn (HttpRequest $r) => $r->url() === self::SNAP);
+    }
+
+    public function test_switching_before_any_method_was_chosen_reuses_the_same_payment_page(): void
+    {
+        $transaksi = $this->transaksi();
+        Http::fake(['api.sandbox.midtrans.com/v2/'.$transaksi->order_id.'/expire' => Http::response(['status_code' => '404', 'status_message' => "Transaction doesn't exist."], 404)]);
+
+        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01', 'ganti' => true])
+            ->assertOk()->assertJsonPath('redirect_url', $transaksi->redirect_url);
+
+        $this->assertSame('pending', $transaksi->fresh()->status);
+        Http::assertNotSent(fn (HttpRequest $r) => $r->url() === self::SNAP);
+    }
+
     public function test_pay_button_rejects_paid_period_admin_full_branch_and_unconfigured_gateway(): void
     {
         Http::fake();

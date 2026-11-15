@@ -41,13 +41,18 @@ class MidtransController extends Controller
 
     public function __construct(private MidtransClient $midtrans) {}
 
-    /** Tombol "Bayar di sini": buat (atau pakai ulang) transaksi Snap; browser lalu diarahkan ke redirect_url Midtrans. */
+    /**
+     * Tombol "Bayar Online": buat (atau pakai ulang) transaksi Snap; browser lalu diarahkan ke redirect_url Midtrans.
+     * ganti=true: pelanggan ingin ganti metode (mis. QRIS → VA). Transaksi lama dihentikan di Midtrans lebih dulu agar
+     * tidak bisa terbayar dua kali, baru dibuat transaksi baru.
+     */
     public function bayar(Request $request): JsonResponse
     {
         abort_unless($this->midtrans->aktif(), 404);
         $data = $request->validate([
             'id_pelanggan' => ['required', 'string', 'max:30'],
             'periode' => ['required', 'date_format:Y-m-d'],
+            'ganti' => ['sometimes', 'boolean'],
         ]);
         $pelanggan = Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,admin_full', 'pembayaran:id,pelanggan_id,periode'])
             ->where('status', 'aktif')->where('id_pelanggan', $data['id_pelanggan'])->first();
@@ -58,6 +63,9 @@ class MidtransController extends Controller
 
         $transaksi = TransaksiMidtrans::where(['pelanggan_id' => $pelanggan->id, 'periode' => $data['periode'], 'gross_amount' => $tagihan['nominal']])
             ->latest('id')->first();
+        if ($transaksi?->masihBerlaku() && $request->boolean('ganti')) {
+            $transaksi = $this->hentikanUntukGanti($transaksi);
+        }
         if (! $transaksi?->masihBerlaku()) {
             $transaksi = $this->buatTransaksi($pelanggan, $tagihan);
             if (! $transaksi) {
@@ -102,6 +110,36 @@ class MidtransController extends Controller
                 'link_kwitansi' => $transaksi->status === 'lunas' && $transaksi->pembayaran ? CekTagihanController::linkKwitansi($transaksi->pembayaran) : null,
             ] : null,
         ]);
+    }
+
+    /**
+     * Hentikan transaksi pending untuk ganti metode. Mengembalikan null bila transaksi lama sudah dihentikan (buat baru),
+     * atau transaksi yang sama bila pelanggan belum memilih metode apa pun (halaman Midtrans-nya masih bebas memilih).
+     * Bila Midtrans menolak (mis. keburu dibayar), status disinkronkan dan pelanggan diberi tahu.
+     */
+    private function hentikanUntukGanti(TransaksiMidtrans $transaksi): ?TransaksiMidtrans
+    {
+        try {
+            return Cache::lock('midtrans:'.$transaksi->order_id, 30)->block(10, function () use ($transaksi) {
+                try {
+                    $hasil = $this->midtrans->kedaluwarsakan($transaksi->order_id);
+                } catch (Throwable $e) {
+                    report($e);
+                    $lunas = in_array($this->prosesStatus($transaksi->fresh())->status, TransaksiMidtrans::LUNAS, true);
+                    throw ValidationException::withMessages(['bayar' => $lunas
+                        ? 'Tagihan ini sudah dibayar. Silakan muat ulang halaman.'
+                        : 'Metode pembayaran belum bisa diganti saat ini. Selesaikan pembayaran dengan metode sebelumnya, atau hubungi kami.']);
+                }
+                if ($hasil === 'belum_ada') {
+                    return $transaksi;
+                }
+                $transaksi->update(['status' => 'expire', 'catatan' => 'Dihentikan karena pelanggan mengganti metode pembayaran']);
+
+                return null;
+            });
+        } catch (LockTimeoutException) {
+            throw ValidationException::withMessages(['bayar' => 'Pembayaran sedang diproses. Coba lagi sebentar lagi.']);
+        }
     }
 
     /** @param  array<string, mixed>  $tagihan  satu item Pelanggan::tagihanBelumDibayar() */

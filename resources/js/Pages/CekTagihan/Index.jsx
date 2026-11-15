@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { ArrowLeft, CheckCircle, CreditCard, FileText, MessageCircle, Printer, Search } from 'react-feather';
+import { ArrowLeft, CheckCircle, CreditCard, FileText, MessageCircle, Printer, RefreshCw, Search } from 'react-feather';
 import InvoiceTagihan from '../../Components/InvoiceTagihan';
 import { periode, rupiah, tanggal } from '../../lib/format';
 import { api } from '../../lib/ui';
@@ -11,38 +11,56 @@ const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
 const linkWa = (pesan) => `https://wa.me/${WA_MARKETING}?text=${encodeURIComponent(pesan)}`;
 
 /**
- * Tombol "Bayar di sini" pada invoice. Bila pembayaran online aktif untuk pelanggan ini (Midtrans, cabang non Admin Full),
+ * Tombol bayar pada invoice. Bila pembayaran online aktif untuk pelanggan ini (Midtrans, cabang non Admin Full),
  * server membuat transaksi lalu browser diarahkan ke halaman pembayaran Midtrans; nominal dihitung ulang di server.
- * Selain itu menampilkan cara bayar manual.
+ * Bila sudah ada pembayaran yang menunggu dibayar (mis. QRIS), pelanggan bisa melanjutkannya atau mengganti metode:
+ * transaksi lama dihentikan server agar tidak terbayar dua kali. Selain itu menampilkan cara bayar manual.
  */
 function TombolBayar({ invoice, pelanggan }) {
     const [info, setInfo] = useState(false);
-    const [proses, setProses] = useState(false);
+    const [proses, setProses] = useState(null);
     const [galat, setGalat] = useState('');
+    const berjalan = pelanggan.bayar_online ? invoice.online_berjalan : null;
+    const metodeLama = berjalan?.metode ?? 'sebelumnya';
 
-    const bayar = async () => {
+    const bayar = async (ganti = false) => {
         if (!pelanggan.bayar_online) {
             setInfo(true);
             return;
         }
-        setProses(true);
+        if (ganti && !window.confirm(`Pembayaran ${metodeLama} akan dibatalkan dan tidak bisa dipakai lagi. Lanjut memilih metode pembayaran lain?`)) return;
+        setProses(ganti ? 'ganti' : 'bayar');
         setGalat('');
         try {
-            const res = await api('POST', '/cek-tagihan/bayar', { id_pelanggan: pelanggan.id_pelanggan, periode: invoice.periode });
+            const res = await api('POST', '/cek-tagihan/bayar', { id_pelanggan: pelanggan.id_pelanggan, periode: invoice.periode, ganti });
             if (!res.redirect_url) throw { message: 'Pembayaran online sedang tidak tersedia. Silakan coba lagi.' };
             window.location.assign(res.redirect_url);
         } catch (err) {
             setGalat(err.errors?.bayar?.[0] ?? err.message);
-            setProses(false);
+            setProses(null);
         }
     };
 
+    const label = proses === 'bayar' ? 'Menyiapkan pembayaran…'
+        : berjalan ? `Lanjutkan Pembayaran${berjalan.metode ? ` (${berjalan.metode})` : ''}`
+            : pelanggan.bayar_online ? 'Bayar Online' : 'Bayar di sini';
+
     return (
         <>
-            <button type="button" className="lp-btn lp-btn-gold ct-bayar" onClick={bayar} disabled={proses}>
-                <CreditCard size={18} /> {proses ? 'Menyiapkan pembayaran…' : pelanggan.bayar_online ? 'Bayar Online' : 'Bayar di sini'}
+            <button type="button" className="lp-btn lp-btn-gold ct-bayar" onClick={() => bayar()} disabled={!!proses}>
+                <CreditCard size={18} /> {label}
             </button>
-            {pelanggan.bayar_online && !galat && <p className="ct-bayar-catatan">Transfer bank (VA), QRIS, atau e-wallet lewat Midtrans. Status lunas otomatis.</p>}
+            {berjalan && (
+                <button type="button" className="ct-ganti-metode" onClick={() => bayar(true)} disabled={!!proses}>
+                    <RefreshCw size={14} /> {proses === 'ganti' ? 'Membatalkan pembayaran sebelumnya…' : 'Ganti metode pembayaran'}
+                </button>
+            )}
+            {pelanggan.bayar_online && !galat && (
+                <p className="ct-bayar-catatan">
+                    {berjalan ? `Pembayaran ${metodeLama} sudah dibuat dan menunggu dibayar. Ingin pakai VA, QRIS, atau e-wallet lain? Pilih Ganti metode pembayaran.`
+                        : 'Transfer bank (VA), QRIS, atau e-wallet lewat Midtrans. Status lunas otomatis.'}
+                </p>
+            )}
             {galat && <div className="ct-bayar-info ct-bayar-galat" role="alert">{galat}</div>}
             {info && (
                 <div className="ct-bayar-info" role="status">
