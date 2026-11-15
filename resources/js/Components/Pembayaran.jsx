@@ -243,13 +243,13 @@ export function RiwayatPembayaran({ pelanggan, onClose, onChanged, rekeningOptio
                                             <td className="text-end">{rupiah(r.harga)}</td>
                                             <td className="text-end">{r.diskon > 0 ? rupiah(r.diskon) : '-'}</td>
                                             <td className="text-end fw-semibold">{rupiah(r.jml_bayar)}</td>
-                                            <td>{r.metode === 'cash' ? 'Cash' : <>Transfer<br /><small className="f-light">{r.rekening ?? '-'}</small></>}</td>
+                                            <td>{r.metode === 'transfer' ? <>Transfer<br /><small className="f-light">{r.rekening ?? '-'}</small></> : r.metode_label}</td>
                                             <td>{waktu(r.paid_at)}</td>
                                             <td>{r.petugas ?? '-'}</td>
                                             <td className="text-end">
                                                 <ActionGroup>
                                                     <ActionButton icon={FileText} label="Kwitansi" href={`/pembayaran/${r.id}/kwitansi`} />
-                                                    {bisa('pelanggan.pembayaran.update') && <ActionButton icon={Edit2} label="Edit" color="warning" onClick={() => bukaEdit(r)} />}
+                                                    {bisa('pelanggan.pembayaran.update') && r.bisa_edit && <ActionButton icon={Edit2} label="Edit" color="warning" onClick={() => bukaEdit(r)} />}
                                                     {bisa('pelanggan.pembayaran.delete') && <ActionButton icon={Trash2} label="Hapus (batalkan)" color="danger" onClick={() => setHapus(r)} />}
                                                 </ActionGroup>
                                             </td>

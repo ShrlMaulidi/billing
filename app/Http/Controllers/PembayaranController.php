@@ -27,12 +27,15 @@ class PembayaranController extends Controller
         $this->pastikanCabang($request, $pelanggan->id_lokasi);
 
         return response()->json([
-            'data' => $pelanggan->pembayaran()->with(['rekening', 'petugas:id,name'])->orderByDesc('periode')->get()
+            'data' => $pelanggan->pembayaran()->with(['rekening', 'petugas:id,name', 'transaksiMidtrans:id,pembayaran_id,payment_type'])->orderByDesc('periode')->get()
                 ->map(fn (Pembayaran $p) => [
                     ...$p->only(['id', 'no_invoice', 'periode', 'jns_tagihan', 'nama_paket', 'harga', 'is_prorate', 'diskon_tipe', 'diskon_nilai', 'diskon', 'jml_bayar', 'metode', 'rekening_id', 'paid_at']),
                     'periode_pembayaran' => $p->periodePembayaran(),
                     'rekening' => $p->rekening?->label(),
-                    'petugas' => $p->petugas?->name,
+                    'metode_label' => $p->keteranganMetode(),
+                    'petugas' => $p->namaPetugas(),
+                    // Pembayaran payment gateway tidak bisa diedit (metode & nominal dari Midtrans); salah catat cukup dibatalkan
+                    'bisa_edit' => ! $p->lewatPaymentGateway(),
                 ]),
         ]);
     }
@@ -130,6 +133,9 @@ class PembayaranController extends Controller
     public function update(Request $request, Pembayaran $pembayaran): JsonResponse
     {
         $this->pastikanCabang($request, $pembayaran->id_lokasi);
+        if ($pembayaran->lewatPaymentGateway()) {
+            return response()->json(['message' => 'Pembayaran lewat payment gateway tidak bisa diubah. Batalkan (hapus) bila salah periode.'], 422);
+        }
         $pembayaran->load('lokasi:id,terima_cash');
         $data = $this->validated($request, $pembayaran->id_lokasi, $pembayaran->lokasi?->terima_cash !== false, $pembayaran->harga, $pembayaran->pelanggan_id, $pembayaran->id);
         unset($data['harga']);
@@ -163,7 +169,7 @@ class PembayaranController extends Controller
                 'cabang' => $pembayaran->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
                 'rekening' => $pembayaran->rekening?->label(),
                 'metode_label' => $pembayaran->keteranganMetode(),
-                'petugas' => $pembayaran->petugas?->name,
+                'petugas' => $pembayaran->namaPetugas(),
             ],
         ]);
     }

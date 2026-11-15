@@ -7,6 +7,7 @@ use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\Rekening;
+use App\Models\TransaksiMidtrans;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -148,6 +149,25 @@ class PembayaranTest extends TestCase
         // Harga tetap harga saat dibayar (200.000), bukan harga paket terbaru
         $this->assertSame(['2026-11-01', 200000, 20000, 180000], [$oktober->periode, $oktober->harga, $oktober->diskon, $oktober->jml_bayar]);
         $this->assertStringStartsWith('INV202610-', $oktober->no_invoice);
+    }
+
+    public function test_history_shows_midtrans_method_and_automatic_officer_and_gateway_payment_cannot_be_edited(): void
+    {
+        $this->bayar()->assertOk();
+        $midtrans = Pembayaran::catatUntuk($this->pelanggan->fresh()->load('paket'), [
+            'periode' => '2026-11-01', 'harga' => 200000, 'metode' => 'midtrans', 'rekening_id' => null,
+            'diskon_tipe' => null, 'diskon_nilai' => 0, 'diskon' => 0, 'jml_bayar' => 200000,
+        ], null);
+        TransaksiMidtrans::create(['order_id' => 'MSSB-202611-1-abcdefabcdef', 'pelanggan_id' => $this->pelanggan->id, 'periode' => '2026-11-01', 'gross_amount' => 200000, 'status' => 'lunas', 'payment_type' => 'qris', 'pembayaran_id' => $midtrans->id]);
+
+        $this->getJson("/pelanggan/{$this->pelanggan->id}/pembayaran")->assertOk()
+            ->assertJsonPath('data.0.metode_label', 'Midtrans · QRIS')->assertJsonPath('data.0.petugas', 'Otomatis (Midtrans)')->assertJsonPath('data.0.bisa_edit', false)
+            ->assertJsonPath('data.1.metode_label', 'Cash')->assertJsonPath('data.1.bisa_edit', true);
+        $this->get("/pembayaran/{$midtrans->id}/kwitansi")->assertInertia(fn ($page) => $page->where('kwitansi.metode_label', 'Midtrans · QRIS')->where('kwitansi.petugas', 'Otomatis (Midtrans)'));
+
+        // Form edit akan mengganti metode jadi cash/transfer: ditolak agar catatan tetap sesuai uang yang masuk lewat Midtrans
+        $this->putJson("/pembayaran/{$midtrans->id}", ['bulan' => 12, 'tahun' => 2026, 'metode' => 'cash'])->assertStatus(422);
+        $this->assertSame(['midtrans', '2026-11-01'], [$midtrans->fresh()->metode, $midtrans->fresh()->periode]);
     }
 
     public function test_postpaid_payment_shows_billing_month_after_usage_month_and_keeps_it_when_customer_type_changes(): void

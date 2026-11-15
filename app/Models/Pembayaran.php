@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Audit;
+use App\Support\RekapCabang;
 use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
@@ -76,6 +77,18 @@ class Pembayaran extends Model
     public function transaksiMidtrans(): HasOne
     {
         return $this->hasOne(TransaksiMidtrans::class);
+    }
+
+    /** Dibayar lewat payment gateway (mis. Midtrans): dicatat otomatis oleh sistem, bukan diinput petugas. */
+    public function lewatPaymentGateway(): bool
+    {
+        return in_array($this->metode, RekapCabang::PAYMENT_GATEWAY, true);
+    }
+
+    /** Nama petugas yang menginput, atau "Otomatis (Midtrans)" untuk pembayaran payment gateway. Muat relasi petugas lebih dulu. */
+    public function namaPetugas(): ?string
+    {
+        return $this->petugas?->name ?? ($this->lewatPaymentGateway() ? 'Otomatis ('.(self::METODE[$this->metode] ?? $this->metode).')' : null);
     }
 
     /**

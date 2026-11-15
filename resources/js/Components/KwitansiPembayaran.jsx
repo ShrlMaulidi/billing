@@ -80,7 +80,7 @@ export default function KwitansiPembayaran({ kwitansi: k }) {
                         <tbody>
                             <tr><td className="pe-3 f-light">Metode</td><td className="fw-semibold">{k.metode_label}</td></tr>
                             <tr><td className="pe-3 f-light">Tanggal Bayar</td><td className="fw-semibold">{tanggal(k.paid_at)}</td></tr>
-                            {k.petugas !== undefined && <tr><td className="pe-3 f-light">Petugas</td><td className="fw-semibold">{k.petugas ?? (k.metode === 'midtrans' ? 'Otomatis (Midtrans)' : '-')}</td></tr>}
+                            {k.petugas !== undefined && <tr><td className="pe-3 f-light">Petugas</td><td className="fw-semibold">{k.petugas ?? '-'}</td></tr>}
                         </tbody>
                     </table>
                 </div>
