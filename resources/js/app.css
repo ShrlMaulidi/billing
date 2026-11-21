@@ -775,19 +775,6 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
 .lp-menu .lp-cek:hover { background: #e6b92f; }
 @media (max-width: 991.98px) { .lp-menu .lp-cek { margin-top: 10px; width: auto; border-bottom: 0; } }
 
-/* Akun Saya pelanggan (Pages/Portal/Index.jsx), memakai komponen Cek Tagihan */
-.ak-keluar { background: none; border: 0; padding: 0; cursor: pointer; }
-.ak-toggle { margin-top: 24px; }
-.ak-password { max-width: 520px; margin-bottom: 40px; padding: 24px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
-.ak-password h2 { font-size: 20px; margin-bottom: 6px; }
-.ak-password > p { font-size: 14px; margin-bottom: 18px; }
-.ak-field { margin-bottom: 14px; }
-.ak-field label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
-.ak-field input { width: 100%; height: 46px; padding: 0 14px; border: 1px solid var(--line); border-radius: 4px; font-size: 15px; color: var(--ink); }
-.ak-field input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
-.ak-field input[aria-invalid="true"] { border-color: #c62828; }
-.ak-password .ct-error { color: #c62828 !important; margin-top: 6px !important; }
-@media (max-width: 575.98px) { .ak-password { padding: 18px; } .ak-password .lp-btn { width: 100%; justify-content: center; } }
 @media (max-width: 575.98px) {
     .ct-form { flex-direction: column; }
     .ct-form .lp-btn { justify-content: center; }

@@ -1,17 +1,19 @@
 import { useState } from 'react';
+import { Save } from 'react-feather';
+import { Button, FormFeedback, Input, Label, Spinner } from 'reactstrap';
 import { api, notify } from '../lib/ui';
 
 const KOSONG = { password_lama: '', password: '', password_confirmation: '' };
 
 /**
- * Form password akun pelanggan (Akun Saya). perluPasswordLama = ganti password biasa; tanpa itu dipakai di halaman
- * wajib buat password baru setelah login pertama (server tidak menanyakan password lama). Sesi lain dikeluarkan server.
+ * Form password akun pelanggan bergaya Cuba (menu Akun & modal wajib buat password baru).
+ * perluPasswordLama = ganti password biasa; tanpa itu untuk login pertama / setelah reset (server tidak menanyakan password lama).
+ * aksiLain: tombol tambahan di sebelah tombol simpan (mis. Logout). Sesi di perangkat lain dikeluarkan server.
  */
-export default function FormGantiPassword({ judul, keterangan, perluPasswordLama = false, labelSimpan = 'Simpan Password', onSelesai }) {
+export default function FormGantiPassword({ perluPasswordLama = false, labelSimpan = 'Simpan Password', keterangan, aksiLain, onSelesai }) {
     const [data, setData] = useState(KOSONG);
     const [errors, setErrors] = useState({});
     const [proses, setProses] = useState(false);
-    const ubah = (e) => setData({ ...data, [e.target.name]: e.target.value });
 
     const simpan = async (e) => {
         e.preventDefault();
@@ -20,7 +22,7 @@ export default function FormGantiPassword({ judul, keterangan, perluPasswordLama
         try {
             notify((await api('PUT', '/akun-saya/password', data)).message);
             setData(KOSONG);
-            onSelesai();
+            onSelesai?.();
         } catch (err) {
             setErrors(err.errors ?? { [perluPasswordLama ? 'password_lama' : 'password']: [err.message] });
         } finally {
@@ -29,22 +31,24 @@ export default function FormGantiPassword({ judul, keterangan, perluPasswordLama
     };
 
     const kolom = (name, label, autoComplete) => (
-        <div className="ak-field">
-            <label htmlFor={name}>{label}</label>
-            <input id={name} name={name} type="password" value={data[name]} onChange={ubah} autoComplete={autoComplete} maxLength={100}
-                aria-invalid={!!errors[name]} aria-describedby={errors[name] ? `${name}-error` : undefined} />
-            {errors[name] && <p id={`${name}-error`} className="ct-error" role="alert">{errors[name][0]}</p>}
+        <div className="mb-3">
+            <Label for={name}>{label}</Label>
+            <Input id={name} type="password" value={data[name]} autoComplete={autoComplete} maxLength={100} invalid={!!errors[name]}
+                onChange={(e) => setData({ ...data, [name]: e.target.value })} />
+            {errors[name] && <FormFeedback>{errors[name][0]}</FormFeedback>}
         </div>
     );
 
     return (
-        <form className="ak-password" onSubmit={simpan} noValidate>
-            {judul && <h2>{judul}</h2>}
-            {keterangan && <p>{keterangan}</p>}
+        <form onSubmit={simpan} noValidate>
             {perluPasswordLama && kolom('password_lama', 'Password lama', 'current-password')}
             {kolom('password', 'Password baru', 'new-password')}
             {kolom('password_confirmation', 'Ulangi password baru', 'new-password')}
-            <button type="submit" className="lp-btn lp-btn-gold" disabled={proses}>{proses ? 'Menyimpan…' : labelSimpan}</button>
+            {keterangan && <p className="small f-light">{keterangan}</p>}
+            <div className="d-flex flex-wrap justify-content-end gap-2">
+                {aksiLain}
+                <Button color="primary" type="submit" disabled={proses}>{proses ? <Spinner size="sm" className="me-1" /> : <Save size={14} className="me-1" />}{labelSimpan}</Button>
+            </div>
         </form>
     );
 }

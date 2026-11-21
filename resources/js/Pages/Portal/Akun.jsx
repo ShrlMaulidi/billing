@@ -1,56 +1,21 @@
 import { Link } from '@inertiajs/react';
-import { useState } from 'react';
-import { LogOut, Save } from 'react-feather';
-import { Button, Card, CardBody, CardHeader, FormFeedback, Input, Label, Spinner } from 'reactstrap';
+import { LogOut } from 'react-feather';
+import { Card, CardBody, CardHeader, Input, Label } from 'reactstrap';
+import FormGantiPassword from '../../Components/FormGantiPassword';
 import PageHeader from '../../Components/PageHeader';
 import { Avatar, StatusBadge } from '../../Components/ui';
 import { rupiah, tanggal, waktu } from '../../lib/format';
-import { api, notify } from '../../lib/ui';
 import { portalLayout, useNavMode } from '../../Layouts/PortalLayout';
 
-const KOSONG = { password_lama: '', password: '', password_confirmation: '' };
 const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
 
 /** Ganti password (wajib konfirmasi password lama); perangkat lain yang memakai akun ini dikeluarkan. */
 function GantiPassword() {
-    const [data, setData] = useState(KOSONG);
-    const [errors, setErrors] = useState({});
-    const [proses, setProses] = useState(false);
-
-    const simpan = async (e) => {
-        e.preventDefault();
-        setProses(true);
-        setErrors({});
-        try {
-            notify((await api('PUT', '/akun-saya/password', data)).message);
-            setData(KOSONG);
-        } catch (err) {
-            setErrors(err.errors ?? { password_lama: [err.message] });
-        } finally {
-            setProses(false);
-        }
-    };
-
-    const kolom = (name, label, autoComplete) => (
-        <div className="mb-3">
-            <Label for={name}>{label}</Label>
-            <Input id={name} type="password" value={data[name]} autoComplete={autoComplete} maxLength={100} invalid={!!errors[name]}
-                onChange={(e) => setData({ ...data, [name]: e.target.value })} />
-            {errors[name] && <FormFeedback>{errors[name][0]}</FormFeedback>}
-        </div>
-    );
-
     return (
         <Card>
             <CardHeader className="pb-0"><h5 className="mb-0">Ganti Password</h5></CardHeader>
             <CardBody>
-                <form onSubmit={simpan} noValidate>
-                    {kolom('password_lama', 'Password lama', 'current-password')}
-                    {kolom('password', 'Password baru', 'new-password')}
-                    {kolom('password_confirmation', 'Ulangi password baru', 'new-password')}
-                    <p className="small f-light">Minimal 8 karakter, berisi huruf dan angka. Perangkat lain yang memakai akun ini akan keluar.</p>
-                    <Button color="primary" type="submit" disabled={proses}>{proses ? <Spinner size="sm" className="me-1" /> : <Save size={14} className="me-1" />}Simpan Password</Button>
-                </form>
+                <FormGantiPassword perluPasswordLama keterangan="Minimal 8 karakter, berisi huruf dan angka. Perangkat lain yang memakai akun ini akan keluar." />
             </CardBody>
         </Card>
     );
