@@ -56,6 +56,8 @@ abstract class Controller
             'between' => ':attribute harus antara :min dan :max',
             'exists' => ':attribute tidak ditemukan',
             'in' => ':attribute tidak valid',
+            'not_in' => ':attribute tidak valid',
+            'declined' => ':attribute tidak diizinkan',
             'max' => ':attribute maksimal :max karakter',
             'min' => ':attribute minimal :min',
             'boolean' => ':attribute tidak valid',

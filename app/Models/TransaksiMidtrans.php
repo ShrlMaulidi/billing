@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /** Transaksi pembayaran online Midtrans untuk satu tagihan pelanggan (lihat App\Http\Controllers\MidtransController). */
 #[Table('transaksi_midtrans')]
-#[Fillable(['order_id', 'pelanggan_id', 'periode', 'gross_amount', 'status', 'payment_type', 'transaction_id', 'redirect_url', 'kedaluwarsa_at', 'dibayar_at', 'pembayaran_id', 'catatan'])]
+#[Fillable(['order_id', 'pelanggan_id', 'payment_gateway_id', 'periode', 'gross_amount', 'status', 'payment_type', 'transaction_id', 'redirect_url', 'kedaluwarsa_at', 'dibayar_at', 'pembayaran_id', 'catatan'])]
 class TransaksiMidtrans extends Model
 {
     /**
@@ -30,6 +30,12 @@ class TransaksiMidtrans extends Model
     public function pelanggan(): BelongsTo
     {
         return $this->belongsTo(Pelanggan::class);
+    }
+
+    /** Akun Midtrans tempat transaksi dibuat; null = konfigurasi .env. */
+    public function gateway(): BelongsTo
+    {
+        return $this->belongsTo(PaymentGateway::class, 'payment_gateway_id');
     }
 
     public function pembayaran(): BelongsTo

@@ -6,7 +6,8 @@ use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\Rekening;
 use App\Models\TransaksiMidtrans;
-use App\Services\Midtrans\MidtransClient;
+use App\Services\Midtrans\AkunMidtrans;
+use App\Support\NomorHp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -25,8 +26,6 @@ use Inertia\Response;
  */
 class CekTagihanController extends Controller
 {
-    public function __construct(private MidtransClient $midtrans) {}
-
     /** Batas pelanggan yang ditampilkan untuk satu nomor HP. */
     private const MAKS_HASIL = 5;
 
@@ -49,15 +48,15 @@ class CekTagihanController extends Controller
         );
         $cari = trim($data['cari']);
 
-        return Inertia::render('CekTagihan/Index', ['cari' => $cari, 'hasil' => $this->hasil($this->cariPelanggan($cari))]);
+        return Inertia::render('CekTagihan/Index', ['cari' => $cari, 'hasil' => self::hasil($this->cariPelanggan($cari))]);
     }
 
     /** Dibuka dari QR kartu member (link bertanda tangan, lihat KelolaDataController::kartuMember). Pelanggan nonaktif tampil "tidak ditemukan". */
     public function kartu(Pelanggan $pelanggan): Response
     {
-        $hasil = $this->query()->whereKey($pelanggan->id)->get();
+        $hasil = self::query()->whereKey($pelanggan->id)->get();
 
-        return Inertia::render('CekTagihan/Index', ['cari' => $pelanggan->id_pelanggan ?? '', 'hasil' => $this->hasil($hasil)]);
+        return Inertia::render('CekTagihan/Index', ['cari' => $pelanggan->id_pelanggan ?? '', 'hasil' => self::hasil($hasil)]);
     }
 
     /** Kwitansi publik dari riwayat lunas (link bertanda tangan). Data pribadi disamarkan; tanpa alamat, telepon, dan petugas. */
@@ -85,49 +84,56 @@ class CekTagihanController extends Controller
     }
 
     /**
-     * Data tagihan yang aman ditampilkan ke publik.
+     * Data tagihan yang aman ditampilkan ke publik. Juga dipakai halaman Akun Saya (pelanggan login) dengan nama lengkap.
      *
      * @param  Collection<int, Pelanggan>  $pelanggan
      * @return Collection<int, array<string, mixed>>
      */
-    private function hasil(Collection $pelanggan): Collection
+    public static function hasil(Collection $pelanggan, bool $samarkanNama = true): Collection
     {
         // Pembayaran online yang sudah dibuat & masih menunggu dibayar: tombol jadi "Lanjutkan" + "Ganti metode"
         $berjalan = TransaksiMidtrans::whereIn('pelanggan_id', $pelanggan->pluck('id'))->where('status', 'pending')
             ->whereNotNull('redirect_url')->where('kedaluwarsa_at', '>', now())->latest('id')->get()->groupBy('pelanggan_id');
 
-        return $pelanggan->map(fn (Pelanggan $p) => [
-            'id_pelanggan' => $p->id_pelanggan,
-            'nama' => self::samarkan($p->nama),
-            'paket' => $p->paket?->nama_paket,
-            'jns_tagihan' => $p->jns_tagihan,
-            // Kantor cabang untuk kop invoice (data usaha, bukan data pribadi pelanggan)
-            'cabang' => $p->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
-            'tagihan' => collect($p->tagihanBelumDibayar())->map(fn (array $t) => [
-                ...$t,
-                'online_berjalan' => ($trx = $berjalan->get($p->id)?->first(fn (TransaksiMidtrans $x) => $x->periode === $t['periode'] && $x->gross_amount === $t['nominal']))
-                    ? ['metode' => Pembayaran::KANAL_MIDTRANS[$trx->payment_type] ?? null] : null,
-            ])->all(),
-            // Riwayat lunas: periode ini tidak bisa dibayar lagi, kwitansi bisa dibuka
-            'lunas' => $p->pembayaran->sortByDesc('periode')->take(self::MAKS_RIWAYAT)->map(fn (Pembayaran $b) => [
-                'no_invoice' => $b->no_invoice,
-                'periode' => $b->periode,
-                'periode_pembayaran' => $b->periodePembayaran(),
-                'paid_at' => $b->paid_at?->toDateString(),
-                'jml_bayar' => $b->jml_bayar,
-                'metode' => $b->metode,
-                'metode_label' => $b->keteranganMetode(),
-                'link_kwitansi' => self::linkKwitansi($b),
-            ])->values(),
-            // Bayar online lewat Midtrans (gateway perusahaan) hanya untuk pelanggan cabang non Admin Full
-            'bayar_online' => $this->midtrans->aktif() && ! $p->lokasi?->admin_full,
-            'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $p->id_lokasi))
-                ->orderBy('nama_rekening')->get()->map->only(['nama_rekening', 'no_rekening', 'atas_nama']),
-        ])->values();
+        // Akun pembayaran online per cabang dicari sekali per cabang
+        $bayarOnline = [];
+
+        return $pelanggan->map(function (Pelanggan $p) use ($berjalan, &$bayarOnline, $samarkanNama) {
+            $bayarOnline[(int) $p->id_lokasi] ??= AkunMidtrans::untukLokasi($p->lokasi) !== null;
+
+            return [
+                'id_pelanggan' => $p->id_pelanggan,
+                'nama' => $samarkanNama ? self::samarkan($p->nama) : $p->nama,
+                'paket' => $p->paket?->nama_paket,
+                'jns_tagihan' => $p->jns_tagihan,
+                // Kantor cabang untuk kop invoice (data usaha, bukan data pribadi pelanggan)
+                'cabang' => $p->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
+                'tagihan' => collect($p->tagihanBelumDibayar())->map(fn (array $t) => [
+                    ...$t,
+                    'online_berjalan' => ($trx = $berjalan->get($p->id)?->first(fn (TransaksiMidtrans $x) => $x->periode === $t['periode'] && $x->gross_amount === $t['nominal']))
+                        ? ['metode' => Pembayaran::KANAL_MIDTRANS[$trx->payment_type] ?? null] : null,
+                ])->all(),
+                // Riwayat lunas: periode ini tidak bisa dibayar lagi, kwitansi bisa dibuka
+                'lunas' => $p->pembayaran->sortByDesc('periode')->take(self::MAKS_RIWAYAT)->map(fn (Pembayaran $b) => [
+                    'no_invoice' => $b->no_invoice,
+                    'periode' => $b->periode,
+                    'periode_pembayaran' => $b->periodePembayaran(),
+                    'paid_at' => $b->paid_at?->toDateString(),
+                    'jml_bayar' => $b->jml_bayar,
+                    'metode' => $b->metode,
+                    'metode_label' => $b->keteranganMetode(),
+                    'link_kwitansi' => self::linkKwitansi($b),
+                ])->values(),
+                // Bayar online bila cabang punya akun Midtrans aktif: gateway perusahaan, atau gateway sendiri untuk cabang Admin Full
+                'bayar_online' => $bayarOnline[(int) $p->id_lokasi],
+                'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $p->id_lokasi))
+                    ->orderBy('nama_rekening')->get()->map->only(['nama_rekening', 'no_rekening', 'atas_nama']),
+            ];
+        })->values();
     }
 
     /** Pelanggan aktif beserta relasi yang dipakai hasil(). */
-    private function query(): Builder
+    public static function query(): Builder
     {
         return Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi,admin_full', 'pembayaran:id,pelanggan_id,no_invoice,periode,jns_tagihan,jml_bayar,metode,rekening_id,paid_at',
             'pembayaran.rekening:id,nama_rekening', 'pembayaran.transaksiMidtrans:id,pembayaran_id,payment_type'])
@@ -142,30 +148,22 @@ class CekTagihanController extends Controller
      */
     private function cariPelanggan(string $cari): Collection
     {
-        $query = fn () => $this->query();
+        $query = fn () => self::query();
 
         $perId = $query()->where('id_pelanggan', $cari)->get();
         if ($perId->isNotEmpty()) {
             return $perId;
         }
 
-        $nomor = $this->nomorHp($cari);
+        $nomor = NomorHp::normalkan($cari);
         if (strlen($nomor) < 10) {
             return collect();
         }
 
         // Saring kasar di database dengan 9 digit terakhir (pemisah spasi/-/. dibuang), lalu cocokkan persis setelah dinormalkan
         return $query()->whereRaw("REPLACE(REPLACE(REPLACE(tlp, '-', ''), ' ', ''), '.', '') LIKE ?", ['%'.substr($nomor, -9)])->limit(50)->get()
-            ->filter(fn (Pelanggan $p) => $this->nomorHp((string) $p->tlp) === $nomor)
+            ->filter(fn (Pelanggan $p) => NomorHp::normalkan((string) $p->tlp) === $nomor)
             ->take(self::MAKS_HASIL)->values();
-    }
-
-    /** Nomor HP ke format 08…: buang selain angka, awalan 62 diganti 0. */
-    private function nomorHp(string $tlp): string
-    {
-        $angka = preg_replace('/\D/', '', $tlp);
-
-        return str_starts_with($angka, '62') ? '0'.substr($angka, 2) : $angka;
     }
 
     /** "Budi Santoso" → "Bu** Sa****": cukup untuk dikenali pemiliknya tanpa membuka nama lengkap ke publik. */

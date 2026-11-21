@@ -9,13 +9,17 @@ use App\Models\Pembayaran;
 use App\Models\Rekening;
 use App\Models\Router;
 use App\Models\User;
+use App\Services\AkunPelanggan;
 use App\Services\Mikrotik\IsolirService;
 use App\Services\Mikrotik\RouterOsException;
 use App\Support\Audit;
 use App\Support\IpPool;
+use App\Support\NomorHp;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -117,7 +121,7 @@ class PelangganController extends Controller
             'routerOptions' => Router::when($cabangUser, $cabangDanUmum)->orderBy('nama_router')->get()->map(fn ($r) => ['value' => $r->id, 'label' => $r->nama_router, 'id_lokasi' => $r->id_lokasi]),
             'paketOptions' => Paket::when($cabangUser, fn ($q) => $q->where(fn ($q) => $q->where('filter_lokasi', false)->orWhere('id_lokasi', $cabangUser)))
                 ->orderBy('nama_paket')->get()->map(fn ($p) => [
-                    'value' => $p->id, 'label' => "{$p->nama_paket} ({$p->profile_mikrotik}) · Rp".number_format($p->harga, 0, ',', '.'),
+                    'value' => $p->id, 'label' => $p->nama_paket.($p->profile_mikrotik ? " ({$p->profile_mikrotik})" : '').' · Rp'.number_format($p->harga, 0, ',', '.'),
                     'id_lokasi' => $p->filter_lokasi ? $p->id_lokasi : null, 'jns_koneksi' => $p->jns_koneksi,
                 ]),
             'salesOptions' => User::role('Sales')->where('status', 'aktif')->when($cabangUser, $cabangDanUmum)->orderBy('name')->get()
@@ -125,25 +129,35 @@ class PelangganController extends Controller
         ]);
     }
 
-    public function store(Request $request, IsolirService $mikrotik): JsonResponse
+    public function store(Request $request, IsolirService $mikrotik, AkunPelanggan $akunPelanggan): JsonResponse
     {
         [$data, $akun] = $this->validated($request);
         $this->pastikanIpKosongDiRouter($data, null, $mikrotik);
-        $pelanggan = Pelanggan::create($data);
-        // Kode pelanggan otomatis bila tidak diisi
-        if (! $pelanggan->id_pelanggan) {
-            $pelanggan->update(['id_pelanggan' => sprintf('P%05d', $pelanggan->id)]);
-        }
+        $pelanggan = DB::transaction(function () use ($data, $akunPelanggan) {
+            $pelanggan = Pelanggan::create($data);
+            // Kode pelanggan otomatis bila tidak diisi
+            if (! $pelanggan->id_pelanggan) {
+                $pelanggan->update(['id_pelanggan' => sprintf('P%05d', $pelanggan->id)]);
+            }
+            // Akun login pelanggan: username & password awal = nomor HP
+            $akunPelanggan->sinkronkan($pelanggan);
+
+            return $pelanggan;
+        });
 
         return $this->simpanAkun($pelanggan, $akun, "Pelanggan {$pelanggan->nama} ditambahkan", $mikrotik);
     }
 
-    public function update(Request $request, Pelanggan $pelanggan, IsolirService $mikrotik): JsonResponse
+    public function update(Request $request, Pelanggan $pelanggan, IsolirService $mikrotik, AkunPelanggan $akunPelanggan): JsonResponse
     {
         $this->pastikanCabang($request, $pelanggan->id_lokasi);
         [$data, $akun] = $this->validated($request, $pelanggan);
         $this->pastikanIpKosongDiRouter($data, $pelanggan, $mikrotik);
-        $pelanggan->update($data);
+        DB::transaction(function () use ($pelanggan, $data, $akunPelanggan) {
+            $pelanggan->update($data);
+            // Nomor HP diganti → pindah ke akun nomor baru; akun lama dinonaktifkan bila tak dipakai lagi
+            $akunPelanggan->sinkronkan($pelanggan);
+        });
         $pesan = "Data {$pelanggan->nama} diperbarui";
 
         // PPP Secret yang sudah ada ikut diperbarui saat paket / IP diganti ("Buat baru" sudah memakai data terbaru)
@@ -163,9 +177,10 @@ class PelangganController extends Controller
     /**
      * Hapus bertahap: pelanggan aktif dipindah ke Pelanggan Berhenti; hapus permanen hanya untuk pelanggan berhenti
      * dan harus diminta eksplisit (permanen=1, dari menu Pelanggan Berhenti) agar klik ganda tidak langsung menghapus.
-     * Riwayat pembayaran tetap tersimpan. Akun di router tidak diubah.
+     * Riwayat pembayaran tetap tersimpan. Akun di router tidak diubah. Akun login pelanggan dinonaktifkan saat dihapus permanen
+     * bila tidak dipakai pelanggan lain.
      */
-    public function destroy(Request $request, Pelanggan $pelanggan): JsonResponse
+    public function destroy(Request $request, Pelanggan $pelanggan, AkunPelanggan $akunPelanggan): JsonResponse
     {
         $this->pastikanCabang($request, $pelanggan->id_lokasi);
 
@@ -182,6 +197,7 @@ class PelangganController extends Controller
             return response()->json(['message' => "Pelanggan {$pelanggan->nama} masih aktif. Pindahkan ke Pelanggan Berhenti dulu sebelum dihapus permanen"], 422);
         }
         $pelanggan->delete();
+        $akunPelanggan->lepaskan($pelanggan->user);
         Log::warning('Pelanggan dihapus permanen', [
             ...$pelanggan->only(['id', 'id_pelanggan', 'nama', 'username_pppoe', 'id_lokasi']),
             'oleh' => $request->user()->username, 'ip' => $request->ip(),
@@ -317,7 +333,14 @@ class PelangganController extends Controller
         $data = $request->validate([
             'id_pelanggan' => ['nullable', 'string', 'max:50', Rule::unique('pelanggan')->ignore($pelanggan)],
             'nama' => ['required', 'string', 'max:100'],
-            'tlp' => ['required', 'string', 'max:30'],
+            // Juga username & password awal akun login pelanggan (lihat AkunPelanggan)
+            'tlp' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, Closure $fail) {
+                if (! NomorHp::sah((string) $value)) {
+                    $fail('No. telepon harus nomor HP yang valid (10–15 digit, mis. 0812xxxxxxxx)');
+                } elseif (AkunPelanggan::dipakaiUserLain((string) $value)) {
+                    $fail('No. telepon ini sudah dipakai sebagai username user aplikasi');
+                }
+            }],
             'nik' => ['nullable', 'digits:16'],
             'alamat' => ['required', 'string', 'max:500'],
             'jns_tagihan' => ['required', 'in:prabayar,pascabayar'],
@@ -338,15 +361,18 @@ class PelangganController extends Controller
             // PPPoE: remote address PPP Secret (IP pelanggan), tidak boleh dipakai pelanggan lain di router yang sama
             'ip_address' => ['nullable', 'required_if:jns_koneksi,static,pppoe', 'ip',
                 Rule::unique('pelanggan')->where('router_id', $router)->ignore($pelanggan)],
-            // Paket untuk semua cabang, atau khusus cabang ini
-            'id_paket' => ['required', 'integer', Rule::exists('paket', 'id')->where(fn ($q) => $q->where('filter_lokasi', false)->orWhere('id_lokasi', $lokasi))],
+            // Paket untuk semua cabang atau khusus cabang ini, dengan jenis koneksi yang sama. Paket lama yang beda jenis
+            // (dibuat sebelum paket punya jenis Static/IP Binding) tetap boleh dipertahankan saat edit
+            'id_paket' => ['required', 'integer', Rule::exists('paket', 'id')->where(fn ($q) => $q
+                ->where(fn ($q) => $q->where('filter_lokasi', false)->orWhere('id_lokasi', $lokasi))
+                ->where(fn ($q) => $q->where('jns_koneksi', $request->input('jns_koneksi'))->when($pelanggan?->id_paket, fn ($q, $lama) => $q->orWhere('id', $lama))))],
             'tgl_registrasi' => ['required', 'date'],
             'tgl_jatuh_tempo' => ['required', 'integer', 'between:1,'.Pelanggan::JATUH_TEMPO_MAKS],
             'ppn' => ['required', 'boolean'],
             // Opsional: penanda pelanggan dibawa sales siapa. Sales lama yang sudah nonaktif tetap boleh dipertahankan saat edit
             'sales_id' => ['nullable', 'integer', Rule::in(User::role('Sales')->where('status', 'aktif')->pluck('id')->push($pelanggan?->sales_id)->filter())],
             'status' => [$pelanggan ? 'required' : 'nullable', 'in:aktif,berhenti'],
-        ], $this->pesanValidasi(), [
+        ], [...$this->pesanValidasi(), 'id_paket.exists' => 'Paket tidak tersedia untuk cabang & jenis koneksi ini'], [
             'id_pelanggan' => 'ID pelanggan', 'nama' => 'Nama pelanggan', 'tlp' => 'No. telepon', 'nik' => 'NIK', 'alamat' => 'Alamat',
             'jns_tagihan' => 'Jenis tagihan', 'skema_tagihan' => 'Skema tagihan', 'id_lokasi' => 'Cabang', 'id_area' => 'Area', 'router_id' => 'Router', 'jns_koneksi' => 'Jenis koneksi',
             'mode_akun' => 'Akun MikroTik', 'username_pppoe' => 'Username', 'password_akun' => 'Password', 'mac_address' => 'MAC address',

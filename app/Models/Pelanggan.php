@@ -74,6 +74,12 @@ class Pelanggan extends Model
         return $this->belongsTo(User::class, 'sales_id');
     }
 
+    /** Akun login pelanggan (role Pelanggan), dibuat otomatis lewat App\Services\AkunPelanggan. */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function pembayaran(): HasMany
     {
         return $this->hasMany(Pembayaran::class);

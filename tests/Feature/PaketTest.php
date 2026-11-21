@@ -24,6 +24,8 @@ class PaketTest extends TestCase
 
     private Router $router;
 
+    private Lokasi $lokasi;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -35,6 +37,7 @@ class PaketTest extends TestCase
             'nama_router' => 'CCR Pusat', 'mode_koneksi' => 'langsung', 'host' => '203.0.113.10', 'port_api' => 8728,
             'username' => 'billing', 'password' => 'rahasia', 'profile_isolir' => 'ISOLIR',
         ]);
+        $this->lokasi = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
     }
 
     public function test_store_saves_package_and_creates_profile_with_pool_on_router(): void
@@ -66,7 +69,7 @@ class PaketTest extends TestCase
 
     public function test_branch_user_cannot_read_profiles_of_another_branch_router(): void
     {
-        $garut = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $garut = $this->lokasi;
         $cimahi = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Cimahi']);
         $this->router->update(['id_lokasi' => $cimahi->id]);
         $admin = User::factory()->peran('Admin')->create(['id_lokasi' => $garut->id]);
@@ -142,11 +145,75 @@ class PaketTest extends TestCase
         $this->postJson('/paket', ['nama_paket' => ''])
             ->assertStatus(422)->assertJsonValidationErrors(['nama_paket', 'harga', 'jenis', 'jns_koneksi', 'profile_mikrotik']);
 
-        $this->postJson('/paket', $this->data(['rate_limit' => '30M; /system reset', 'buat_pool' => true, 'filter_lokasi' => true, 'id_lokasi' => null]))
+        $this->postJson('/paket', $this->data(['rate_limit' => '30M; /system reset', 'buat_pool' => true, 'id_lokasi' => null]))
             ->assertStatus(422)->assertJsonValidationErrors([
                 'rate_limit' => 'Format Rate limit tidak valid', 'nama_pool' => 'Nama pool wajib diisi',
                 'range_pool' => 'Range IP pool wajib diisi', 'id_lokasi' => 'Cabang wajib diisi',
             ]);
+    }
+
+    public function test_router_must_belong_to_selected_branch_or_be_shared(): void
+    {
+        $lain = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Tasik']);
+        $this->router->update(['id_lokasi' => $lain->id]);
+
+        $this->postJson('/paket', $this->data(['buat_profile' => false, 'router_id' => $this->router->id, 'profile_mikrotik' => '20Mbps']))
+            ->assertStatus(422)->assertJsonValidationErrors(['router_id' => 'Router tidak ada di cabang terpilih']);
+        $this->assertSame(0, Paket::count());
+    }
+
+    public function test_show_in_all_branches_option_controls_branch_restriction(): void
+    {
+        $this->postJson('/paket', $this->data(['nama_paket' => 'Khusus Garut']))->assertOk();
+        $this->postJson('/paket', $this->data(['nama_paket' => 'Semua Cabang', 'semua_cabang' => true]))->assertOk();
+
+        $this->assertTrue(Paket::firstWhere('nama_paket', 'Khusus Garut')->filter_lokasi);
+        $semua = Paket::firstWhere('nama_paket', 'Semua Cabang');
+        $this->assertSame([false, $this->lokasi->id], [$semua->filter_lokasi, $semua->id_lokasi]);
+    }
+
+    public function test_branch_user_cannot_show_package_in_all_branches(): void
+    {
+        $this->actingAs(User::factory()->peran('Admin')->create(['id_lokasi' => $this->lokasi->id]));
+
+        $this->postJson('/paket', $this->data(['semua_cabang' => true]))
+            ->assertStatus(422)->assertJsonValidationErrors(['semua_cabang' => 'Tampilkan di semua cabang tidak diizinkan']);
+    }
+
+    public function test_new_profile_without_router_is_created_only_on_routers_of_the_branch(): void
+    {
+        $lain = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Tasik']);
+        $this->router->update(['id_lokasi' => $this->lokasi->id]);
+        Router::create([
+            'nama_router' => 'RB Tasik', 'mode_koneksi' => 'langsung', 'host' => '203.0.113.20', 'port_api' => 8728,
+            'username' => 'billing', 'password' => 'rahasia', 'profile_isolir' => 'ISOLIR', 'id_lokasi' => $lain->id,
+        ]);
+
+        $this->postJson('/paket', $this->data())
+            ->assertOk()->assertJsonPath('message', 'Paket Ultra 30 Mbps ditambahkan. CCR Pusat: profile UP-30M dibuat');
+    }
+
+    public function test_static_package_is_saved_without_profile_and_never_synced_to_router(): void
+    {
+        $this->postJson('/paket', $this->data(['nama_paket' => 'Static 10M', 'jns_koneksi' => 'static', 'profile_mikrotik' => 'abaikan', 'buat_profile' => true]))
+            ->assertOk()->assertJsonPath('message', 'Paket Static 10M ditambahkan');
+
+        $paket = Paket::firstWhere('nama_paket', 'Static 10M');
+        $this->assertSame([null, false, null], [$paket->profile_mikrotik, $paket->buat_profile, $paket->rate_limit]);
+        $this->assertSame([], $this->gw->savedProfiles);
+        $this->postJson("/paket/{$paket->id}/sinkron")
+            ->assertStatus(422)->assertJsonPath('message', 'Paket Static 10M (Static) tidak memakai profile MikroTik');
+    }
+
+    public function test_package_list_can_be_filtered_by_connection_type(): void
+    {
+        Paket::create($this->data(['nama_paket' => 'PPPoE 30M']));
+        Paket::create($this->data(['nama_paket' => 'Binding 30M', 'jns_koneksi' => 'ip_binding', 'profile_mikrotik' => null]));
+
+        $this->get('/kelola-data/paket?jns_koneksi=ip_binding')->assertInertia(fn ($page) => $page
+            ->where('filters.jns_koneksi', 'ip_binding')
+            ->has('rows', 1)
+            ->where('rows.0.nama_paket', 'Binding 30M'));
     }
 
     public function test_package_used_by_customers_cannot_be_deleted(): void
@@ -178,6 +245,7 @@ class PaketTest extends TestCase
         return [
             'nama_paket' => 'Ultra 30 Mbps', 'keterangan' => 'Up to 30 Mbps', 'harga' => 275000, 'jenis' => 'bulanan', 'jns_koneksi' => 'pppoe',
             'profile_mikrotik' => 'UP-30M', 'rate_limit' => '30M/30M', 'local_address' => '10.10.3.1', 'buat_profile' => true, 'buat_pool' => false,
+            'id_lokasi' => $this->lokasi->id,
             ...$attrs,
         ];
     }

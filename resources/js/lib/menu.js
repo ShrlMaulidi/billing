@@ -68,6 +68,7 @@ export const MENU = [
                 title: 'User', icon: 'user', base: '/user',
                 children: [
                     { title: 'Manajemen User', href: '/user/manajemen', izin: 'user.manajemen.view' },
+                    { title: 'Akun Pelanggan', href: '/user/akun-pelanggan', izin: 'user.akun_pelanggan.view' },
                     { title: 'Hak Akses', href: '/user/hak-akses', izin: 'user.hak_akses.view' },
                 ],
             },

@@ -254,7 +254,8 @@ export default function Landing({ paket }) {
                     <p className="lp-hero-text">Penyedia layanan internet dan teknologi informasi di Karawang sejak 2017, berizin KOMINFO dan anggota APJII. Melayani rumah, perusahaan, dan instansi dengan NOC 24 jam.</p>
                     <div className="lp-hero-actions">
                         <Link href="/cek-tagihan" className="lp-btn lp-btn-gold">Cek Tagihan</Link>
-                        <a href={linkWa()} target="_blank" rel="noopener noreferrer" className="lp-btn lp-btn-ghost">Hubungi Marketing</a>
+                        <a href={linkWa()} target="_blank" rel="noopener noreferrer" className="lp-btn lp-btn-ghost lp-hanya-desktop">Hubungi Marketing</a>
+                        <Link href={auth.user ? '/dashboard' : '/login'} className="lp-btn lp-btn-ghost lp-hanya-mobile">{auth.user ? 'Dashboard' : 'Masuk'}</Link>
                     </div>
                 </div>
                 <div className="lp-wrap">

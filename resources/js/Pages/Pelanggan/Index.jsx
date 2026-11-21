@@ -49,6 +49,18 @@ const pesanOnOff = ({ p, aksi }) => {
 };
 // Pilihan tanpa cabang (router/paket untuk semua cabang) tampil di setiap cabang
 const sesuaiCabang = (options, v) => options.filter((o) => !o.id_lokasi || String(o.id_lokasi) === String(v.id_lokasi));
+// Paket sesuai cabang & jenis koneksi pelanggan. Paket yang sedang terpilih tetap tampil (pelanggan lama yang paketnya beda jenis)
+const paketSesuai = (options, v) => sesuaiCabang(options, v).filter((o) => o.jns_koneksi === v.jns_koneksi || String(o.value) === String(v.id_paket ?? ''));
+const bantuanPaket = (options, v) => {
+    if (!v.id_lokasi) return <span className="text-warning">Pilih cabang terlebih dahulu</span>;
+    if (paketSesuai(options, v).length) return `Paket ${KONEKSI[v.jns_koneksi] ?? ''} sesuai cabang terpilih`;
+    return (
+        <span className="text-danger">
+            Belum ada paket {KONEKSI[v.jns_koneksi]} untuk cabang ini. Tambahkan di Kelola Data › Paket Pelanggan (Jenis Koneksi {KONEKSI[v.jns_koneksi]}),
+            atau centang "Tampilkan di semua cabang" pada paketnya.
+        </span>
+    );
+};
 
 /** Mode Sinkronisasi: dropdown akun yang sudah ada di router terpilih, dimuat langsung dari Mikrotik. */
 function AkunRouter({ routerId, jenis, value, onChange, invalid }) {
@@ -344,7 +356,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                 fields={[
                     { name: 'id_pelanggan', label: 'ID Pelanggan', placeholder: 'Otomatis bila dikosongkan' },
                     { name: 'nama', label: 'Nama Pelanggan', required: true },
-                    { name: 'tlp', label: 'No. Telepon / WA', type: 'tel', required: true },
+                    { name: 'tlp', label: 'No. Telepon / WA', type: 'tel', required: true, help: 'Nomor HP ini jadi username & password awal akun login pelanggan' },
                     { name: 'nik', label: 'NIK', placeholder: '16 digit angka', help: 'Opsional' },
                     { name: 'alamat', label: 'Alamat', type: 'textarea', required: true, col: 'col-12' },
                     { name: 'jns_tagihan', label: 'Jenis Tagihan', type: 'select', required: true, options: [{ value: 'prabayar', label: 'Prabayar' }, { value: 'pascabayar', label: 'Pascabayar' }], help: 'Prabayar: tagihan muncul di bulan pemakaian · Pascabayar: tanggal 1 bulan berikutnya' },
@@ -372,8 +384,8 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                         help: 'IP yang sudah dipakai di router atau billing ditolak',
                     },
                     {
-                        name: 'id_paket', label: 'Paket Langganan', type: 'select', required: true, help: 'Sesuai cabang; profile paket dipakai saat akun dibuat & saat On',
-                        options: (v) => sesuaiCabang(paketOptions, v).filter((o) => !['pppoe', 'hotspot'].includes(v.jns_koneksi) || o.jns_koneksi === v.jns_koneksi),
+                        name: 'id_paket', label: 'Paket Langganan', type: 'select', required: true,
+                        options: (v) => paketSesuai(paketOptions, v), help: (v) => bantuanPaket(paketOptions, v),
                     },
                     { name: 'tgl_registrasi', label: 'Tanggal Registrasi', type: 'date', required: true },
                     { name: 'tgl_jatuh_tempo', label: 'Tanggal Jatuh Tempo', type: 'select', required: true, options: JATUH_TEMPO, help: 'Setiap bulan pada tanggal ini' },

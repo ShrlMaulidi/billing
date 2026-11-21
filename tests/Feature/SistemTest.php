@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Lokasi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class SistemTest extends TestCase
@@ -18,14 +17,6 @@ class SistemTest extends TestCase
 
         $this->get('/profil')->assertOk()->assertInertia(fn ($page) => $page->component('User/Profil')
             ->where('user.nama', 'Sahrul')->where('user.username', 'sahrul')->where('user.email', 'sahrul1@gmail.com')->where('user.last_login_at', null));
-    }
-
-    #[TestWith(['/payment-gateway', 'PaymentGateway/Index'])]
-    public function test_menu_without_table_renders_no_rows(string $url, string $component): void
-    {
-        $this->actingAs(User::factory()->create());
-
-        $this->get($url)->assertOk()->assertInertia(fn ($page) => $page->component($component)->has('rows', 0));
     }
 
     public function test_payment_gateway_page_follows_branch_admin_full(): void
@@ -46,13 +37,6 @@ class SistemTest extends TestCase
             $this->actingAs($mitra)->get('/payment-gateway')->assertInertia(fn ($page) => $page
                 ->where('cabangUser', ['id' => $lokasi->id, 'nama_lokasi' => $lokasi->nama_lokasi, 'admin_full' => $adminFull])->where('pemilikOptions', []));
         }
-    }
-
-    public function test_payment_gateway_channel_page_returns_404(): void
-    {
-        $this->actingAs(User::factory()->create());
-
-        $this->get('/payment-gateway/1/channel')->assertNotFound();
     }
 
     public function test_profile_is_open_to_any_logged_in_user(): void

@@ -2,7 +2,10 @@
 
 use App\Models\AuditLog;
 use App\Models\Lokasi;
+use App\Models\Pelanggan;
 use App\Models\User;
+use App\Services\AkunPelanggan;
+use App\Support\NomorHp;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -55,6 +58,36 @@ Artisan::command('user:create {username} {--name= : Nama tampilan} {--role=Super
 
     return 0;
 })->purpose('Buat user login atau reset kata sandinya');
+
+// Buat akun login untuk pelanggan lama yang belum punya akun (username & password awal = nomor HP).
+// Pelanggan bernomor HP tidak valid, atau nomornya dipakai username user staf, dilewati dan ditampilkan.
+Artisan::command('pelanggan:buat-akun', function (AkunPelanggan $akunPelanggan) {
+    $dilewati = [];
+    $dibuat = 0;
+    Pelanggan::whereNull('user_id')->where('status', '!=', 'berhenti')->lazyById()
+        ->each(function (Pelanggan $p) use ($akunPelanggan, &$dilewati, &$dibuat) {
+            $alasan = match (true) {
+                ! NomorHp::sah((string) $p->tlp) => 'nomor HP tidak valid',
+                AkunPelanggan::dipakaiUserLain((string) $p->tlp) => 'nomor HP dipakai username user staf',
+                default => null,
+            };
+            if ($alasan) {
+                $dilewati[] = [$p->id_pelanggan, $p->nama, $p->tlp, $alasan];
+
+                return;
+            }
+            $akunPelanggan->sinkronkan($p);
+            $dibuat++;
+        });
+
+    $this->info("{$dibuat} pelanggan dihubungkan ke akun login.");
+    if ($dilewati) {
+        $this->warn(count($dilewati).' pelanggan dilewati, perbaiki No. telepon-nya lewat Data Pelanggan lalu jalankan lagi:');
+        $this->table(['ID', 'Nama', 'Tlp', 'Alasan'], $dilewati);
+    }
+
+    return 0;
+})->purpose('Buat akun login pelanggan (username & password = nomor HP) untuk pelanggan yang belum punya');
 
 // Catatan audit (menu Logs) lebih tua dari masa simpan dipangkas tiap hari. Butuh cron di server:
 // * * * * * cd /var/www/mss-billing && php artisan schedule:run >> /dev/null 2>&1

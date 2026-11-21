@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Support\Audit;
 use App\Support\HakAkses;
+use App\Support\NomorHp;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -50,7 +52,12 @@ class AuthController extends Controller
 
         // Kolom login menerima username maupun email
         $kolom = filter_var($data['username'], FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
-        if (! Auth::attempt([$kolom => $data['username'], 'password' => $data['password']], $data['remember'] ?? false)) {
+        $login = $data['username'];
+        // Akun pelanggan ber-username nomor HP 08…: 62812… / +62 812-… juga diterima
+        if ($kolom === 'username' && ! User::where('username', $login)->exists()) {
+            $login = NomorHp::normalkanBilaNomor($login);
+        }
+        if (! Auth::attempt([$kolom => $login, 'password' => $data['password']], $data['remember'] ?? false)) {
             RateLimiter::hit($key, self::JEDA_DETIK);
             RateLimiter::hit($keyIp, self::JEDA_IP_DETIK);
             Log::warning('Login gagal', ['username' => $data['username'], 'ip' => $request->ip(), 'user_agent' => $request->userAgent()]);
@@ -73,6 +80,13 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $user->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->save();
         Audit::catat('Akses', 'login', 'Login berhasil', $user);
+
+        // Pelanggan selalu ke Akun Saya (halaman staf yang sempat dituju akan ditolak)
+        if ($user->isPelanggan()) {
+            $request->session()->forget('url.intended');
+
+            return redirect(HakAkses::halamanAwal($user));
+        }
 
         return redirect()->intended(HakAkses::halamanAwal($user));
     }

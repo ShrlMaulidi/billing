@@ -124,7 +124,9 @@ export function ConfirmDialog({ isOpen, toggle, title = 'Konfirmasi', message, c
 const optionList = (options = []) => options.map((o) => (typeof o === 'object' ? o : { value: o, label: toLabel(o) }));
 
 export function Field({ field, value, onChange, error, values }) {
-    const { name, type = 'text', label, options, placeholder, help, required, render, disabled } = field;
+    const { name, type = 'text', label, options, placeholder, required, render, disabled } = field;
+    // help boleh berupa fungsi (nilaiForm) => teks, mis. penjelasan saat pilihan dropdown kosong
+    const help = typeof field.help === 'function' ? field.help(values) : field.help;
     const common = { id: name, name, placeholder, disabled, invalid: !!error };
     let control;
     switch (type) {
@@ -141,6 +143,14 @@ export function Field({ field, value, onChange, error, values }) {
             return (
                 <FormGroup switch className="mb-3">
                     <Input type="switch" id={name} checked={!!value} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+                    <Label check for={name}>{label}</Label>
+                    {help && <div className="form-text">{help}</div>}
+                </FormGroup>
+            );
+        case 'checkbox':
+            return (
+                <FormGroup check className="mb-3">
+                    <Input type="checkbox" id={name} checked={!!value} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
                     <Label check for={name}>{label}</Label>
                     {help && <div className="form-text">{help}</div>}
                 </FormGroup>

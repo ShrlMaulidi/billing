@@ -99,7 +99,7 @@ class PelangganTest extends TestCase
         $this->postJson('/pelanggan', $this->data([
             'router_id' => $routerLain->id, 'id_area' => $areaLain->id, 'id_paket' => $paketLain->id, 'sales_id' => $bukanSales->id, 'nik' => '320512',
         ]))->assertStatus(422)->assertJsonValidationErrors([
-            'router_id' => 'Router tidak ditemukan', 'id_area' => 'Area tidak ditemukan', 'id_paket' => 'Paket tidak ditemukan',
+            'router_id' => 'Router tidak ditemukan', 'id_area' => 'Area tidak ditemukan', 'id_paket' => 'Paket tidak tersedia untuk cabang & jenis koneksi ini',
             'sales_id' => 'Sales tidak valid', 'nik' => 'NIK harus 16 digit angka',
         ]);
 
@@ -123,7 +123,8 @@ class PelangganTest extends TestCase
 
         $this->postJson('/pelanggan', $this->data(['jns_koneksi' => 'hotspot', 'mode_akun' => 'baru', 'username_pppoe' => 'warung', 'password_akun' => 'abc', 'id_paket' => $hotspot->id]))
             ->assertOk()->assertJsonPath('message', "Pelanggan Budi Santoso ditambahkan. Hotspot User 'warung' dibuat di router CCR Pusat");
-        $this->postJson('/pelanggan', $this->data(['nama' => 'Sari', 'jns_koneksi' => 'ip_binding', 'mode_akun' => 'baru', 'mac_address' => 'aa:bb:cc:dd:ee:02', 'ip_address' => '192.168.10.7']))
+        $binding = Paket::create([...$this->paket->only(['harga', 'jenis']), 'nama_paket' => 'Binding 10M', 'jns_koneksi' => 'ip_binding']);
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Sari', 'jns_koneksi' => 'ip_binding', 'mode_akun' => 'baru', 'mac_address' => 'aa:bb:cc:dd:ee:02', 'ip_address' => '192.168.10.7', 'id_paket' => $binding->id]))
             ->assertOk()->assertJsonPath('message', "Pelanggan Sari ditambahkan. IP Binding 'AA:BB:CC:DD:EE:02' dibuat di router CCR Pusat");
 
         $this->assertSame(['name' => 'warung', 'password' => 'abc', 'profile' => 'HS-5M'], array_intersect_key(end($this->gw->akun['hotspot']), array_flip(['name', 'password', 'profile'])));
@@ -136,11 +137,23 @@ class PelangganTest extends TestCase
         $secrets = $this->gw->secrets;
 
         $this->postJson('/pelanggan', $this->data())->assertOk()->assertJsonPath('message', 'Pelanggan Budi Santoso ditambahkan');
-        $this->postJson('/pelanggan', $this->data(['nama' => 'Kantor Desa', 'jns_koneksi' => 'static', 'mode_akun' => null, 'username_pppoe' => 'abaikan', 'ip_address' => '10.20.0.5']))
+        $static = Paket::create([...$this->paket->only(['harga', 'jenis']), 'nama_paket' => 'Static 10M', 'jns_koneksi' => 'static']);
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Kantor Desa', 'jns_koneksi' => 'static', 'mode_akun' => null, 'username_pppoe' => 'abaikan', 'ip_address' => '10.20.0.5', 'id_paket' => $static->id]))
             ->assertOk()->assertJsonPath('message', 'Pelanggan Kantor Desa ditambahkan');
 
         $this->assertSame($secrets, $this->gw->secrets);
         $this->assertDatabaseHas('pelanggan', ['nama' => 'Kantor Desa', 'jns_koneksi' => 'static', 'ip_address' => '10.20.0.5', 'username_pppoe' => null]);
+    }
+
+    public function test_package_must_match_connection_type_but_old_mismatched_package_is_kept_on_edit(): void
+    {
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Kantor Desa', 'jns_koneksi' => 'static', 'mode_akun' => null, 'ip_address' => '10.20.0.5']))
+            ->assertStatus(422)->assertJsonValidationErrors(['id_paket' => 'Paket tidak tersedia untuk cabang & jenis koneksi ini']);
+
+        $lama = $this->pelanggan('kantor', ['jns_koneksi' => 'static', 'ip_address' => '10.20.0.5', 'id_paket' => $this->paket->id, 'id_lokasi' => $this->lokasi->id]);
+        $this->putJson("/pelanggan/{$lama->id}", $this->data(['nama' => 'Kantor Baru', 'jns_koneksi' => 'static', 'mode_akun' => null, 'ip_address' => '10.20.0.5', 'status' => 'aktif']))
+            ->assertOk();
+        $this->assertSame(['Kantor Baru', $this->paket->id], [$lama->fresh()->nama, $lama->fresh()->id_paket]);
     }
 
     public function test_delete_moves_customer_to_stopped_and_only_stopped_customer_can_be_deleted_permanently(): void

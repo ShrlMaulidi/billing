@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AkunPelangganController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CabangController;
@@ -14,14 +15,17 @@ use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\MidtransController;
 use App\Http\Controllers\PajakController;
 use App\Http\Controllers\PaketController;
+use App\Http\Controllers\PaymentGatewayController;
 use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\PembayaranController;
+use App\Http\Controllers\PortalPelangganController;
 use App\Http\Controllers\RekeningController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\SistemController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\TunnelController;
 use App\Http\Controllers\UserController;
+use App\Services\AkunPelanggan;
 use Illuminate\Support\Facades\Route;
 
 // Halaman pertama: company profile (tanpa login)
@@ -54,6 +58,21 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     // Profil sendiri boleh dibuka semua user yang login
     Route::get('/profil', [SistemController::class, 'profil'])->name('profil');
+
+    // Halaman Akun Saya khusus akun pelanggan (dibuat otomatis dari Data Pelanggan); akun pelanggan ditolak di semua menu staf
+    Route::prefix('akun-saya')->middleware('role:'.AkunPelanggan::ROLE)->controller(PortalPelangganController::class)->group(function () {
+        Route::get('/', 'index')->name('akun-saya');
+        // Login pertama / setelah password di-reset: wajib membuat password baru (lihat BatasiAkunPelanggan)
+        Route::get('/password-baru', 'passwordBaru')->name('akun-saya.password-baru');
+        Route::put('/password', 'gantiPassword')->middleware('throttle:6,1')->name('akun-saya.password');
+    });
+
+    // Akun login pelanggan (terpisah dari Manajemen User); user cabang hanya akun pelanggan cabangnya
+    Route::prefix('user/akun-pelanggan')->name('akun-pelanggan.')->controller(AkunPelangganController::class)->group(function () {
+        Route::get('/', 'index')->middleware('permission:user.akun_pelanggan.view')->name('index');
+        Route::put('/{user}/reset-password', 'resetPassword')->whereNumber('user')->middleware('permission:user.akun_pelanggan.update')->name('reset-password');
+        Route::put('/{user}/status', 'status')->whereNumber('user')->middleware('permission:user.akun_pelanggan.update')->name('status');
+    });
 
     Route::controller(DashboardController::class)->group(function () {
         Route::get('/dashboard', 'index')->middleware('permission:dashboard.view')->name('dashboard');
@@ -142,9 +161,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/shafa-net', 'shafanet')->middleware('permission:laporan.shafanet.view')->name('laporan.shafanet');
     });
 
+    // Payment gateway diatur sendiri dari aplikasi; aturan pemilik & konfirmasi password di PaymentGatewayController
+    Route::prefix('payment-gateway')->controller(PaymentGatewayController::class)->group(function () {
+        Route::get('/', 'index')->middleware('permission:payment_gateway.view')->name('payment-gateway');
+        Route::middleware('throttle:payment-gateway')->group(function () {
+            Route::post('/', 'store')->middleware('permission:payment_gateway.create')->name('payment-gateway.store');
+            Route::put('/{gateway}', 'update')->middleware('permission:payment_gateway.update')->name('payment-gateway.update');
+            Route::delete('/{gateway}', 'destroy')->middleware('permission:payment_gateway.delete')->name('payment-gateway.destroy');
+            Route::post('/{gateway}/uji', 'uji')->middleware('permission:payment_gateway.view')->name('payment-gateway.uji');
+        });
+    });
+
     Route::controller(SistemController::class)->group(function () {
-        Route::get('/payment-gateway', 'paymentGateway')->middleware('permission:payment_gateway.view')->name('payment-gateway');
-        Route::get('/payment-gateway/{id}/channel', 'pgChannel')->middleware('permission:payment_gateway.view')->name('payment-gateway.channel');
         Route::get('/logs', 'logs')->middleware('permission:logs.view')->name('logs');
     });
 

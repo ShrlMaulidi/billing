@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AkunPelanggan;
 use App\Support\HakAkses;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Support\TercatatAudit;
@@ -10,15 +11,18 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
  * Akun login. Role & permission lewat spatie/laravel-permission (lihat App\Support\HakAkses).
  * id_lokasi terisi = user hanya boleh mengakses data cabang itu; kosong = semua cabang.
  */
-#[Fillable(['name', 'username', 'email', 'tlp', 'id_lokasi', 'status', 'password', 'last_login_at', 'last_login_ip'])]
+#[Fillable(['name', 'username', 'email', 'tlp', 'id_lokasi', 'status', 'password', 'wajib_ganti_password', 'last_login_at', 'last_login_ip'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -43,6 +47,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'wajib_ganti_password' => 'boolean',
             'id_lokasi' => 'integer',
             'last_login_at' => 'datetime',
         ];
@@ -51,6 +56,27 @@ class User extends Authenticatable
     public function lokasi(): BelongsTo
     {
         return $this->belongsTo(Lokasi::class, 'id_lokasi');
+    }
+
+    /** Pelanggan yang memakai akun ini (role Pelanggan; satu nomor HP bisa dipakai beberapa pelanggan). */
+    public function pelanggan(): HasMany
+    {
+        return $this->hasMany(Pelanggan::class);
+    }
+
+    /** Akun pelanggan: hanya membuka halaman Akun Saya, tidak tampil di Manajemen User. */
+    public function isPelanggan(): bool
+    {
+        return $this->hasRole(AkunPelanggan::ROLE);
+    }
+
+    /** Hapus sesi login & token "ingat saya", sehingga user harus login ulang. */
+    public function putusSesi(): void
+    {
+        if (config('session.driver') === 'database') {
+            DB::table(config('session.table', 'sessions'))->where('user_id', $this->id)->delete();
+        }
+        $this->forceFill(['remember_token' => Str::random(60)])->save();
     }
 
     public function isSuperAdmin(): bool

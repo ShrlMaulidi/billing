@@ -23,6 +23,19 @@ class Paket extends Model
 
     public const JENIS_AUDIT = 'paket';
 
+    /** Jenis koneksi yang memakai profile MikroTik (PPP Profile / Hotspot User Profile). */
+    public const KONEKSI_PROFILE = ['pppoe', 'hotspot'];
+
+    public function pakaiProfile(): bool
+    {
+        return in_array($this->jns_koneksi, self::KONEKSI_PROFILE, true);
+    }
+
+    public function labelKoneksi(): string
+    {
+        return Pelanggan::KONEKSI[$this->jns_koneksi] ?? $this->jns_koneksi;
+    }
+
     protected function casts(): array
     {
         return [

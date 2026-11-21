@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AkunPelanggan;
 use App\Support\Audit;
 use App\Support\HakAkses;
 use Illuminate\Http\JsonResponse;
@@ -11,14 +12,15 @@ use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
 
 /**
- * Matriks permission per role (spatie/laravel-permission). Role Super Admin terkunci (akses penuh),
+ * Matriks permission per role (spatie/laravel-permission). Role Super Admin terkunci (akses penuh), role Pelanggan terkunci tanpa menu,
  * dan role milik sendiri tidak bisa diubah agar user tidak menaikkan hak aksesnya sendiri.
  */
 class HakAksesController extends Controller
 {
     public function index(Request $request)
     {
-        $roles = Role::withCount('users')->orderBy('id')->get();
+        // Role Pelanggan tidak diberi menu staf: hanya membuka halaman Akun Saya, jadi tidak ditampilkan di matriks
+        $roles = Role::where('name', '!=', AkunPelanggan::ROLE)->withCount('users')->orderBy('id')->get();
         $dipilih = $roles->firstWhere('id', $request->integer('role')) ?? $roles->first();
 
         // {menu: {aksi: true}} untuk role terpilih
@@ -85,6 +87,8 @@ class HakAksesController extends Controller
     private function pastikanBolehDiubah(Request $request, Role $role): void
     {
         abort_if($role->name === HakAkses::SUPER_ADMIN, 422, 'Role Super Admin terkunci dan tidak dapat diubah');
+        // Mencegah akun pelanggan (password awal = nomor HP) diberi akses ke menu staf
+        abort_if($role->name === AkunPelanggan::ROLE, 422, 'Role Pelanggan terkunci dan tidak dapat diubah');
         abort_if(! $request->user()->isSuperAdmin() && $request->user()->hasRole($role), 422, 'Tidak bisa mengubah hak akses role Anda sendiri');
     }
 }

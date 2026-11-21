@@ -3,43 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
-use App\Models\Lokasi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Throwable;
 
 /**
- * Profil memakai tabel users. Laporan, payment gateway, dan logs belum punya tabel,
- * sehingga tampil kosong sampai terhubung ke database.
+ * Profil (tabel users) dan Logs (jejak audit). Payment gateway ada di PaymentGatewayController.
  */
 class SistemController extends Controller
 {
-    /**
-     * Payment gateway mengikuti Admin Full cabang: cabang non Admin Full memakai gateway perusahaan (tidak bisa menambah),
-     * cabang Admin Full menambah gateway sendiri. User pusat mengelola gateway perusahaan & gateway cabang Admin Full.
-     */
-    public function paymentGateway(Request $request)
-    {
-        $lokasiUser = $request->user()->lokasi;
-
-        return Inertia::render('PaymentGateway/Index', [
-            'filters' => $this->filters($request),
-            'rows' => [],
-            'cabangUser' => $lokasiUser?->only(['id', 'nama_lokasi', 'admin_full']),
-            // Pilihan pemilik gateway untuk user pusat: perusahaan atau cabang Admin Full
-            'pemilikOptions' => $lokasiUser ? [] : Lokasi::where('admin_full', true)->orderBy('nama_lokasi')->get(['id', 'nama_lokasi'])
-                ->map(fn (Lokasi $l) => ['value' => $l->id, 'label' => "{$l->nama_lokasi} (Admin Full)"])
-                ->prepend(['value' => 'perusahaan', 'label' => 'Perusahaan (dipakai cabang non Admin Full)'])->values(),
-        ]);
-    }
-
-    /** Channel tersedia setelah tabel payment gateway ada. */
-    public function pgChannel(int $id)
-    {
-        abort(404);
-    }
-
     /** Batas catatan audit per tampilan; persempit rentang tanggal atau filter untuk melihat sisanya. */
     private const MAKS_LOG = 2000;
 

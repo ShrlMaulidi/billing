@@ -130,7 +130,7 @@ class MidtransTest extends TestCase
         $this->garut->update(['admin_full' => true]);
         $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01'])->assertStatus(422);
         config(['services.midtrans.server_key' => null]);
-        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01'])->assertNotFound();
+        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01'])->assertStatus(422);
 
         Http::assertNothingSent();
         $this->assertDatabaseCount('transaksi_midtrans', 0);
@@ -282,7 +282,7 @@ class MidtransTest extends TestCase
 
         // Kunci Sandbox terpasang di mode Production: tombol bayar disembunyikan, tidak ada transaksi yang pasti gagal
         config(['services.midtrans.server_key' => self::KEY]);
-        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01'])->assertNotFound();
+        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01'])->assertStatus(422);
         $this->post('/cek-tagihan', ['cari' => 'MSS001'])->assertInertia(fn ($page) => $page->where('hasil.0.bayar_online', false));
         Http::assertSentCount(1);
     }

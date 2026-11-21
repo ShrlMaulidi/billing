@@ -3,12 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AkunPelanggan;
 use App\Support\Audit;
 use App\Support\HakAkses;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -17,15 +16,16 @@ use Spatie\Permission\Models\Role;
 /**
  * Akun user: role (spatie) + cabang yang boleh diakses (kosong = semua cabang).
  * Pengaman eskalasi hak akses: hanya Super Admin yang bisa membuat/mengubah Super Admin,
- * dan user tidak bisa mengganti role atau menonaktifkan akunnya sendiri.
+ * dan user tidak bisa mengganti role atau menonaktifkan akunnya sendiri. Akun pelanggan tidak tampil & tidak bisa dikelola di sini.
  */
 class UserController extends Controller
 {
     public function index()
     {
         return Inertia::render('User/Manajemen', [
-            'rows' => User::with(['roles:id,name', 'lokasi:id,nama_lokasi'])->orderBy('name')->get()->map(fn (User $u) => $u->toBaris()),
-            'roleOptions' => Role::orderBy('name')->pluck('name')->map(fn ($r) => ['value' => $r, 'label' => $r]),
+            // Akun pelanggan dikelola di menu User › Akun Pelanggan
+            'rows' => User::withoutRole(AkunPelanggan::ROLE)->with(['roles:id,name', 'lokasi:id,nama_lokasi'])->orderBy('name')->get()->map(fn (User $u) => $u->toBaris()),
+            'roleOptions' => Role::where('name', '!=', AkunPelanggan::ROLE)->orderBy('name')->pluck('name')->map(fn ($r) => ['value' => $r, 'label' => $r]),
         ]);
     }
 
@@ -54,7 +54,7 @@ class UserController extends Controller
             Audit::catat('User', 'update', "Mengganti role user {$user->name}: {$roleLama} → {$data['role']}", $user, ['role' => ['dari' => $roleLama, 'ke' => $data['role']]]);
         }
         if ($gantiPassword || $user->status !== 'aktif') {
-            $this->putusSesi($user);
+            $user->putusSesi();
         }
 
         return response()->json(['message' => "Data {$user->name} diperbarui"]);
@@ -67,25 +67,17 @@ class UserController extends Controller
         abort_if($user->is($request->user()), 422, 'Tidak bisa menonaktifkan akun sendiri');
         $user->update(['status' => $user->status === 'aktif' ? 'nonaktif' : 'aktif']);
         if ($user->status !== 'aktif') {
-            $this->putusSesi($user);
+            $user->putusSesi();
         }
 
         return response()->json(['message' => "User {$user->name} ".($user->status === 'aktif' ? 'diaktifkan' : 'dinonaktifkan')]);
     }
 
-    /** Akun Super Admin hanya boleh diubah oleh Super Admin. */
+    /** Akun Super Admin hanya boleh diubah oleh Super Admin; akun pelanggan tidak dikelola dari menu ini. */
     private function pastikanBolehKelola(Request $request, User $user): void
     {
+        abort_if($user->isPelanggan(), 404);
         abort_if($user->isSuperAdmin() && ! $request->user()->isSuperAdmin(), 403, 'Anda tidak memiliki akses ke fitur ini');
-    }
-
-    /** Hapus sesi login & token "ingat saya" user, sehingga harus login ulang. */
-    private function putusSesi(User $user): void
-    {
-        if (config('session.driver') === 'database') {
-            DB::table(config('session.table', 'sessions'))->where('user_id', $user->id)->delete();
-        }
-        $user->forceFill(['remember_token' => Str::random(60)])->save();
     }
 
     /** @return array<string, mixed> */
@@ -96,7 +88,8 @@ class UserController extends Controller
             'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($user)],
             'email' => ['nullable', 'email', 'max:100', Rule::unique('users')->ignore($user)],
             'tlp' => ['nullable', 'string', 'max:30'],
-            'role' => ['required', Rule::exists('roles', 'name')->where('guard_name', 'web')],
+            // Role Pelanggan hanya diberikan otomatis dari Data Pelanggan
+            'role' => ['required', Rule::exists('roles', 'name')->where('guard_name', 'web'), Rule::notIn([AkunPelanggan::ROLE])],
             // Kosong = semua cabang
             'id_lokasi' => ['nullable', 'integer', 'exists:lokasi,id'],
             'password' => [$user ? 'nullable' : 'required', 'string', 'min:8', 'max:100', 'regex:/[A-Za-z]/', 'regex:/[0-9]/'],

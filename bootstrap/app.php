@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\BatasiAkunPelanggan;
 use App\Http\Middleware\EnsureUserCoversAllBranches;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             EnsureUserIsActive::class,
+            BatasiAkunPelanggan::class,
             HandleInertiaRequests::class,
             SecurityHeaders::class,
         ]);

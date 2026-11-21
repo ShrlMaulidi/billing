@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\TransaksiMidtrans;
-use App\Services\Midtrans\MidtransClient;
+use App\Services\Midtrans\AkunMidtrans;
 use App\Support\Audit;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -21,12 +21,14 @@ use Inertia\Response;
 use Throwable;
 
 /**
- * Pembayaran online Midtrans (Snap) dari halaman Cek Tagihan, untuk pelanggan cabang non Admin Full
- * (Midtrans = payment gateway perusahaan; cabang Admin Full memakai gateway mitra sendiri).
+ * Pembayaran online Midtrans (Snap) dari halaman Cek Tagihan. Akun Midtrans dipilih AkunMidtrans: cabang non Admin Full
+ * memakai gateway perusahaan, cabang Admin Full memakai gateway miliknya sendiri (menu Payment Gateway).
  *
  * Keamanan: nominal selalu dihitung ulang di server dari tagihan yang belum dibayar; notifikasi diterima hanya bila
  * signature_key sah, lalu status & nominal dicek ulang langsung ke API Midtrans; pemrosesan idempoten (satu transaksi
  * hanya bisa mencatat satu pembayaran) dan dikunci per order. Refund/chargeback setelah lunas ditandai untuk ditinjau.
+ * Setiap transaksi menyimpan akun tempat ia dibuat; tanda tangan, cek status, dan ganti metode selalu memakai akun itu,
+ * sehingga notifikasi yang ditandatangani akun lain tidak bisa melunasi tagihan.
  */
 class MidtransController extends Controller
 {
@@ -39,8 +41,6 @@ class MidtransController extends Controller
     /** Panjang bagian acak order ID: halaman selesai bisa dibuka dengan order ID, jadi harus mustahil ditebak. */
     private const PANJANG_ACAK_ORDER = 12;
 
-    public function __construct(private MidtransClient $midtrans) {}
-
     /**
      * Tombol "Bayar Online": buat (atau pakai ulang) transaksi Snap; browser lalu diarahkan ke redirect_url Midtrans.
      * ganti=true: pelanggan ingin ganti metode (mis. QRIS → VA). Transaksi lama dihentikan di Midtrans lebih dulu agar
@@ -48,7 +48,6 @@ class MidtransController extends Controller
      */
     public function bayar(Request $request): JsonResponse
     {
-        abort_unless($this->midtrans->aktif(), 404);
         $data = $request->validate([
             'id_pelanggan' => ['required', 'string', 'max:30'],
             'periode' => ['required', 'date_format:Y-m-d'],
@@ -57,17 +56,19 @@ class MidtransController extends Controller
         $pelanggan = Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,admin_full', 'pembayaran:id,pelanggan_id,periode'])
             ->where('status', 'aktif')->where('id_pelanggan', $data['id_pelanggan'])->first();
         $tagihan = collect($pelanggan?->tagihanBelumDibayar() ?? [])->firstWhere('periode', $data['periode']);
-        if (! $pelanggan || $pelanggan->lokasi?->admin_full || ! $tagihan || ($tagihan['nominal'] ?? 0) <= 0) {
+        $akun = $pelanggan ? AkunMidtrans::untukLokasi($pelanggan->lokasi) : null;
+        if (! $akun || ! $tagihan || ($tagihan['nominal'] ?? 0) <= 0) {
             throw ValidationException::withMessages(['bayar' => 'Tagihan ini tidak bisa dibayar online. Silakan muat ulang halaman atau hubungi kami.']);
         }
 
+        // Link lama hanya dipakai ulang bila dibuat di akun Midtrans yang sama (gateway bisa diganti dari menu Payment Gateway)
         $transaksi = TransaksiMidtrans::where(['pelanggan_id' => $pelanggan->id, 'periode' => $data['periode'], 'gross_amount' => $tagihan['nominal']])
-            ->latest('id')->first();
+            ->where('payment_gateway_id', $akun->gateway?->id)->latest('id')->first();
         if ($transaksi?->masihBerlaku() && $request->boolean('ganti')) {
             $transaksi = $this->hentikanUntukGanti($transaksi);
         }
         if (! $transaksi?->masihBerlaku()) {
-            $transaksi = $this->buatTransaksi($pelanggan, $tagihan);
+            $transaksi = $this->buatTransaksi($pelanggan, $tagihan, $akun);
             if (! $transaksi) {
                 throw ValidationException::withMessages(['bayar' => 'Pembayaran online sedang tidak tersedia. Silakan coba lagi nanti atau bayar lewat rekening di bawah.']);
             }
@@ -76,15 +77,16 @@ class MidtransController extends Controller
         return response()->json(['redirect_url' => $transaksi->redirect_url]);
     }
 
-    /** Webhook Midtrans (X-Override-Notification). Tanpa login & tanpa CSRF; keabsahan dijamin tanda tangan + cek status ke API. */
+    /**
+     * Webhook Midtrans (X-Override-Notification). Tanpa login & tanpa CSRF; keabsahan dijamin tanda tangan (dengan kunci akun
+     * tempat transaksi dibuat) + cek status ke API. Order tak dikenal dijawab sama seperti tanda tangan salah.
+     */
     public function notifikasi(Request $request): JsonResponse
     {
-        if (! $this->midtrans->tandaTanganSah($request->all())) {
+        $orderId = $request->input('order_id');
+        $transaksi = is_string($orderId) ? TransaksiMidtrans::with('gateway')->firstWhere('order_id', $orderId) : null;
+        if (! $transaksi || ! AkunMidtrans::untukTransaksi($transaksi)->tandaTanganSah($request->all())) {
             return response()->json(['message' => 'Tanda tangan tidak sah'], 403);
-        }
-        $transaksi = TransaksiMidtrans::firstWhere('order_id', (string) $request->input('order_id'));
-        if (! $transaksi) {
-            return response()->json(['message' => 'Transaksi tidak dikenal'], 404);
         }
         $this->sinkron($transaksi);
 
@@ -94,8 +96,8 @@ class MidtransController extends Controller
     /** Halaman tujuan setelah pelanggan selesai di Midtrans; status disinkronkan langsung bila webhook belum masuk. */
     public function selesai(Request $request): Response
     {
-        $transaksi = TransaksiMidtrans::with(['pelanggan:id,nama,id_pelanggan', 'pembayaran:id'])->firstWhere('order_id', (string) $request->query('order_id'));
-        if ($transaksi?->status === 'pending' && $this->midtrans->aktif()) {
+        $transaksi = TransaksiMidtrans::with(['pelanggan:id,nama,id_pelanggan', 'pembayaran:id', 'gateway'])->firstWhere('order_id', (string) $request->query('order_id'));
+        if ($transaksi?->status === 'pending' && AkunMidtrans::untukTransaksi($transaksi)->aktif()) {
             $transaksi = $this->sinkron($transaksi)->load(['pelanggan:id,nama,id_pelanggan', 'pembayaran:id']);
         }
 
@@ -122,10 +124,10 @@ class MidtransController extends Controller
         try {
             return Cache::lock('midtrans:'.$transaksi->order_id, 30)->block(10, function () use ($transaksi) {
                 try {
-                    $hasil = $this->midtrans->kedaluwarsakan($transaksi->order_id);
+                    $hasil = AkunMidtrans::untukTransaksi($transaksi)->kedaluwarsakan($transaksi->order_id);
                 } catch (Throwable $e) {
                     report($e);
-                    $lunas = in_array($this->prosesStatus($transaksi->fresh())->status, TransaksiMidtrans::LUNAS, true);
+                    $lunas = in_array($this->prosesStatus($transaksi->fresh('gateway'))->status, TransaksiMidtrans::LUNAS, true);
                     throw ValidationException::withMessages(['bayar' => $lunas
                         ? 'Tagihan ini sudah dibayar. Silakan muat ulang halaman.'
                         : 'Metode pembayaran belum bisa diganti saat ini. Selesaikan pembayaran dengan metode sebelumnya, atau hubungi kami.']);
@@ -143,19 +145,20 @@ class MidtransController extends Controller
     }
 
     /** @param  array<string, mixed>  $tagihan  satu item Pelanggan::tagihanBelumDibayar() */
-    private function buatTransaksi(Pelanggan $pelanggan, array $tagihan): ?TransaksiMidtrans
+    private function buatTransaksi(Pelanggan $pelanggan, array $tagihan, AkunMidtrans $akun): ?TransaksiMidtrans
     {
         $jam = max(1, (int) config('services.midtrans.kedaluwarsa_jam', 24));
         $transaksi = TransaksiMidtrans::create([
             // Awalan unik per website + periode + pelanggan + acak: tidak bentrok dengan website lain di akun Midtrans yang sama
             'order_id' => sprintf('%s-%s-%d-%s', config('services.midtrans.prefix', 'MSSB'), str_replace('-', '', substr($tagihan['periode'], 0, 7)), $pelanggan->id, Str::lower(Str::random(self::PANJANG_ACAK_ORDER))),
             'pelanggan_id' => $pelanggan->id,
+            'payment_gateway_id' => $akun->gateway?->id,
             'periode' => $tagihan['periode'],
             'gross_amount' => $tagihan['nominal'],
             'kedaluwarsa_at' => now()->addHours($jam),
         ]);
         try {
-            $snap = $this->midtrans->buatTransaksi([
+            $snap = $akun->client->buatTransaksi([
                 'transaction_details' => ['order_id' => $transaksi->order_id, 'gross_amount' => $transaksi->gross_amount],
                 'item_details' => [[
                     'id' => $tagihan['no_tagihan'],
@@ -186,7 +189,7 @@ class MidtransController extends Controller
     private function sinkron(TransaksiMidtrans $transaksi): TransaksiMidtrans
     {
         try {
-            return Cache::lock('midtrans:'.$transaksi->order_id, 30)->block(10, fn () => $this->prosesStatus($transaksi->fresh()));
+            return Cache::lock('midtrans:'.$transaksi->order_id, 30)->block(10, fn () => $this->prosesStatus($transaksi->fresh('gateway')));
         } catch (LockTimeoutException) {
             return $transaksi;
         }
@@ -198,7 +201,7 @@ class MidtransController extends Controller
             return $transaksi;
         }
         try {
-            $status = $this->midtrans->status($transaksi->order_id);
+            $status = AkunMidtrans::untukTransaksi($transaksi)->status($transaksi->order_id);
         } catch (Throwable $e) {
             report($e);
 

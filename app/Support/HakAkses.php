@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\User;
+use App\Services\AkunPelanggan;
 
 /**
  * Katalog hak akses (spatie/laravel-permission). Nama permission = "{menu}.{aksi}", mis. "pelanggan.data.create".
@@ -53,6 +54,7 @@ class HakAkses
         'payment_gateway' => ['Payment Gateway', '/payment-gateway', self::CRUD],
         'logs' => ['Logs', '/logs', ['view']],
         'user.manajemen' => ['User › Manajemen User', '/user/manajemen', ['view', 'create', 'update']],
+        'user.akun_pelanggan' => ['User › Akun Pelanggan (Ubah = reset password & aktif/nonaktif)', '/user/akun-pelanggan', ['view', 'update']],
         'user.hak_akses' => ['User › Hak Akses', '/user/hak-akses', self::CRUD],
     ];
 
@@ -63,6 +65,7 @@ class HakAkses
         'Mitra' => 'Pemilik / pengelola cabang',
         'Sales' => 'Registrasi pelanggan baru',
         'Teknisi' => 'Instalasi & gangguan',
+        AkunPelanggan::ROLE => AkunPelanggan::KETERANGAN_ROLE,
     ];
 
     /** Menu yang bisa mengubah konfigurasi router secara langsung atau mengatur akun; bawaan hanya Super Admin. */
@@ -86,9 +89,15 @@ class HakAkses
         };
     }
 
-    /** Halaman pertama yang boleh dibuka user (tujuan setelah login), null bila tidak punya akses sama sekali. */
+    /**
+     * Halaman pertama yang boleh dibuka user (tujuan setelah login), null bila tidak punya akses sama sekali.
+     * Akun pelanggan hanya membuka halaman Akun Saya, atau halaman buat password baru selama masih memakai password awal.
+     */
     public static function halamanAwal(User $user): ?string
     {
+        if ($user->isPelanggan()) {
+            return $user->wajib_ganti_password ? '/akun-saya/password-baru' : '/akun-saya';
+        }
         foreach (self::MENU as $key => [, $halaman]) {
             if ($user->can("$key.view")) {
                 return $halaman;
