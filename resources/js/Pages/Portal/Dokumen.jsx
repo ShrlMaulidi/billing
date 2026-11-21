@@ -17,10 +17,10 @@ export default function Dokumen({ jenis, pembayaranId, tagihan, kwitansi }) {
         <>
             <PageHeader title={invoice ? 'Invoice' : 'Kuitansi Pembayaran'} home="/akun-saya" crumbs={[{ label: 'Riwayat Tagihan', href: '/akun-saya/riwayat' }]} />
             <div className="container-fluid">
-                <div className="d-flex flex-wrap gap-2 mb-3 no-print">
+                <div className="portal-dokumen-aksi mb-3 no-print">
                     <Link href="/akun-saya/riwayat" className="btn btn-light"><ArrowLeft size={14} className="me-1" />Kembali</Link>
                     <Button color="primary" onClick={() => window.print()}><Printer size={14} className="me-1" />Cetak / Simpan PDF</Button>
-                    <Link href={`/akun-saya/riwayat/${pembayaranId}/${invoice ? 'kuitansi' : 'invoice'}`} className="btn btn-outline-primary ms-sm-auto">
+                    <Link href={`/akun-saya/riwayat/${pembayaranId}/${invoice ? 'kuitansi' : 'invoice'}`} className="btn btn-outline-primary portal-dokumen-lain">
                         <FileText size={14} className="me-1" />Lihat {invoice ? 'Kuitansi' : 'Invoice'}
                     </Link>
                 </div>

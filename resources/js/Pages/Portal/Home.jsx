@@ -113,9 +113,10 @@ function TagihanBulanIni({ langganan: p, bulanIni, hariIni, tampilLangganan, onD
                 {!t && !lunas && <p className="mb-0 f-light">Belum ada tagihan untuk bulan ini.</p>}
 
                 {tunggakan.length > 0 && (
-                    <div className="alert alert-light-danger mt-3 mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                        <span><AlertCircle size={16} className="me-1" />Masih ada <strong>{tunggakan.length} tagihan bulan sebelumnya</strong> ({rupiah(tunggakan.reduce((s, x) => s + (x.nominal ?? 0), 0))}) yang belum dibayar.</span>
-                        <a href="#semua-tagihan" className="fw-semibold">Lihat semua</a>
+                    <div className="alert alert-light-danger portal-alert mt-3 mb-0">
+                        <AlertCircle size={18} />
+                        <span className="flex-grow-1">Masih ada <strong>{tunggakan.length} tagihan bulan sebelumnya</strong> ({rupiah(tunggakan.reduce((s, x) => s + (x.nominal ?? 0), 0))}) yang belum dibayar.</span>
+                        <a href="#semua-tagihan" className="fw-semibold text-nowrap">Lihat semua</a>
                     </div>
                 )}
             </CardBody>

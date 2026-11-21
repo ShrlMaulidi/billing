@@ -12,13 +12,13 @@ export default function InvoiceTagihan({ tagihan: t, aksi }) {
     return (
         <div className="invoice-paper mb-4">
             {/* Kop: logo & nama usaha | judul, tanggal, status */}
-            <div className="d-flex flex-wrap justify-content-between gap-4 mb-4">
-                <div>
+            <div className="inv-kop d-flex flex-wrap justify-content-between gap-4 mb-4">
+                <div className="inv-kop-kiri">
                     <img src="/cuba/images/logo/logo.png" alt="MSS" className="inv-logo" />
                     <h4 className="mt-2 mb-0 fw-bold">{t.cabang?.nama_lokasi ?? 'MSS Billing'}</h4>
                     <div className="inv-accent fw-semibold">Internet Service Provider</div>
                 </div>
-                <div className="text-sm-end">
+                <div className="inv-kop-kanan text-sm-end">
                     <div className="inv-title">INVOICE</div>
                     <div className="fw-bold mt-2">{tanggal(t.periode_pembayaran)}</div>
                     <div className="small">No. {t.no_tagihan}</div>
@@ -27,7 +27,7 @@ export default function InvoiceTagihan({ tagihan: t, aksi }) {
             </div>
 
             {/* Alamat kantor (cabang) | pelanggan */}
-            <div className="row g-4 mb-4">
+            <div className="inv-alamat row g-4 mb-4">
                 <div className="col-sm-6">
                     <div className="inv-label">Alamat Kantor</div>
                     <div>{t.cabang?.alamat_lokasi ?? '-'}</div>

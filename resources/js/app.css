@@ -416,6 +416,26 @@ body.dark-only .btn-action-dark { --c: #a9a9c0; }
   .invoice-paper .inv-total span:first-child { white-space: nowrap; }
   .invoice-paper .inv-footer { margin-top: 20px; }
   .invoice-paper .inv-ttd { min-width: 0; width: 100%; }
+  /* Kop ringkas: logo & nama cabang di kiri, judul + nomor + cap di kanan (tidak turun ke bawah) */
+  .invoice-paper .inv-kop { flex-wrap: nowrap; gap: 12px; margin-bottom: 18px !important; }
+  .invoice-paper .inv-kop-kiri { min-width: 0; }
+  .invoice-paper .inv-kop-kiri h4 { font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+  .invoice-paper .inv-kop-kiri .inv-accent { font-size: 12px; }
+  .invoice-paper .inv-kop-kanan { flex-shrink: 0; text-align: right; font-size: 12.5px; }
+  .invoice-paper .inv-kop-kanan .fw-bold.mt-2 { margin-top: 4px !important; }
+  .invoice-paper .inv-logo { height: 38px; }
+  .invoice-paper .inv-title { font-size: 24px; }
+  /* Alamat kantor & pelanggan bertumpuk, dipisah garis tipis */
+  .invoice-paper .inv-alamat { --bs-gutter-y: 12px; margin-bottom: 18px !important; }
+  .invoice-paper .inv-alamat > div + div { padding-top: 12px; border-top: 1px dashed rgba(59, 63, 74, .25); }
+  .invoice-paper .inv-summary td.pe-4 { padding-right: 12px !important; }
+  /* Total: label boleh turun baris agar nominal tidak terpotong di layar sempit */
+  .invoice-paper .inv-total { font-size: 15px; flex-wrap: wrap; row-gap: 2px; }
+  .invoice-paper .inv-total span:first-child { white-space: normal; }
+  .invoice-paper .inv-penutup { flex-direction: column; align-items: stretch !important; gap: 12px !important; }
+  .invoice-paper .inv-footer { --bs-gutter-y: 12px; }
+  /* Di dalam modal (detail tagihan) kertas tidak perlu bayangan & padding ganda */
+  .modal-body .invoice-paper { padding: 16px 12px; box-shadow: none; border: 1px solid rgba(59, 63, 74, .12); margin-bottom: 0 !important; }
 }
 @media print { .invoice-paper .inv-col-opt { display: table-cell !important; } }
 @page { margin: 12mm 10mm; }
@@ -657,6 +677,11 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
 /* Dashboard pelanggan (Layouts/PortalLayout.jsx, Pages/Portal/*) & tiket (Components/PercakapanTiket.jsx), di atas template Cuba */
 .portal-sapa { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 12px; font-size: 13px; }
 .portal-hero { border-left: 5px solid var(--theme-default); }
+/* Kotak peringatan berikon di dalam kartu: Cuba memberi svg position:absolute (.card-body .alert svg) sehingga menimpa teks */
+.card-body .alert.portal-alert { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; }
+.card-body .alert.portal-alert svg { position: static; flex-shrink: 0; width: 18px; height: 18px; margin: 1px 0 0; }
+.portal-dokumen-aksi { display: flex; flex-wrap: wrap; gap: 8px; }
+.portal-dokumen-lain { margin-left: auto; }
 .portal-hero.is-due { border-left-color: #dc3545; background: linear-gradient(135deg, rgba(220, 53, 69, .07), transparent 60%); }
 .portal-hero.is-paid { border-left-color: #198754; background: linear-gradient(135deg, rgba(25, 135, 84, .07), transparent 60%); }
 .portal-hero-label { font-size: 13px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: #8a8fa3; }
@@ -683,6 +708,10 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
 .tiket-bubble-head small { color: #8a8fa3; }
 .tiket-bubble-body { white-space: pre-wrap; word-break: break-word; }
 @media (max-width: 575.98px) {
+    .portal-dokumen-aksi { display: grid; grid-template-columns: 1fr 1fr; }
+    .portal-dokumen-aksi .btn { width: 100%; }
+    .portal-dokumen-lain { grid-column: 1 / -1; margin-left: 0; }
+    .page-body .invoice-paper { box-shadow: 0 4px 16px rgba(15, 23, 42, .08); }
     .portal-hero-nominal { font-size: 28px; }
     .portal-hero-aksi { width: 100%; flex-direction: column-reverse; }
     .portal-hero-aksi > *, .portal-hero-aksi .btn { width: 100%; }

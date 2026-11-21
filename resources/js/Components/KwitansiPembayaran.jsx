@@ -18,13 +18,13 @@ export default function KwitansiPembayaran({ kwitansi: k }) {
             <div className="inv-watermark" aria-hidden="true">LUNAS</div>
 
             {/* Kop: logo & nama usaha | judul, tanggal bayar, status */}
-            <div className="d-flex flex-wrap justify-content-between gap-4 mb-4">
-                <div>
+            <div className="inv-kop d-flex flex-wrap justify-content-between gap-4 mb-4">
+                <div className="inv-kop-kiri">
                     <img src="/cuba/images/logo/logo.png" alt="MSS" className="inv-logo" />
                     <h4 className="mt-2 mb-0 fw-bold">{k.cabang?.nama_lokasi ?? 'MSS Billing'}</h4>
                     <div className="inv-accent fw-semibold">Internet Service Provider</div>
                 </div>
-                <div className="text-sm-end">
+                <div className="inv-kop-kanan text-sm-end">
                     <div className="inv-title">KWITANSI</div>
                     <div className="fw-semibold small">Bukti Pembayaran</div>
                     <div className="fw-bold mt-2">{waktu(k.paid_at)}</div>
@@ -34,7 +34,7 @@ export default function KwitansiPembayaran({ kwitansi: k }) {
             </div>
 
             {/* Alamat kantor (cabang) | pembayar */}
-            <div className="row g-4 mb-4">
+            <div className="inv-alamat row g-4 mb-4">
                 <div className="col-sm-6">
                     <div className="inv-label">Alamat Kantor</div>
                     <div>{k.cabang?.alamat_lokasi ?? '-'}</div>
@@ -96,7 +96,7 @@ export default function KwitansiPembayaran({ kwitansi: k }) {
             </div>
 
             {/* Tanda tangan & stempel penanggung jawab keuangan */}
-            <div className="d-flex flex-wrap justify-content-between align-items-end gap-4 mt-4">
+            <div className="inv-penutup d-flex flex-wrap justify-content-between align-items-end gap-4 mt-4">
                 <h6 className="inv-accent fw-bold mb-0">Terima kasih atas pembayaran Anda</h6>
                 <div className="inv-ttd small">
                     <div>Hormat kami,</div>
