@@ -87,9 +87,10 @@ class IsolirScript
     private function dasar(): array
     {
         $port = $this->opsi['port_proxy'];
-        $hostBilling = parse_url($this->opsi['url_isolir'], PHP_URL_HOST);
-        // redirect-to web proxy ditulis tanpa skema (RouterOS menambahkan http://)
-        $tujuan = preg_replace('#^https?://#', '', $this->opsi['url_isolir']);
+        $url = $this->opsi['url_isolir'];
+        $hostBilling = parse_url($url, PHP_URL_HOST);
+        // redirect-to (v6) ditulis tanpa skema karena RouterOS menambahkan http://; action-data (v7) memakai URL lengkap
+        $tujuanV6 = preg_replace('#^https?://#', '', $url);
         $tag = 'comment="'.self::TAG.'"';
 
         $izin = array_map(
@@ -116,7 +117,10 @@ class IsolirScript
             "/ip proxy set enabled=yes port=$port",
             "/ip proxy access remove [find $tag]",
             "/ip proxy access add dst-host={$this->q($hostBilling)} action=allow $tag",
-            "/ip proxy access add action=deny redirect-to={$this->q($tujuan)} $tag",
+            $this->perVersi(
+                v6: "/ip proxy access add action=deny redirect-to={$this->q($tujuanV6)} $tag",
+                v7: "/ip proxy access add action=redirect action-data={$this->q($url)} $tag",
+            ),
             '',
             '# 3. Arahkan HTTP pelanggan isolir ke web proxy',
             "/ip firewall nat remove [find $tag]",
@@ -135,6 +139,16 @@ class IsolirScript
         $add = "$menu add $aturan comment=\"".self::TAG.'"';
 
         return "{ :local r [$menu find where dynamic=no]; :if ([:len \$r] > 0) do={ $add place-before=[:pick \$r 0] } else={ $add } }";
+    }
+
+    /**
+     * Jalankan perintah sesuai versi RouterOS router. Dibungkus :parse karena parser RouterOS menolak
+     * parameter yang tidak dikenal versinya walau berada di cabang :if yang tidak dijalankan.
+     */
+    private function perVersi(string $v6, string $v7): string
+    {
+        return ':if ([:pick [/system resource get version] 0 1] = "6") do={ :local c [:parse '.$this->q($v6).']; $c }'
+            .' else={ :local c [:parse '.$this->q($v7).']; $c }';
     }
 
     /** Add bila belum ada, set bila sudah ada (pool/profile tidak dihapus karena bisa sedang dipakai). */
