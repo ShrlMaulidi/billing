@@ -253,6 +253,27 @@ class AkunPelangganTest extends TestCase
         $this->assertNull($rusak->fresh()->user_id);
     }
 
+    public function test_backfill_command_creates_account_without_branch_when_customer_branch_no_longer_exists(): void
+    {
+        $yatim = Pelanggan::create(['nama' => 'Pelanggan Lama', 'tlp' => '081300009999', 'id_lokasi' => 999, 'router_id' => $this->router->id]);
+
+        $this->artisan('pelanggan:buat-akun')->assertSuccessful()->expectsOutputToContain('cabangnya tidak ditemukan');
+
+        $akun = $yatim->fresh()->user;
+        $this->assertSame(['081300009999', null], [$akun->username, $akun->id_lokasi]);
+    }
+
+    public function test_released_account_no_longer_blocks_deleting_its_branch(): void
+    {
+        $this->actingAs($this->admin)->postJson('/pelanggan', $this->data())->assertOk();
+        $pelanggan = Pelanggan::firstWhere('nama', 'Budi Santoso');
+        $pelanggan->update(['status' => 'berhenti']);
+        $this->deleteJson("/pelanggan/{$pelanggan->id}", ['permanen' => 1])->assertOk();
+
+        $this->deleteJson("/cabang/{$this->lokasi->id}")->assertOk();
+        $this->assertNull(User::firstWhere('username', '081234567890')->id_lokasi);
+    }
+
     /** Akun pelanggan Budi (081234567890) yang dibuat lewat form Data Pelanggan. */
     private function akunPelanggan(): User
     {

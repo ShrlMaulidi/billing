@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Lokasi;
 use App\Models\Pelanggan;
 use App\Models\User;
 use App\Support\NomorHp;
@@ -31,6 +32,7 @@ class AkunPelanggan
     public function sinkronkan(Pelanggan $pelanggan): User
     {
         $username = NomorHp::normalkan((string) $pelanggan->tlp);
+        $cabang = self::cabangAda($pelanggan->id_lokasi);
         $user = User::firstWhere('username', $username);
         if ($user && ! $user->isPelanggan()) {
             throw ValidationException::withMessages(['tlp' => 'No. telepon ini sudah dipakai sebagai username user aplikasi']);
@@ -39,16 +41,16 @@ class AkunPelanggan
         if (! $user) {
             $user = User::create([
                 'name' => $pelanggan->nama, 'username' => $username, 'tlp' => $pelanggan->tlp,
-                'id_lokasi' => $pelanggan->id_lokasi, 'password' => $username, 'wajib_ganti_password' => true,
+                'id_lokasi' => $cabang, 'password' => $username, 'wajib_ganti_password' => true,
             ]);
             $user->assignRole(Role::findOrCreate(self::ROLE, 'web'));
         } elseif ($user->pelanggan()->whereKeyNot($pelanggan->id)->doesntExist() && $pelanggan->user_id !== $user->id) {
             // Akun nomor ini sedang tidak dipakai siapa pun: anggap pemilik baru, kembalikan ke password awal
-            $user->update(['name' => $pelanggan->nama, 'tlp' => $pelanggan->tlp, 'id_lokasi' => $pelanggan->id_lokasi, 'status' => 'aktif', 'password' => $username, 'wajib_ganti_password' => true]);
+            $user->update(['name' => $pelanggan->nama, 'tlp' => $pelanggan->tlp, 'id_lokasi' => $cabang, 'status' => 'aktif', 'password' => $username, 'wajib_ganti_password' => true]);
             $user->putusSesi();
         } elseif ($user->pelanggan()->whereKeyNot($pelanggan->id)->doesntExist()) {
             // Akun milik pelanggan ini saja: ikuti nama & cabangnya
-            $user->update(['name' => $pelanggan->nama, 'tlp' => $pelanggan->tlp, 'id_lokasi' => $pelanggan->id_lokasi]);
+            $user->update(['name' => $pelanggan->nama, 'tlp' => $pelanggan->tlp, 'id_lokasi' => $cabang]);
         }
 
         $lama = $pelanggan->user_id;
@@ -68,8 +70,15 @@ class AkunPelanggan
         if (! $user?->isPelanggan() || $user->pelanggan()->exists() || $user->status !== 'aktif') {
             return;
         }
-        $user->update(['status' => 'nonaktif']);
+        // Lepas juga dari cabangnya agar tidak menghalangi penghapusan cabang
+        $user->update(['status' => 'nonaktif', 'id_lokasi' => null]);
         $user->putusSesi();
+    }
+
+    /** Cabang pelanggan bila masih ada; data lama bisa menunjuk cabang yang sudah dihapus (akun dibuat tanpa cabang). */
+    public static function cabangAda(?int $idLokasi): ?int
+    {
+        return $idLokasi !== null && Lokasi::whereKey($idLokasi)->exists() ? $idLokasi : null;
     }
 
     /** Kembalikan password ke nomor HP (username), wajib dibuat ulang saat login berikutnya, dan keluarkan dari semua sesi. */

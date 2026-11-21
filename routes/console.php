@@ -8,6 +8,7 @@ use App\Services\AkunPelanggan;
 use App\Support\NomorHp;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 use Spatie\Permission\Models\Role;
 
@@ -63,9 +64,10 @@ Artisan::command('user:create {username} {--name= : Nama tampilan} {--role=Super
 // Pelanggan bernomor HP tidak valid, atau nomornya dipakai username user staf, dilewati dan ditampilkan.
 Artisan::command('pelanggan:buat-akun', function (AkunPelanggan $akunPelanggan) {
     $dilewati = [];
+    $tanpaCabang = [];
     $dibuat = 0;
     Pelanggan::whereNull('user_id')->where('status', '!=', 'berhenti')->lazyById()
-        ->each(function (Pelanggan $p) use ($akunPelanggan, &$dilewati, &$dibuat) {
+        ->each(function (Pelanggan $p) use ($akunPelanggan, &$dilewati, &$tanpaCabang, &$dibuat) {
             $alasan = match (true) {
                 ! NomorHp::sah((string) $p->tlp) => 'nomor HP tidak valid',
                 AkunPelanggan::dipakaiUserLain((string) $p->tlp) => 'nomor HP dipakai username user staf',
@@ -76,14 +78,22 @@ Artisan::command('pelanggan:buat-akun', function (AkunPelanggan $akunPelanggan) 
 
                 return;
             }
-            $akunPelanggan->sinkronkan($p);
+            // Satu transaksi per pelanggan: gagal di tengah tidak meninggalkan akun setengah jadi
+            DB::transaction(fn () => $akunPelanggan->sinkronkan($p));
             $dibuat++;
+            if ($p->id_lokasi !== null && AkunPelanggan::cabangAda($p->id_lokasi) === null) {
+                $tanpaCabang[] = [$p->id_pelanggan, $p->nama, $p->id_lokasi];
+            }
         });
 
     $this->info("{$dibuat} pelanggan dihubungkan ke akun login.");
     if ($dilewati) {
         $this->warn(count($dilewati).' pelanggan dilewati, perbaiki No. telepon-nya lewat Data Pelanggan lalu jalankan lagi:');
         $this->table(['ID', 'Nama', 'Tlp', 'Alasan'], $dilewati);
+    }
+    if ($tanpaCabang) {
+        $this->warn(count($tanpaCabang).' pelanggan cabangnya tidak ditemukan (sudah dihapus). Akunnya tetap dibuat; perbaiki cabangnya lewat Data Pelanggan:');
+        $this->table(['ID', 'Nama', 'ID Cabang'], $tanpaCabang);
     }
 
     return 0;
