@@ -53,6 +53,7 @@ export default function Sidebar({ closed, onToggle }) {
                                                 <Link href={item.href} prefetch={NAV_PREFETCH} onClick={closeOnMobile} className={`sidebar-link sidebar-title link-nav ${isActive(item.href) ? 'active' : ''}`}>
                                                     <Icon id={item.icon} />
                                                     <span>{item.title}</span>
+                                                    {item.badge && props[item.badge] > 0 && <span className="badge rounded-pill badge-danger menu-badge">{props[item.badge]}</span>}
                                                 </Link>
                                             </li>
                                         );

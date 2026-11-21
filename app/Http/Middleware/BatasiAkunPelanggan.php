@@ -14,8 +14,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class BatasiAkunPelanggan
 {
-    /** Route ber-login yang boleh dibuka akun pelanggan. */
-    private const ROUTE_BOLEH = ['akun-saya', 'akun-saya.password-baru', 'akun-saya.password', 'logout'];
+    /** Route ber-login yang boleh dibuka akun pelanggan: dashboard pelanggan (akun-saya*) & logout. */
+    private const AWALAN_BOLEH = 'akun-saya';
 
     /** Route yang masih boleh dibuka selama pelanggan belum membuat password baru. */
     private const ROUTE_PASSWORD_AWAL = ['akun-saya.password-baru', 'akun-saya.password', 'logout'];
@@ -37,7 +37,8 @@ class BatasiAkunPelanggan
 
             return redirect('/akun-saya/password-baru');
         }
-        if (! in_array($route->getName(), self::ROUTE_BOLEH, true)) {
+        $nama = (string) $route->getName();
+        if ($nama !== 'logout' && $nama !== self::AWALAN_BOLEH && ! str_starts_with($nama, self::AWALAN_BOLEH.'.')) {
             abort_if($request->expectsJson() || ! $request->isMethod('GET'), 403, 'Anda tidak memiliki akses ke fitur ini');
 
             return redirect('/akun-saya');

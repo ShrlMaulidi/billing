@@ -1,7 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ArrowDownCircle, ArrowUpCircle, Bell, Box, CheckCircle, Circle, CreditCard, Database, FileText, GitBranch, Key, List, LogOut, Map, MapPin, Menu, Percent, Server, Shield,
+    ArrowDownCircle, ArrowUpCircle, Bell, LifeBuoy, Box, CheckCircle, Circle, CreditCard, Database, FileText, GitBranch, Key, List, LogOut, Map, MapPin, Menu, Percent, Server, Shield,
     ShoppingBag, Slash, UploadCloud, User, UserCheck, Users, UserX, X, XCircle, Zap,
 } from 'react-feather';
 import { MENU, menuUntuk } from '../lib/menu';
@@ -21,7 +21,7 @@ const SHEET_ICON = {
     '/kelola-data/paket': Box, '/kelola-data/router': Server, '/kelola-data/rekening': Database, '/kelola-data/notifikasi': Bell,
     '/kelola-data/pph': UploadCloud, '/kelola-data/tunnel': GitBranch, '/transaksi/penarikan-saldo': ArrowUpCircle,
     '/transaksi/setor-kewajiban': ArrowDownCircle, '/transaksi/pengeluaran': ShoppingBag, '/payment-gateway': Zap, '/logs': List,
-    '/user/manajemen': Users, '/user/hak-akses': Shield, '/data-pelanggan': Users,
+    '/user/manajemen': Users, '/user/hak-akses': Shield, '/data-pelanggan': Users, '/tiket': LifeBuoy, '/user/akun-pelanggan': UserCheck,
     '/laporan/mitra': FileText, '/laporan/pemerintah': FileText, '/laporan/korporat': FileText, '/laporan/shafa-net': FileText,
 };
 
@@ -73,6 +73,8 @@ export default function MobileNav() {
                     })}
                 </div>
                 <button type="button" className={`mnav-menu ${open || sheetHrefs.includes(path) ? 'active' : ''}`} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>
+                    {/* Titik merah: ada tiket baru di menu lainnya */}
+                    {props.tiketBaru > 0 && <span className="mnav-dot" aria-label={`${props.tiketBaru} tiket baru`} />}
                     <Menu />
                     <span>Menu</span>
                 </button>
@@ -94,7 +96,7 @@ export default function MobileNav() {
                                     const IconCmp = SHEET_ICON[i.href] ?? Circle;
                                     return (
                                         <Link key={i.href} href={i.href} prefetch className={`msheet-item ${path === i.href ? 'active' : ''}`} tabIndex={open ? 0 : -1}>
-                                            <span className="msheet-icon"><IconCmp size={20} /></span>
+                                            <span className="msheet-icon"><IconCmp size={20} />{i.badge && props[i.badge] > 0 && <span className="badge rounded-pill badge-danger msheet-badge">{props[i.badge]}</span>}</span>
                                             <span>{i.title}</span>
                                         </Link>
                                     );

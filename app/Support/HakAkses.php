@@ -32,6 +32,7 @@ class HakAkses
         'pelanggan.berhenti' => ['Pelanggan › Pelanggan Berhenti', '/pelanggan/berhenti', ['view']],
         'pelanggan.prorate' => ['Pelanggan › Tagihan Prorate', '/pelanggan/prorate', ['view']],
         'pelanggan.pembayaran' => ['Pelanggan › Pembayaran (Lihat = riwayat & kwitansi, Tambah = input, Ubah = edit, Hapus = batalkan)', '/pelanggan', self::CRUD],
+        'tiket' => ['Tiket (keluhan dari pelanggan, per cabang; Ubah = balas & ubah status)', '/tiket', ['view', 'update']],
         'kelola_data.kartu_member' => ['Kelola Data › Kartu Member', '/kelola-data/kartu-member', ['view', 'export']],
         'kelola_data.cabang' => ['Kelola Data › Cabang / Lokasi (tambah cabang lewat Data Klien)', '/kelola-data/cabang', ['view', 'update', 'delete']],
         'kelola_data.area' => ['Kelola Data › Area', '/kelola-data/area', self::CRUD],
@@ -82,9 +83,9 @@ class HakAkses
     {
         return match ($role) {
             'Admin' => self::untukMenu(array_diff(array_keys(self::MENU), self::KHUSUS_SUPER_ADMIN)),
-            'Mitra' => self::untukMenu(['dashboard', 'dashboard_cabang', 'laporan', 'laporan.mitra', 'transaksi.penarikan', 'transaksi.setor', 'transaksi.pengeluaran'], ['view', 'create', 'update']),
+            'Mitra' => self::untukMenu(['dashboard', 'dashboard_cabang', 'tiket', 'laporan', 'laporan.mitra', 'transaksi.penarikan', 'transaksi.setor', 'transaksi.pengeluaran'], ['view', 'create', 'update']),
             'Sales' => ['dashboard.view', 'pelanggan.data.view', 'pelanggan.data.create'],
-            'Teknisi' => ['dashboard.view', 'pelanggan.data.view', 'pelanggan.on.view', 'pelanggan.off.view'],
+            'Teknisi' => ['dashboard.view', 'pelanggan.data.view', 'pelanggan.on.view', 'pelanggan.off.view', 'tiket.view', 'tiket.update'],
             default => [],
         };
     }

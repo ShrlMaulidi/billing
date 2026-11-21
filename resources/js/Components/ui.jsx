@@ -10,6 +10,7 @@ const STATUS_COLOR = {
     lunas: 'success', belum_lunas: 'danger', sebagian: 'warning', pending: 'warning', menunggu_verifikasi: 'warning',
     disetujui: 'success', diterima: 'success', dibayar: 'primary', ditolak: 'danger', online: 'success', offline: 'danger',
     connected: 'success', disconnected: 'danger', true: 'success', false: 'secondary', berlangganan: 'success',
+    baru: 'warning', diproses: 'primary', selesai: 'success',
 };
 const STATUS_TEXT = { true: 'Ya', false: 'Tidak', connected: 'Terhubung', disconnected: 'Terputus', on: 'On', off: 'Off' };
 

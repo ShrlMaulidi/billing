@@ -77,6 +77,27 @@ class CekTagihanController extends Controller
         ]);
     }
 
+    /**
+     * Satu periode lunas di riwayat (Cek Tagihan & Akun Saya), dengan link kwitansi bertanda tangan.
+     * Muat relasi rekening & transaksiMidtrans lebih dulu agar keterangan metode tidak N+1.
+     *
+     * @return array<string, mixed>
+     */
+    public static function barisLunas(Pembayaran $b): array
+    {
+        return [
+            'id' => $b->id,
+            'no_invoice' => $b->no_invoice,
+            'periode' => $b->periode,
+            'periode_pembayaran' => $b->periodePembayaran(),
+            'paid_at' => $b->paid_at?->toDateString(),
+            'jml_bayar' => $b->jml_bayar,
+            'metode' => $b->metode,
+            'metode_label' => $b->keteranganMetode(),
+            'link_kwitansi' => self::linkKwitansi($b),
+        ];
+    }
+
     /** Link kwitansi publik yang tidak bisa diubah ke pembayaran lain dan kedaluwarsa setelah JAM_LINK_KWITANSI. */
     public static function linkKwitansi(Pembayaran $pembayaran): string
     {
@@ -114,16 +135,7 @@ class CekTagihanController extends Controller
                         ? ['metode' => Pembayaran::KANAL_MIDTRANS[$trx->payment_type] ?? null] : null,
                 ])->all(),
                 // Riwayat lunas: periode ini tidak bisa dibayar lagi, kwitansi bisa dibuka
-                'lunas' => $p->pembayaran->sortByDesc('periode')->take(self::MAKS_RIWAYAT)->map(fn (Pembayaran $b) => [
-                    'no_invoice' => $b->no_invoice,
-                    'periode' => $b->periode,
-                    'periode_pembayaran' => $b->periodePembayaran(),
-                    'paid_at' => $b->paid_at?->toDateString(),
-                    'jml_bayar' => $b->jml_bayar,
-                    'metode' => $b->metode,
-                    'metode_label' => $b->keteranganMetode(),
-                    'link_kwitansi' => self::linkKwitansi($b),
-                ])->values(),
+                'lunas' => $p->pembayaran->sortByDesc('periode')->take(self::MAKS_RIWAYAT)->map(fn (Pembayaran $b) => self::barisLunas($b))->values(),
                 // Bayar online bila cabang punya akun Midtrans aktif: gateway perusahaan, atau gateway sendiri untuk cabang Admin Full
                 'bayar_online' => $bayarOnline[(int) $p->id_lokasi],
                 'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $p->id_lokasi))

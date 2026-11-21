@@ -19,9 +19,11 @@ use App\Http\Controllers\PaymentGatewayController;
 use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\PortalPelangganController;
+use App\Http\Controllers\PortalTiketController;
 use App\Http\Controllers\RekeningController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\SistemController;
+use App\Http\Controllers\TiketController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\TunnelController;
 use App\Http\Controllers\UserController;
@@ -59,12 +61,30 @@ Route::middleware('auth')->group(function () {
     // Profil sendiri boleh dibuka semua user yang login
     Route::get('/profil', [SistemController::class, 'profil'])->name('profil');
 
-    // Halaman Akun Saya khusus akun pelanggan (dibuat otomatis dari Data Pelanggan); akun pelanggan ditolak di semua menu staf
-    Route::prefix('akun-saya')->middleware('role:'.AkunPelanggan::ROLE)->controller(PortalPelangganController::class)->group(function () {
-        Route::get('/', 'index')->name('akun-saya');
-        // Login pertama / setelah password di-reset: wajib membuat password baru (lihat BatasiAkunPelanggan)
-        Route::get('/password-baru', 'passwordBaru')->name('akun-saya.password-baru');
-        Route::put('/password', 'gantiPassword')->middleware('throttle:6,1')->name('akun-saya.password');
+    // Dashboard pelanggan khusus akun pelanggan (dibuat otomatis dari Data Pelanggan); akun pelanggan ditolak di semua menu staf
+    Route::prefix('akun-saya')->middleware('role:'.AkunPelanggan::ROLE)->group(function () {
+        Route::controller(PortalPelangganController::class)->group(function () {
+            Route::get('/', 'index')->name('akun-saya');
+            Route::get('/riwayat', 'riwayat')->name('akun-saya.riwayat');
+            Route::get('/akun', 'akun')->name('akun-saya.akun');
+            // Login pertama / setelah password di-reset: wajib membuat password baru (lihat BatasiAkunPelanggan)
+            Route::get('/password-baru', 'passwordBaru')->name('akun-saya.password-baru');
+            Route::put('/password', 'gantiPassword')->middleware('throttle:6,1')->name('akun-saya.password');
+        });
+        Route::prefix('tiket')->name('akun-saya.tiket')->controller(PortalTiketController::class)->group(function () {
+            Route::get('/', 'index');
+            Route::post('/', 'store')->middleware('throttle:10,1')->name('.store');
+            Route::get('/{tiket}', 'show')->whereNumber('tiket')->name('.show');
+            Route::post('/{tiket}/pesan', 'balas')->whereNumber('tiket')->middleware('throttle:20,1')->name('.balas');
+        });
+    });
+
+    // Tiket dari dashboard pelanggan; user cabang hanya tiket cabangnya (dicek di controller)
+    Route::prefix('tiket')->name('tiket.')->controller(TiketController::class)->group(function () {
+        Route::get('/', 'index')->middleware('permission:tiket.view')->name('index');
+        Route::get('/{tiket}', 'show')->whereNumber('tiket')->middleware('permission:tiket.view')->name('show');
+        Route::post('/{tiket}/pesan', 'balas')->whereNumber('tiket')->middleware('permission:tiket.update')->name('balas');
+        Route::put('/{tiket}/status', 'status')->whereNumber('tiket')->middleware('permission:tiket.update')->name('status');
     });
 
     // Akun login pelanggan (terpisah dari Manajemen User); user cabang hanya akun pelanggan cabangnya

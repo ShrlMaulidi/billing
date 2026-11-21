@@ -11,6 +11,21 @@ const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
 export const linkWa = (pesan) => `https://wa.me/${WA_MARKETING}?text=${encodeURIComponent(pesan)}`;
 
 /**
+ * Buat (atau lanjutkan) pembayaran online Midtrans satu invoice lalu arahkan browser ke halaman pembayarannya.
+ * ganti = hentikan pembayaran yang menunggu dibayar agar bisa memilih metode lain. Nominal dihitung ulang di server.
+ * Gagal → melempar pesan yang siap ditampilkan.
+ */
+export async function bayarOnline(idPelanggan, periodeTagihan, ganti = false) {
+    try {
+        const res = await api('POST', '/cek-tagihan/bayar', { id_pelanggan: idPelanggan, periode: periodeTagihan, ganti });
+        if (!res.redirect_url) throw { message: 'Pembayaran online sedang tidak tersedia. Silakan coba lagi.' };
+        window.location.assign(res.redirect_url);
+    } catch (err) {
+        throw err.errors?.bayar?.[0] ?? err.message;
+    }
+}
+
+/**
  * Tombol bayar pada invoice. Bila pembayaran online aktif untuk pelanggan ini (Midtrans, cabang non Admin Full),
  * server membuat transaksi lalu browser diarahkan ke halaman pembayaran Midtrans; nominal dihitung ulang di server.
  * Bila sudah ada pembayaran yang menunggu dibayar (mis. QRIS), pelanggan bisa melanjutkannya atau mengganti metode:
@@ -32,11 +47,9 @@ function TombolBayar({ invoice, pelanggan }) {
         setProses(ganti ? 'ganti' : 'bayar');
         setGalat('');
         try {
-            const res = await api('POST', '/cek-tagihan/bayar', { id_pelanggan: pelanggan.id_pelanggan, periode: invoice.periode, ganti });
-            if (!res.redirect_url) throw { message: 'Pembayaran online sedang tidak tersedia. Silakan coba lagi.' };
-            window.location.assign(res.redirect_url);
-        } catch (err) {
-            setGalat(err.errors?.bayar?.[0] ?? err.message);
+            await bayarOnline(pelanggan.id_pelanggan, invoice.periode, ganti);
+        } catch (pesan) {
+            setGalat(pesan);
             setProses(null);
         }
     };

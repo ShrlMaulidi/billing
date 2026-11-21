@@ -8,6 +8,13 @@ export const MENU = [
         ],
     },
     {
+        title: 'Layanan Pelanggan',
+        items: [
+            // badge: jumlah tiket baru (prop bersama tiketBaru) untuk cabang user
+            { title: 'Tiket', icon: 'support-tickets', href: '/tiket', izin: 'tiket.view', badge: 'tiketBaru' },
+        ],
+    },
+    {
         title: 'Data & Transaksi',
         items: [
             { title: 'Data Klien', icon: 'social', href: '/data-pelanggan', izin: 'data_pelanggan.view', pusat: true },

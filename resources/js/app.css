@@ -646,6 +646,43 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 72px; }
     .lp-footer-inner .lp-login { margin-left: 0; }
 }
 
+/* Angka tiket baru di menu Tiket (sidebar & panel menu HP) */
+.sidebar-wrapper .sidebar-main .sidebar-links .sidebar-link .menu-badge { margin-left: auto; font-size: 11px; padding: 3px 7px; }
+.page-wrapper.compact-wrapper .page-body-wrapper .sidebar-wrapper.close_icon .menu-badge { display: none; }
+.msheet-icon { position: relative; }
+.msheet-badge { position: absolute; top: -6px; right: -8px; font-size: 10px; padding: 3px 6px; }
+.mnav-menu { position: relative; }
+.mnav-dot { position: absolute; top: 10px; right: 14px; width: 9px; height: 9px; border-radius: 50%; background: #dc3545; box-shadow: 0 0 0 2px #fff; }
+
+/* Dashboard pelanggan (Layouts/PortalLayout.jsx, Pages/Portal/*) & tiket (Components/PercakapanTiket.jsx), di atas template Cuba */
+.portal-sapa { background: linear-gradient(135deg, rgba(115, 102, 255, .12), rgba(115, 102, 255, .02)); }
+.portal-total { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; padding: 14px 16px; border-radius: 8px; background: rgba(220, 53, 69, .07); }
+.portal-total strong { font-size: 22px; color: #dc3545; }
+.portal-invoice-list { list-style: none; margin: 0; padding: 0; }
+.portal-invoice-list li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid rgba(106, 113, 133, .2); }
+.portal-invoice-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+.portal-invoice-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.portal-invoice-aksi { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.portal-langganan { padding: 14px 0; border-bottom: 1px solid rgba(106, 113, 133, .2); }
+.portal-langganan:first-child { padding-top: 0; }
+.portal-langganan:last-child { border-bottom: 0; padding-bottom: 0; }
+.portal-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+.portal-dl dt { font-weight: 500; color: #8a8fa3; }
+.portal-dl dd { margin: 0; word-break: break-word; }
+.tiket-chat { display: flex; flex-direction: column; gap: 12px; max-height: 60vh; overflow-y: auto; padding-right: 4px; }
+.tiket-bubble { max-width: 85%; align-self: flex-start; padding: 10px 14px; border-radius: 12px 12px 12px 4px; background: rgba(106, 113, 133, .1); }
+.tiket-bubble.is-mine { align-self: flex-end; border-radius: 12px 12px 4px 12px; background: rgba(115, 102, 255, .12); }
+.tiket-bubble-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-bottom: 4px; font-size: 13px; }
+.tiket-bubble-head small { color: #8a8fa3; }
+.tiket-bubble-body { white-space: pre-wrap; word-break: break-word; }
+@media (max-width: 575.98px) {
+    .portal-invoice-aksi { width: 100%; }
+    .portal-invoice-aksi > * { flex: 1 1 100%; }
+    .portal-invoice-aksi .btn { width: 100%; }
+    .portal-invoice-aksi > .d-inline-flex { align-items: stretch !important; }
+    .tiket-bubble { max-width: 100%; }
+}
+
 /* Cek tagihan publik (Pages/CekTagihan/Index.jsx), memakai variabel & komponen landing page */
 .ct { min-height: 100vh; display: flex; flex-direction: column; }
 .ct-bar { background: var(--navy); padding: 14px 0; }

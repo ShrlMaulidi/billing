@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Lokasi;
+use App\Models\Tiket;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -50,6 +51,10 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => fn () => $request->user()?->getAllPermissions()->pluck('name') ?? [],
                 'ip' => $request->ip(),
             ],
+            // Angka di menu Tiket: tiket baru (belum ditanggapi) di cabang user; user pusat menghitung semua cabang
+            'tiketBaru' => fn () => $request->user() && ! $request->user()->isPelanggan() && $request->user()->can('tiket.view')
+                ? Tiket::where('status', 'baru')->when($request->user()->id_lokasi, fn ($q, $cabang) => $q->where('id_lokasi', $cabang))->count()
+                : 0,
             // User cabang hanya melihat cabangnya sendiri
             'cabangOptions' => fn () => $request->user()
                 ? Lokasi::when($request->user()->id_lokasi, fn ($q, $id) => $q->whereKey($id))

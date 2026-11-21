@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Pelanggan;
+use App\Models\Pembayaran;
+use App\Models\Tiket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,19 +14,55 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Halaman Akun Saya untuk pelanggan yang login (role Pelanggan): tagihan, bayar online, dan riwayat pembayaran
- * semua langganan aktif bernomor HP akun ini, memakai data yang sama dengan Cek Tagihan (nama tampil lengkap).
+ * Dashboard pelanggan (role Pelanggan, prefix /akun-saya, tampilan template Cuba): Home berisi tagihan + Bayar Sekarang,
+ * Riwayat Tagihan, Tiket (PortalTiketController), dan Akun. Data hanya milik pelanggan yang memakai akun ini
+ * (pelanggan.user_id); tagihan memakai data yang sama dengan Cek Tagihan, dengan nama tampil lengkap.
  */
 class PortalPelangganController extends Controller
 {
+    /** Batas baris riwayat pembayaran (±5 tahun langganan bulanan untuk beberapa langganan). */
+    private const MAKS_RIWAYAT = 120;
+
     public function index(Request $request): Response
     {
         $user = $request->user();
         $pelanggan = CekTagihanController::query()->where('user_id', $user->id)->orderBy('nama')->get();
 
-        return Inertia::render('Portal/Index', [
-            'akun' => ['nama' => $user->name, 'username' => $user->username],
+        return Inertia::render('Portal/Home', [
             'hasil' => CekTagihanController::hasil($pelanggan, samarkanNama: false),
+            'tiketAktif' => Tiket::where('user_id', $user->id)->where('status', '!=', 'selesai')->count(),
+        ]);
+    }
+
+    /** Semua pembayaran lunas milik pelanggan akun ini (termasuk langganan yang sudah berhenti), terbaru dulu. */
+    public function riwayat(Request $request): Response
+    {
+        $pelanggan = Pelanggan::where('user_id', $request->user()->id)->orderBy('nama')->get(['id', 'id_pelanggan', 'nama']);
+        $rows = Pembayaran::with(['rekening:id,nama_rekening', 'transaksiMidtrans:id,pembayaran_id,payment_type'])
+            ->whereIn('pelanggan_id', $pelanggan->pluck('id'))
+            ->orderByDesc('periode')->orderByDesc('id')->limit(self::MAKS_RIWAYAT)->get()
+            ->map(fn (Pembayaran $b) => [
+                ...CekTagihanController::barisLunas($b),
+                'nama_paket' => $b->nama_paket,
+                'pelanggan' => $pelanggan->firstWhere('id', $b->pelanggan_id)?->only(['id_pelanggan', 'nama']),
+            ]);
+
+        return Inertia::render('Portal/Riwayat', ['rows' => $rows, 'jumlahLangganan' => $pelanggan->count()]);
+    }
+
+    /** Data akun & langganan, ganti password, dan pilihan navigasi di HP. */
+    public function akun(Request $request): Response
+    {
+        $user = $request->user();
+
+        return Inertia::render('Portal/Akun', [
+            'akun' => ['nama' => $user->name, 'username' => $user->username, 'last_login_at' => $user->last_login_at?->toDateTimeString()],
+            'langganan' => Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi'])->where('user_id', $user->id)->orderBy('nama')->get()
+                ->map(fn (Pelanggan $p) => [
+                    'id_pelanggan' => $p->id_pelanggan, 'nama' => $p->nama, 'alamat' => $p->alamat, 'status' => $p->status,
+                    'paket' => $p->paket?->nama_paket, 'harga' => $p->paket?->harga, 'cabang' => $p->lokasi?->nama_lokasi,
+                    'jns_tagihan' => $p->jns_tagihan, 'tgl_jatuh_tempo' => $p->tgl_jatuh_tempo, 'tgl_registrasi' => $p->tgl_registrasi?->toDateString(),
+                ]),
         ]);
     }
 

@@ -15,7 +15,8 @@ const preloadPages = () => {
     sudahPreload = true;
     (window.requestIdleCallback ?? ((cb) => setTimeout(cb, 1500)))(() => Object.values(pages).forEach((load) => load()));
 };
-const preloadBilaLogin = (page) => page?.props?.auth?.user && preloadPages();
+// Akun pelanggan hanya membuka dashboard pelanggan, jadi tidak perlu mengunduh JS halaman staf
+const preloadBilaLogin = (page) => page?.props?.auth?.user && page.props.auth.user.role !== 'Pelanggan' && preloadPages();
 
 createInertiaApp({
     title: (title) => (title ? `${title} · MSS Billing` : 'MSS Billing'),

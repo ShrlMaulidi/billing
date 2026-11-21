@@ -74,8 +74,7 @@ class AkunPelangganTest extends TestCase
         $this->assertFalse($akun->wajib_ganti_password);
         $this->assertTrue(Hash::check('rahasiaBaru1', $akun->password));
         $this->get('/akun-saya/password-baru')->assertRedirect('/akun-saya');
-        $this->get('/akun-saya')->assertOk()->assertInertia(fn ($page) => $page->component('Portal/Index')
-            ->where('akun.username', '081234567890')
+        $this->get('/akun-saya')->assertOk()->assertInertia(fn ($page) => $page->component('Portal/Home')
             ->has('hasil', 1)
             ->where('hasil.0.nama', 'Budi Santoso'));
     }

@@ -1,0 +1,103 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Lokasi;
+use App\Models\Paket;
+use App\Models\Pelanggan;
+use App\Models\Pembayaran;
+use App\Models\Router;
+use App\Models\Tiket;
+use App\Models\User;
+use App\Services\AkunPelanggan;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class PortalPelangganTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private Lokasi $lokasi;
+
+    private Router $router;
+
+    private Paket $paket;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->travelTo('2026-11-15 09:00:00');
+        $this->lokasi = Lokasi::create(['kode_lokasi' => 'C001', 'nama_lokasi' => 'MSS Garut']);
+        $this->router = Router::create([
+            'nama_router' => 'CCR Pusat', 'mode_koneksi' => 'langsung', 'host' => '203.0.113.10', 'port_api' => 8728,
+            'username' => 'billing', 'password' => 'rahasia', 'profile_isolir' => 'ISOLIR',
+        ]);
+        $this->paket = Paket::create(['nama_paket' => 'Home 20 Mbps', 'harga' => 200000, 'jenis' => 'bulanan', 'jns_koneksi' => 'static']);
+    }
+
+    public function test_home_shows_unpaid_invoices_of_own_subscriptions_only(): void
+    {
+        $budi = $this->pelanggan('Budi', '081234567890');
+        $this->bayar($budi, '2026-10-01');
+        $lain = $this->pelanggan('Orang Lain', '089900001111');
+        Tiket::create(['no_tiket' => 'TKT2611-00001', 'user_id' => $budi->user_id, 'pelanggan_id' => $budi->id, 'kategori' => 'gangguan', 'judul' => 'Lambat']);
+        Tiket::create(['no_tiket' => 'TKT2611-00002', 'user_id' => $lain->user_id, 'pelanggan_id' => $lain->id, 'kategori' => 'gangguan', 'judul' => 'Mati']);
+
+        $this->actingAs($budi->user)->get('/akun-saya')->assertOk()->assertInertia(fn ($page) => $page->component('Portal/Home')
+            ->has('hasil', 1)
+            ->where('hasil.0.nama', 'Budi')
+            ->has('hasil.0.tagihan', 1)
+            ->where('hasil.0.tagihan.0.periode', '2026-11-01')
+            ->where('hasil.0.tagihan.0.nominal', 200000)
+            ->where('tiketAktif', 1));
+    }
+
+    public function test_billing_history_lists_own_payments_with_receipt_link(): void
+    {
+        $budi = $this->pelanggan('Budi', '081234567890');
+        $this->bayar($budi, '2026-10-01');
+        $this->bayar($this->pelanggan('Orang Lain', '089900001111'), '2026-10-01');
+
+        $this->actingAs($budi->user)->get('/akun-saya/riwayat')->assertOk()->assertInertia(fn ($page) => $page->component('Portal/Riwayat')
+            ->has('rows', 1)
+            ->where('rows.0.periode', '2026-10-01')
+            ->where('rows.0.jml_bayar', 200000)
+            ->where('rows.0.link_kwitansi', fn (string $link) => str_contains($link, '/cek-tagihan/kwitansi/') && str_contains($link, 'signature=')));
+    }
+
+    public function test_account_page_lists_subscriptions_using_this_account(): void
+    {
+        $budi = $this->pelanggan('Budi', '081234567890');
+
+        $this->actingAs($budi->user)->get('/akun-saya/akun')->assertOk()->assertInertia(fn ($page) => $page->component('Portal/Akun')
+            ->where('akun.username', '081234567890')
+            ->has('langganan', 1)
+            ->where('langganan.0.paket', 'Home 20 Mbps')
+            ->where('langganan.0.cabang', 'MSS Garut'));
+    }
+
+    public function test_customer_pages_are_refused_for_staff(): void
+    {
+        $this->actingAs(User::factory()->create())->get('/akun-saya/riwayat')->assertForbidden();
+    }
+
+    /** Pelanggan aktif sejak Oktober 2026 dengan akun login yang sudah membuat password sendiri. */
+    private function pelanggan(string $nama, string $tlp): Pelanggan
+    {
+        $pelanggan = Pelanggan::create([
+            'nama' => $nama, 'tlp' => $tlp, 'id_lokasi' => $this->lokasi->id, 'router_id' => $this->router->id, 'jns_koneksi' => 'static',
+            'id_paket' => $this->paket->id, 'jns_tagihan' => 'prabayar', 'skema_tagihan' => 'full', 'tgl_registrasi' => '2026-10-01', 'status' => 'aktif',
+        ]);
+        app(AkunPelanggan::class)->sinkronkan($pelanggan)->update(['wajib_ganti_password' => false]);
+
+        return $pelanggan->fresh();
+    }
+
+    private function bayar(Pelanggan $pelanggan, string $periode): void
+    {
+        Pembayaran::create([
+            'pelanggan_id' => $pelanggan->id, 'id_lokasi' => $this->lokasi->id, 'periode' => $periode, 'jns_tagihan' => 'prabayar', 'nama_pelanggan' => $pelanggan->nama,
+            'nama_paket' => 'Home 20 Mbps', 'harga' => 200000, 'jml_bayar' => 200000, 'metode' => 'cash', 'paid_at' => '2026-10-05 10:00:00',
+        ]);
+    }
+}
