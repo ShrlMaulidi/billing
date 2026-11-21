@@ -35,12 +35,12 @@ export default function KwitansiPembayaran({ kwitansi: k }) {
 
             {/* Alamat kantor (cabang) | pembayar */}
             <div className="inv-alamat row g-4 mb-4">
-                <div className="col-sm-6">
+                <div className="col-6">
                     <div className="inv-label">Alamat Kantor</div>
                     <div>{k.cabang?.alamat_lokasi ?? '-'}</div>
                     {k.cabang?.tlp_lokasi && <div className="fw-semibold mt-2">{k.cabang.tlp_lokasi}</div>}
                 </div>
-                <div className="col-sm-6 text-sm-end">
+                <div className="col-6 text-end">
                     <div className="inv-label">Telah diterima dari :</div>
                     <div className="fw-bold">{k.nama_pelanggan}</div>
                     <div className="small">ID Pelanggan: {k.id_pelanggan ?? '-'}</div>
@@ -107,18 +107,18 @@ export default function KwitansiPembayaran({ kwitansi: k }) {
             </div>
 
             <div className="inv-footer row g-3">
-                <div className="col-sm-4">
+                <div className="col-6 col-sm-4">
                     <h6>Pertanyaan?</h6>
                     <div>Telepon : {k.cabang?.tlp_lokasi ?? '-'}</div>
                     <div>Kantor : {k.cabang?.nama_lokasi ?? '-'}</div>
                 </div>
-                <div className="col-sm-4">
+                <div className="col-6 col-sm-4 text-end text-sm-start">
                     <h6>Info Pembayaran :</h6>
                     <div>Metode : {k.metode_label}</div>
                     {k.rekening && <div>Ke : {k.rekening}</div>}
                     <div>No. Invoice : {k.no_invoice}</div>
                 </div>
-                <div className="col-sm-4">
+                <div className="col-12 col-sm-4">
                     <h6>Catatan :</h6>
                     <div>Kwitansi ini adalah bukti pembayaran yang sah. Simpan sebagai arsip pembayaran Anda.</div>
                 </div>

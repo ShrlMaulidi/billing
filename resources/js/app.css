@@ -425,15 +425,16 @@ body.dark-only .btn-action-dark { --c: #a9a9c0; }
   .invoice-paper .inv-kop-kanan .fw-bold.mt-2 { margin-top: 4px !important; }
   .invoice-paper .inv-logo { height: 38px; }
   .invoice-paper .inv-title { font-size: 24px; }
-  /* Alamat kantor & pelanggan bertumpuk, dipisah garis tipis */
-  .invoice-paper .inv-alamat { --bs-gutter-y: 12px; margin-bottom: 18px !important; }
-  .invoice-paper .inv-alamat > div + div { padding-top: 12px; border-top: 1px dashed rgba(59, 63, 74, .25); }
+  /* Alamat kantor (kiri) & pelanggan (kanan) tetap dua kolom; teks panjang dipatah agar tidak melebar */
+  .invoice-paper .inv-alamat { --bs-gutter-x: 14px; margin-bottom: 18px !important; font-size: 12.5px; }
+  .invoice-paper .inv-alamat > div, .invoice-paper .inv-footer > div { overflow-wrap: anywhere; }
+  .invoice-paper .inv-alamat .inv-label { font-size: 12px; }
   .invoice-paper .inv-summary td.pe-4 { padding-right: 12px !important; }
   /* Total: label boleh turun baris agar nominal tidak terpotong di layar sempit */
   .invoice-paper .inv-total { font-size: 15px; flex-wrap: wrap; row-gap: 2px; }
   .invoice-paper .inv-total span:first-child { white-space: normal; }
   .invoice-paper .inv-penutup { flex-direction: column; align-items: stretch !important; gap: 12px !important; }
-  .invoice-paper .inv-footer { --bs-gutter-y: 12px; }
+  .invoice-paper .inv-footer { --bs-gutter-x: 14px; --bs-gutter-y: 12px; font-size: 11.5px; }
   /* Di dalam modal (detail tagihan) kertas tidak perlu bayangan & padding ganda */
   .modal-body .invoice-paper { padding: 16px 12px; box-shadow: none; border: 1px solid rgba(59, 63, 74, .12); margin-bottom: 0 !important; }
 }

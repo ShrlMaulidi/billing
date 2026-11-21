@@ -28,12 +28,12 @@ export default function InvoiceTagihan({ tagihan: t, aksi }) {
 
             {/* Alamat kantor (cabang) | pelanggan */}
             <div className="inv-alamat row g-4 mb-4">
-                <div className="col-sm-6">
+                <div className="col-6">
                     <div className="inv-label">Alamat Kantor</div>
                     <div>{t.cabang?.alamat_lokasi ?? '-'}</div>
                     {t.cabang?.tlp_lokasi && <div className="fw-semibold mt-2">{t.cabang.tlp_lokasi}</div>}
                 </div>
-                <div className="col-sm-6 text-sm-end">
+                <div className="col-6 text-end">
                     <div className="inv-label">Kepada :</div>
                     <div className="fw-bold">{t.nama}</div>
                     <div className="small">ID Pelanggan: {t.id_pelanggan ?? '-'}</div>
@@ -88,12 +88,12 @@ export default function InvoiceTagihan({ tagihan: t, aksi }) {
             <h6 className="inv-accent fw-bold mt-4 mb-0">Terima kasih atas kepercayaan Anda</h6>
 
             <div className="inv-footer row g-3">
-                <div className="col-sm-4">
+                <div className="col-6 col-sm-4">
                     <h6>Pertanyaan?</h6>
                     <div>Telepon : {t.cabang?.tlp_lokasi ?? '-'}</div>
                     <div>Kantor : {t.cabang?.nama_lokasi ?? '-'}</div>
                 </div>
-                <div className="col-sm-4">
+                <div className="col-6 col-sm-4 text-end text-sm-start">
                     <h6>Info Pembayaran :</h6>
                     {t.rekening.length ? t.rekening.map((r) => (
                         <div key={`${r.nama_rekening}-${r.no_rekening}`} className="mb-1">
@@ -102,7 +102,7 @@ export default function InvoiceTagihan({ tagihan: t, aksi }) {
                         </div>
                     )) : <div>Tunai di kantor cabang</div>}
                 </div>
-                <div className="col-sm-4">
+                <div className="col-12 col-sm-4">
                     <h6>Syarat & Catatan :</h6>
                     <div>
                         {lunas ? 'Tagihan ini sudah dibayar; kwitansi tersedia sebagai bukti pembayaran.' : 'Abaikan invoice ini bila sudah membayar. Kwitansi diberikan setelah pembayaran diterima.'}
