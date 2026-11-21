@@ -59,7 +59,7 @@ class IsolirTest extends TestCase
         // v7 tidak mengenal redirect-to, jadi tiap versi dapat perintahnya sendiri lewat :parse
         $this->assertStringContainsString(':if ([:pick [/system resource get version] 0 1] = "6")', $script);
         $this->assertStringContainsString('[:parse "/ip proxy access add action=deny redirect-to=\"38.44.252.4/isolir\" comment=\"isolir-mss\""]', $script);
-        $this->assertStringContainsString('[:parse "/ip proxy access add action=redirect action-data=\"http://38.44.252.4/isolir\" comment=\"isolir-mss\""]', $script);
+        $this->assertStringContainsString('[:parse "/ip proxy access add action=redirect action-data=\"38.44.252.4/isolir\" comment=\"isolir-mss\""]', $script);
         $this->assertStringNotContainsString('redirect-to="', $script);
         $this->assertStringContainsString('chain=dstnat src-address-list=ISOLIR dst-address-list=!ISOLIR-ALLOW protocol=tcp dst-port=80 action=redirect to-ports=8099', $script);
         $this->assertStringContainsString('/ip pool add name="ISOLIREBILLING" ranges=192.168.200.2-192.168.200.254', $script);

@@ -87,10 +87,10 @@ class IsolirScript
     private function dasar(): array
     {
         $port = $this->opsi['port_proxy'];
-        $url = $this->opsi['url_isolir'];
-        $hostBilling = parse_url($url, PHP_URL_HOST);
-        // redirect-to (v6) ditulis tanpa skema karena RouterOS menambahkan http://; action-data (v7) memakai URL lengkap
-        $tujuanV6 = preg_replace('#^https?://#', '', $url);
+        $hostBilling = parse_url($this->opsi['url_isolir'], PHP_URL_HOST);
+        // Tujuan redirect ditulis tanpa skema: RouterOS v6 & v7 menambahkan http:// sendiri
+        // (https://host/isolir di v7 menjadi http://https//host/isolir)
+        $tujuan = preg_replace('#^https?://#', '', $this->opsi['url_isolir']);
         $tag = 'comment="'.self::TAG.'"';
 
         $izin = array_map(
@@ -118,8 +118,8 @@ class IsolirScript
             "/ip proxy access remove [find $tag]",
             "/ip proxy access add dst-host={$this->q($hostBilling)} action=allow $tag",
             $this->perVersi(
-                v6: "/ip proxy access add action=deny redirect-to={$this->q($tujuanV6)} $tag",
-                v7: "/ip proxy access add action=redirect action-data={$this->q($url)} $tag",
+                v6: "/ip proxy access add action=deny redirect-to={$this->q($tujuan)} $tag",
+                v7: "/ip proxy access add action=redirect action-data={$this->q($tujuan)} $tag",
             ),
             '',
             '# 3. Arahkan HTTP pelanggan isolir ke web proxy',
