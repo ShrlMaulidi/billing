@@ -61,6 +61,10 @@ class IsolirTest extends TestCase
         $this->assertStringContainsString('[:parse "/ip proxy access add action=deny redirect-to=\"38.44.252.4/isolir\" comment=\"isolir-mss\""]', $script);
         $this->assertStringContainsString('[:parse "/ip proxy access add action=redirect action-data=\"38.44.252.4/isolir\" comment=\"isolir-mss\""]', $script);
         $this->assertStringNotContainsString('redirect-to="', $script);
+        // Proxy access dicek berurutan: aturan isolir dipindah ke atas sisa aturan lama (mis. ebilling) setelah dibuat
+        $pindahKeAtas = '{ :local lain [/ip proxy access find where comment!="isolir-mss"]; :if ([:len $lain] > 0) do={ /ip proxy access move [/ip proxy access find where comment="isolir-mss"] destination=[:pick $lain 0] } }';
+        $this->assertStringContainsString($pindahKeAtas, $script);
+        $this->assertLessThan(strpos($script, $pindahKeAtas), strpos($script, 'action=redirect action-data='));
         $this->assertStringContainsString('chain=dstnat src-address-list=ISOLIR dst-address-list=!ISOLIR-ALLOW protocol=tcp dst-port=80 action=redirect to-ports=8099', $script);
         $this->assertStringContainsString('/ip pool add name="ISOLIREBILLING" ranges=192.168.200.2-192.168.200.254', $script);
         $this->assertStringContainsString('/ppp profile add name="ISOLIREBILLING" local-address=192.168.200.1 remote-address="ISOLIREBILLING" address-list=ISOLIR', $script);

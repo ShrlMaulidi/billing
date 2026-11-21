@@ -121,6 +121,7 @@ class IsolirScript
                 v6: "/ip proxy access add action=deny redirect-to={$this->q($tujuan)} $tag",
                 v7: "/ip proxy access add action=redirect action-data={$this->q($tujuan)} $tag",
             ),
+            $this->keAtas('/ip proxy access'),
             '',
             '# 3. Arahkan HTTP pelanggan isolir ke web proxy',
             "/ip firewall nat remove [find $tag]",
@@ -139,6 +140,17 @@ class IsolirScript
         $add = "$menu add $aturan comment=\"".self::TAG.'"';
 
         return "{ :local r [$menu find where dynamic=no]; :if ([:len \$r] > 0) do={ $add place-before=[:pick \$r 0] } else={ $add } }";
+    }
+
+    /**
+     * Pindahkan aturan ber-TAG ke paling atas daftar, urutannya tetap. Dipakai untuk proxy access yang dicek
+     * berurutan (aturan pertama yang cocok menang), agar sisa aturan isolir lama tidak mendahului.
+     */
+    private function keAtas(string $menu): string
+    {
+        $tag = self::TAG;
+
+        return "{ :local lain [$menu find where comment!=\"$tag\"]; :if ([:len \$lain] > 0) do={ $menu move [$menu find where comment=\"$tag\"] destination=[:pick \$lain 0] } }";
     }
 
     /**

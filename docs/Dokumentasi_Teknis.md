@@ -622,6 +622,7 @@ Cara kerja script:
 
 - Pelanggan terisolir = IP di address-list `ISOLIR`. PPPoE/Hotspot masuk otomatis lewat profile isolir; Static ditambahkan manual.
 - HTTP pelanggan terisolir diarahkan lewat web proxy router ke halaman `/isolir`.
+- Aturan NAT, filter, dan proxy access isolir ditaruh paling atas, supaya sisa aturan isolir lama (mis. ebilling) tidak mendahului.
 - Lalu lintas lain diblokir, kecuali DNS dan alamat di `ISOLIR-ALLOW`.
 - Semua aturan diberi comment `isolir-mss`, sehingga aman di-paste ulang.
 
