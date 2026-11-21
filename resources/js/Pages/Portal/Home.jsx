@@ -1,11 +1,11 @@
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { AlertCircle, CheckCircle, CreditCard, Eye, FileText, LifeBuoy, MessageCircle, RefreshCw } from 'react-feather';
 import { Button, Card, CardBody, CardHeader, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from 'reactstrap';
 import InvoiceTagihan from '../../Components/InvoiceTagihan';
 import PageHeader from '../../Components/PageHeader';
 import { bayarOnline, linkWa } from '../../Components/TagihanPelanggan';
-import { StatCard, StatusBadge } from '../../Components/ui';
+import { Avatar, StatCard, StatusBadge } from '../../Components/ui';
 import { periode, rupiah, tanggal } from '../../lib/format';
 import { portalLayout } from '../../Layouts/PortalLayout';
 
@@ -15,7 +15,7 @@ const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
  * Tombol Bayar Sekarang satu invoice. Cabang dengan pembayaran online: langsung ke halaman pembayaran Midtrans
  * (atau lanjutkan pembayaran yang menunggu dibayar, dengan opsi ganti metode). Selain itu tampilkan cara bayar manual.
  */
-function TombolBayar({ invoice, langganan, onManual, block = false }) {
+function TombolBayar({ invoice, langganan, onManual, block = false, size }) {
     const [proses, setProses] = useState(null);
     const [galat, setGalat] = useState('');
     const berjalan = langganan.bayar_online ? invoice.online_berjalan : null;
@@ -38,7 +38,7 @@ function TombolBayar({ invoice, langganan, onManual, block = false }) {
 
     return (
         <div className={block ? 'd-grid gap-1' : 'd-inline-flex flex-column align-items-end gap-1'}>
-            <Button color="primary" onClick={() => bayar()} disabled={!!proses}>
+            <Button color="primary" size={size} onClick={() => bayar()} disabled={!!proses}>
                 {proses === 'bayar' ? <Spinner size="sm" className="me-1" /> : <CreditCard size={15} className="me-1" />}
                 {proses === 'bayar' ? 'Menyiapkan…' : berjalan ? `Lanjutkan Pembayaran${berjalan.metode ? ` (${berjalan.metode})` : ''}` : 'Bayar Sekarang'}
             </Button>
@@ -49,6 +49,77 @@ function TombolBayar({ invoice, langganan, onManual, block = false }) {
             )}
             {galat && <small className="text-danger" role="alert">{galat}</small>}
         </div>
+    );
+}
+
+/** Selisih hari dari hari ini ke jatuh tempo (tanggal Y-m-d dari server), sebagai teks & warna. */
+function sisaJatuhTempo(jatuhTempo, hariIni) {
+    if (!jatuhTempo) return null;
+    const hari = Math.round((Date.parse(jatuhTempo) - Date.parse(hariIni)) / 86400000);
+    if (hari > 0) return { teks: `${hari} hari lagi`, warna: hari <= 3 ? 'text-warning' : 'f-light' };
+    if (hari === 0) return { teks: 'jatuh tempo hari ini', warna: 'text-danger' };
+    return { teks: `lewat ${-hari} hari`, warna: 'text-danger' };
+}
+
+/**
+ * Kartu paling atas Home: tagihan bulan berjalan satu langganan dengan Bayar Sekarang & Lihat Detail.
+ * Sudah lunas → tanda lunas + kuitansi; belum terbit → keterangan. Tunggakan bulan sebelumnya diingatkan di bawahnya.
+ */
+function TagihanBulanIni({ langganan: p, bulanIni, hariIni, tampilLangganan, onDetail, onManual }) {
+    const t = p.tagihan.find((x) => x.periode_pembayaran === bulanIni);
+    const lunas = p.lunas.find((x) => x.periode_pembayaran === bulanIni);
+    const tunggakan = p.tagihan.filter((x) => x.periode_pembayaran < bulanIni);
+    const sisa = t && sisaJatuhTempo(t.jatuh_tempo, hariIni);
+    const status = t ? 'is-due' : lunas ? 'is-paid' : '';
+
+    return (
+        <Card className={`portal-hero ${status}`}>
+            <CardBody>
+                <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                    <div>
+                        <span className="portal-hero-label">Tagihan Bulan Ini · {periode(bulanIni)}</span>
+                        {tampilLangganan && <div className="small f-light">{p.paket ?? 'Langganan'} · ID {p.id_pelanggan ?? '-'}</div>}
+                    </div>
+                    {t && <StatusBadge value="belum_lunas" text="Belum Lunas" />}
+                    {!t && lunas && <StatusBadge value="lunas" text="Lunas" />}
+                </div>
+
+                {t && (
+                    <div className="d-flex flex-wrap justify-content-between align-items-end gap-3">
+                        <div>
+                            <div className="portal-hero-nominal">{rupiah(t.nominal)}</div>
+                            <div className="small">
+                                {p.paket ?? '-'}{t.is_prorate ? ' · prorate' : ''}
+                                {t.jatuh_tempo && <> · jatuh tempo {tanggal(t.jatuh_tempo)} <span className={`fw-semibold ${sisa.warna}`}>({sisa.teks})</span></>}
+                            </div>
+                        </div>
+                        <div className="portal-hero-aksi">
+                            <Button color="primary" outline size="lg" onClick={() => onDetail(t, p)}><Eye size={16} className="me-1" />Lihat Detail</Button>
+                            <TombolBayar invoice={t} langganan={p} onManual={onManual} size="lg" />
+                        </div>
+                    </div>
+                )}
+
+                {!t && lunas && (
+                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div className="d-flex align-items-center gap-2 text-success">
+                            <CheckCircle size={28} />
+                            <div><div className="fw-bold fs-5">Sudah lunas</div><small>{rupiah(lunas.jml_bayar)} · dibayar {tanggal(lunas.paid_at)} via {lunas.metode_label}</small></div>
+                        </div>
+                        <Link href={`/akun-saya/riwayat/${lunas.id}/kuitansi`} className="btn btn-outline-success"><FileText size={15} className="me-1" />Lihat Kuitansi</Link>
+                    </div>
+                )}
+
+                {!t && !lunas && <p className="mb-0 f-light">Belum ada tagihan untuk bulan ini.</p>}
+
+                {tunggakan.length > 0 && (
+                    <div className="alert alert-light-danger mt-3 mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <span><AlertCircle size={16} className="me-1" />Masih ada <strong>{tunggakan.length} tagihan bulan sebelumnya</strong> ({rupiah(tunggakan.reduce((s, x) => s + (x.nominal ?? 0), 0))}) yang belum dibayar.</span>
+                        <a href="#semua-tagihan" className="fw-semibold">Lihat semua</a>
+                    </div>
+                )}
+            </CardBody>
+        </Card>
     );
 }
 
@@ -99,8 +170,8 @@ function KartuTagihan({ langganan: p, onDetail, onManual }) {
     );
 }
 
-/** Home dashboard pelanggan: yang pertama tampil adalah tagihan beserta tombol Bayar Sekarang. */
-export default function Home({ hasil, tiketAktif }) {
+/** Home dashboard pelanggan: yang pertama tampil adalah tagihan bulan berjalan beserta Bayar Sekarang & Lihat Detail. */
+export default function Home({ hasil, tiketAktif, bulanIni, hariIni }) {
     const { auth } = usePage().props;
     const [detail, setDetail] = useState(null); // { invoice, langganan }
     const [manual, setManual] = useState(null); // { invoice, langganan }
@@ -112,19 +183,18 @@ export default function Home({ hasil, tiketAktif }) {
         <>
             <PageHeader title="Home" home="/akun-saya" />
             <div className="container-fluid">
+                {/* Sapaan kecil: memastikan pelanggan masuk dengan akun yang benar */}
+                <div className="portal-sapa">
+                    <Avatar name={auth.user.nama} size={26} />
+                    <span>Halo, <strong>{auth.user.nama}</strong></span>
+                    <span className="f-light">· masuk sebagai {auth.user.username}</span>
+                </div>
+                {hasil.map((p) => (
+                    <TagihanBulanIni key={p.id_pelanggan ?? p.nama} langganan={p} bulanIni={bulanIni} hariIni={hariIni} tampilLangganan={hasil.length > 1}
+                        onDetail={(invoice, langganan) => setDetail({ invoice, langganan })} onManual={bukaManual} />
+                ))}
+
                 <div className="row">
-                    <div className="col-12">
-                        <Card className="portal-sapa">
-                            <CardBody>
-                                <h4 className="mb-1">Halo, {auth.user.nama} 👋</h4>
-                                <p className="mb-0 f-light">
-                                    {semuaTagihan.length
-                                        ? <>Anda memiliki <strong>{semuaTagihan.length} tagihan</strong> yang belum dibayar.</>
-                                        : 'Semua tagihan Anda sudah lunas.'}
-                                </p>
-                            </CardBody>
-                        </Card>
-                    </div>
                     <div className="col-sm-6 col-xl-4">
                         <StatCard title="Total Tagihan" value={rupiah(total)} sub={`${semuaTagihan.length} invoice belum dibayar`} icon={semuaTagihan.length ? AlertCircle : CheckCircle} color={semuaTagihan.length ? 'danger' : 'success'} />
                     </div>
@@ -148,7 +218,12 @@ export default function Home({ hasil, tiketAktif }) {
                     </Card>
                 )}
 
-                {hasil.map((p) => <KartuTagihan key={p.id_pelanggan ?? p.nama} langganan={p} onDetail={(invoice, langganan) => setDetail({ invoice, langganan })} onManual={bukaManual} />)}
+                {/* Daftar lengkap hanya bila ada tagihan selain bulan ini (tunggakan); tagihan bulan ini sudah di kartu atas */}
+                <div id="semua-tagihan">
+                    {hasil.filter((p) => p.tagihan.some((t) => t.periode_pembayaran !== bulanIni)).map((p) => (
+                        <KartuTagihan key={p.id_pelanggan ?? p.nama} langganan={p} onDetail={(invoice, langganan) => setDetail({ invoice, langganan })} onManual={bukaManual} />
+                    ))}
+                </div>
             </div>
 
             {/* Detail tagihan: kertas invoice lengkap, dengan Bayar Sekarang di bawah total */}

@@ -49,6 +49,9 @@ class PortalPelangganTest extends TestCase
             ->has('hasil.0.tagihan', 1)
             ->where('hasil.0.tagihan.0.periode', '2026-11-01')
             ->where('hasil.0.tagihan.0.nominal', 200000)
+            ->where('hasil.0.lunas.0.periode_pembayaran', '2026-10-01')
+            ->where('bulanIni', '2026-11-01')
+            ->where('hariIni', '2026-11-15')
             ->where('tiketAktif', 1));
     }
 
@@ -63,6 +66,43 @@ class PortalPelangganTest extends TestCase
             ->where('rows.0.periode', '2026-10-01')
             ->where('rows.0.jml_bayar', 200000)
             ->where('rows.0.link_kwitansi', fn (string $link) => str_contains($link, '/cek-tagihan/kwitansi/') && str_contains($link, 'signature=')));
+    }
+
+    public function test_paid_invoice_uses_amount_at_payment_time_and_is_stamped_paid(): void
+    {
+        $budi = $this->pelanggan('Budi', '081234567890');
+        $pembayaran = $this->bayar($budi, '2026-10-01');
+        $this->paket->update(['nama_paket' => 'Home 30 Mbps', 'harga' => 300000]);
+
+        $this->actingAs($budi->user)->get("/akun-saya/riwayat/{$pembayaran->id}/invoice")->assertOk()->assertInertia(fn ($page) => $page->component('Portal/Dokumen')
+            ->where('jenis', 'invoice')
+            ->where('tagihan.no_tagihan', sprintf('TGH202610-%05d', $budi->id))
+            ->where('tagihan.nama_paket', 'Home 20 Mbps')
+            ->where('tagihan.nominal', 200000)
+            ->where('tagihan.nama', 'Budi')
+            ->where('tagihan.pembayaran_id', $pembayaran->id));
+    }
+
+    public function test_receipt_shows_payment_without_staff_name(): void
+    {
+        $budi = $this->pelanggan('Budi', '081234567890');
+        $pembayaran = $this->bayar($budi, '2026-10-01');
+
+        $this->actingAs($budi->user)->get("/akun-saya/riwayat/{$pembayaran->id}/kuitansi")->assertOk()->assertInertia(fn ($page) => $page->component('Portal/Dokumen')
+            ->where('jenis', 'kuitansi')
+            ->where('kwitansi.jml_bayar', 200000)
+            ->where('kwitansi.nama_pelanggan', 'Budi')
+            ->where('kwitansi.metode_label', 'Cash')
+            ->missing('kwitansi.petugas'));
+    }
+
+    public function test_invoice_and_receipt_of_another_customer_return_404(): void
+    {
+        $budi = $this->pelanggan('Budi', '081234567890');
+        $milikLain = $this->bayar($this->pelanggan('Orang Lain', '089900001111'), '2026-10-01');
+
+        $this->actingAs($budi->user)->get("/akun-saya/riwayat/{$milikLain->id}/invoice")->assertNotFound();
+        $this->get("/akun-saya/riwayat/{$milikLain->id}/kuitansi")->assertNotFound();
     }
 
     public function test_account_page_lists_subscriptions_using_this_account(): void
@@ -93,9 +133,9 @@ class PortalPelangganTest extends TestCase
         return $pelanggan->fresh();
     }
 
-    private function bayar(Pelanggan $pelanggan, string $periode): void
+    private function bayar(Pelanggan $pelanggan, string $periode): Pembayaran
     {
-        Pembayaran::create([
+        return Pembayaran::create([
             'pelanggan_id' => $pelanggan->id, 'id_lokasi' => $this->lokasi->id, 'periode' => $periode, 'jns_tagihan' => 'prabayar', 'nama_pelanggan' => $pelanggan->nama,
             'nama_paket' => 'Home 20 Mbps', 'harga' => 200000, 'jml_bayar' => 200000, 'metode' => 'cash', 'paid_at' => '2026-10-05 10:00:00',
         ]);

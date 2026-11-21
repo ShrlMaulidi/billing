@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
+use App\Models\Rekening;
 use App\Models\Tiket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,9 @@ class PortalPelangganController extends Controller
         return Inertia::render('Portal/Home', [
             'hasil' => CekTagihanController::hasil($pelanggan, samarkanNama: false),
             'tiketAktif' => Tiket::where('user_id', $user->id)->where('status', '!=', 'selesai')->count(),
+            // Tagihan bulan berjalan tampil paling atas; tanggal dari server agar hitungan jatuh tempo tidak bergantung jam HP
+            'bulanIni' => today()->startOfMonth()->toDateString(),
+            'hariIni' => today()->toDateString(),
         ]);
     }
 
@@ -48,6 +52,56 @@ class PortalPelangganController extends Controller
             ]);
 
         return Inertia::render('Portal/Riwayat', ['rows' => $rows, 'jumlahLangganan' => $pelanggan->count()]);
+    }
+
+    /**
+     * Invoice periode yang sudah lunas (cap LUNAS). Nominal & nama paket diambil dari catatan pembayaran (bukan paket saat ini),
+     * jatuh tempo & rincian prorate dari data pelanggan.
+     */
+    public function invoice(Request $request, Pembayaran $pembayaran): Response
+    {
+        $pelanggan = $this->pembayaranMilik($request, $pembayaran);
+        $pelanggan->load('paket:id,nama_paket,harga');
+        $pembayaran->load('lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi');
+
+        return Inertia::render('Portal/Dokumen', [
+            'jenis' => 'invoice',
+            'pembayaranId' => $pembayaran->id,
+            'tagihan' => [
+                ...$pelanggan->invoice($pembayaran->periodePembayaran()),
+                'periode' => $pembayaran->periode,
+                'nama_paket' => $pembayaran->nama_paket,
+                'nominal' => $pembayaran->harga,
+                'is_prorate' => $pembayaran->is_prorate,
+                ...$pelanggan->only(['id_pelanggan', 'nama', 'alamat']),
+                'jns_tagihan' => $pembayaran->jns_tagihan,
+                'cabang' => $pembayaran->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
+                'rekening' => Rekening::where('tampil_invoice', true)->where(fn ($q) => $q->whereNull('id_lokasi')->orWhere('id_lokasi', $pembayaran->id_lokasi))
+                    ->orderBy('nama_rekening')->get()->map->only(['nama_rekening', 'no_rekening', 'atas_nama']),
+                'pembayaran_id' => $pembayaran->id,
+            ],
+        ]);
+    }
+
+    /** Kuitansi (bukti pembayaran) satu periode lunas, sama dengan kwitansi di dashboard staf tanpa nama petugas. */
+    public function kuitansi(Request $request, Pembayaran $pembayaran): Response
+    {
+        $pelanggan = $this->pembayaranMilik($request, $pembayaran);
+        $pembayaran->load(['lokasi:id,nama_lokasi,alamat_lokasi,tlp_lokasi', 'rekening', 'transaksiMidtrans:id,pembayaran_id,payment_type']);
+
+        return Inertia::render('Portal/Dokumen', [
+            'jenis' => 'kuitansi',
+            'pembayaranId' => $pembayaran->id,
+            'kwitansi' => [
+                ...$pembayaran->only(['no_invoice', 'periode', 'jns_tagihan', 'nama_pelanggan', 'nama_paket', 'harga', 'is_prorate', 'diskon_tipe', 'diskon_nilai', 'diskon', 'jml_bayar', 'metode', 'paid_at']),
+                'periode_pembayaran' => $pembayaran->periodePembayaran(),
+                'id_pelanggan' => $pelanggan->id_pelanggan,
+                'alamat' => $pelanggan->alamat,
+                'cabang' => $pembayaran->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
+                'rekening' => $pembayaran->rekening?->label(),
+                'metode_label' => $pembayaran->keteranganMetode(),
+            ],
+        ]);
     }
 
     /** Data akun & langganan, ganti password, dan pilihan navigasi di HP. */
@@ -104,5 +158,14 @@ class PortalPelangganController extends Controller
         }
 
         return response()->json(['message' => 'Password berhasil diganti']);
+    }
+
+    /** Pelanggan pemilik pembayaran bila memakai akun ini; pembayaran milik orang lain dijawab 404. */
+    private function pembayaranMilik(Request $request, Pembayaran $pembayaran): Pelanggan
+    {
+        $pelanggan = Pelanggan::whereKey($pembayaran->pelanggan_id)->where('user_id', $request->user()->id)->first();
+        abort_unless($pelanggan, 404);
+
+        return $pelanggan;
     }
 }

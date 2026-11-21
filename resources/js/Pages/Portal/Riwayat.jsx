@@ -1,4 +1,5 @@
-import { FileText } from 'react-feather';
+import { Link } from '@inertiajs/react';
+import { CheckSquare, FileText } from 'react-feather';
 import { Card, CardBody } from 'reactstrap';
 import DataTable from '../../Components/DataTable';
 import PageHeader from '../../Components/PageHeader';
@@ -6,7 +7,7 @@ import { StatusBadge } from '../../Components/ui';
 import { periode, rupiah, tanggal } from '../../lib/format';
 import { portalLayout } from '../../Layouts/PortalLayout';
 
-/** Riwayat tagihan yang sudah lunas (cash, transfer, atau online) beserta kwitansinya. */
+/** Riwayat tagihan yang sudah lunas (cash, transfer, atau online); tiap periode bisa dibuka invoice & kuitansinya. */
 export default function Riwayat({ rows, jumlahLangganan }) {
     return (
         <>
@@ -25,8 +26,13 @@ export default function Riwayat({ rows, jumlahLangganan }) {
                                 { key: 'metode_label', label: 'Metode' },
                                 { key: 'status', label: 'Status', sortable: false, render: () => <StatusBadge value="lunas" text="Lunas" /> },
                                 {
-                                    key: 'kwitansi', label: 'Kwitansi', sortable: false,
-                                    render: (r) => <a href={r.link_kwitansi} target="_blank" rel="noopener noreferrer" className="btn btn-outline-primary btn-sm"><FileText size={13} className="me-1" />Lihat</a>,
+                                    key: 'dokumen', label: 'Invoice & Kuitansi', sortable: false,
+                                    render: (r) => (
+                                        <div className="d-flex flex-wrap gap-1">
+                                            <Link href={`/akun-saya/riwayat/${r.id}/invoice`} className="btn btn-outline-primary btn-sm"><FileText size={13} className="me-1" />Invoice</Link>
+                                            <Link href={`/akun-saya/riwayat/${r.id}/kuitansi`} className="btn btn-outline-success btn-sm"><CheckSquare size={13} className="me-1" />Kuitansi</Link>
+                                        </div>
+                                    ),
                                 },
                             ]}
                         />

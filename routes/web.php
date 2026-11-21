@@ -66,6 +66,8 @@ Route::middleware('auth')->group(function () {
         Route::controller(PortalPelangganController::class)->group(function () {
             Route::get('/', 'index')->name('akun-saya');
             Route::get('/riwayat', 'riwayat')->name('akun-saya.riwayat');
+            Route::get('/riwayat/{pembayaran}/invoice', 'invoice')->whereNumber('pembayaran')->name('akun-saya.invoice');
+            Route::get('/riwayat/{pembayaran}/kuitansi', 'kuitansi')->whereNumber('pembayaran')->name('akun-saya.kuitansi');
             Route::get('/akun', 'akun')->name('akun-saya.akun');
             // Login pertama / setelah password di-reset: wajib membuat password baru (lihat BatasiAkunPelanggan)
             Route::get('/password-baru', 'passwordBaru')->name('akun-saya.password-baru');
