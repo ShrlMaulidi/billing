@@ -23,7 +23,7 @@ use Inertia\Inertia;
 
 /**
  * Data pelanggan + akun koneksinya di Mikrotik (Sinkronisasi akun yang sudah ada, atau Buat baru),
- * dan On/Off internet lewat isolir PPPoE. status null = semua pelanggan, 'on' = internet aktif, 'off' = terisolir.
+ * dan On/Off internet lewat isolir di router (semua jenis koneksi). status null = semua pelanggan, 'on' = internet aktif, 'off' = terisolir.
  */
 class PelangganController extends Controller
 {
@@ -226,7 +226,7 @@ class PelangganController extends Controller
         ]);
     }
 
-    /** Off: isolir PPPoE pelanggan. */
+    /** Off: isolir internet pelanggan (profile isolir untuk PPPoE/Hotspot, address-list ISOLIR untuk Static/IP Binding). */
     public function isolir(Request $request, Pelanggan $pelanggan, IsolirService $isolir): JsonResponse
     {
         $this->pastikanCabang($request, $pelanggan->id_lokasi);
@@ -240,7 +240,7 @@ class PelangganController extends Controller
         });
     }
 
-    /** On: kembalikan ke profile asal (atau profile pilihan bila asal tidak diketahui). */
+    /** On: kembalikan ke profile asal (atau profile pilihan bila asal tidak diketahui), atau keluarkan dari address-list ISOLIR. */
     public function aktifkan(Request $request, Pelanggan $pelanggan, IsolirService $isolir): JsonResponse
     {
         $this->pastikanCabang($request, $pelanggan->id_lokasi);

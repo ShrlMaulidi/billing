@@ -583,25 +583,34 @@ Semua route yang menghubungi router berada di grup `throttle:mikrotik`: 30 permi
 
 ## 13. Isolir
 
-### 13.1 Isolir pelanggan (PPPoE)
+### 13.1 Isolir pelanggan
 
-On/Off saat ini **hanya untuk PPPoE**. Mekanismenya mengganti profile PPP Secret.
+On/Off tersedia untuk semua jenis koneksi, dengan dua mekanisme:
 
-**Isolir** (`IsolirService::isolir()`):
+| Jenis koneksi | Mekanisme |
+|---|---|
+| PPPoE, Hotspot | Ganti profile akun (PPP Secret / Hotspot User) ke profile isolir, lalu putus sesi aktif |
+| Static, IP Binding | Masukkan IP pelanggan ke address-list `ISOLIR` (comment: ID & nama pelanggan) |
 
-1. Cari PPP Secret `username_pppoe` di router.
+Keduanya bergantung pada aturan firewall dari script Template Isolir (13.2), jadi script itu harus sudah dipasang di router.
+
+**Isolir PPPoE/Hotspot** (`IsolirService::isolir()`):
+
+1. Cari akun `username_pppoe` di router (PPP Secret atau Hotspot User).
 2. Bila sudah di profile isolir → hanya samakan status di database.
-3. Pastikan profile isolir router (`routers.profile_isolir`) ada.
-4. Ubah profile secret ke profile isolir, putus sesi aktif.
+3. Pastikan profile isolir router (`routers.profile_isolir`) ada di PPP Profile / Hotspot User Profile.
+4. Ubah profile akun ke profile isolir, putus sesi aktif.
 5. Simpan `profile_asal`, `status_langganan = off`, `isolir_at`.
 
-**Aktifkan** (`IsolirService::aktifkan()`). Profile tujuan, berurutan:
+**Isolir Static/IP Binding**: IP diambil dari `ip_address`; IP Binding tanpa IP memakai `address` IP Binding di router (dicari lewat MAC). IP ditambahkan ke address-list `ISOLIR` bila belum ada. **Aktifkan** menghapus entri statis IP itu dari address-list.
+
+**Aktifkan PPPoE/Hotspot** (`IsolirService::aktifkan()`). Profile tujuan, berurutan:
 
 1. profile yang dipilih user (bila dikirim);
 2. `profile_asal`;
 3. profile paket pelanggan.
 
-Bila tidak ada tujuan dan secret masih di profile isolir, user diminta memilih profile (daftar dari `/mikrotik/router/{id}/profiles`). Setelah profile diganti, sesi diputus, `status_langganan = on`, dan `profile_asal`/`isolir_at` dikosongkan.
+Bila tidak ada tujuan dan akun masih di profile isolir, user diminta memilih profile (daftar dari `/mikrotik/router/{id}/profiles?jenis=pppoe|hotspot`). Setelah profile diganti, sesi diputus, `status_langganan = on`, dan `profile_asal`/`isolir_at` dikosongkan.
 
 Setiap aksi, termasuk yang gagal, dicatat di `isolir_logs`.
 
@@ -719,5 +728,4 @@ PHPUnit 12, `php artisan test --compact`.
 | Notifikasi WhatsApp / WAGW | Halaman Notifikasi & widget dashboard kosong |
 | Kartu Member, Upload Bukti PPh | Halaman ada, belum ada tabel |
 | Export Excel/PDF | Permission `export` sudah ada; export server belum dibuat |
-| On/Off non-PPPoE | Isolir baru untuk PPPoE; Static perlu manual lewat address-list |
 | BHP & USO | Tersimpan di tarif, belum masuk rumus rekap |

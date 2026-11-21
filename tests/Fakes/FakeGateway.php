@@ -4,7 +4,7 @@ namespace Tests\Fakes;
 
 use App\Services\Mikrotik\MikrotikGateway;
 
-/** Mikrotik tiruan: menyimpan PPP Secret di memori dan mencatat sesi yang diputus. */
+/** Mikrotik tiruan: menyimpan akun koneksi & address-list di memori dan mencatat sesi yang diputus. */
 class FakeGateway implements MikrotikGateway
 {
     public array $secrets = [
@@ -24,14 +24,20 @@ class FakeGateway implements MikrotikGateway
         return ['identity' => 'MSS-Pusat', 'version' => '7.16', 'board' => 'CCR1036', 'uptime' => '3d4h'];
     }
 
-    public function findSecret(string $name): ?array
+    public function findAccount(string $jenis, string $name): ?array
     {
-        return $this->secrets[$name] ?? null;
-    }
+        if ($jenis === 'pppoe') {
+            $s = $this->secrets[$name] ?? null;
 
-    public function profiles(): array
-    {
-        return $this->profiles;
+            return $s ? ['id' => $s['id'], 'name' => $s['name'], 'profile' => $s['profile'], 'address' => $s['remote_address']] : null;
+        }
+        foreach ($this->akun[$jenis] as $i => $row) {
+            if (($row['name'] ?? $row['mac-address']) === $name) {
+                return ['id' => "$jenis:$i", 'name' => $name, 'profile' => $row['profile'] ?? $row['type'] ?? 'default', 'address' => $row['address'] ?? null];
+            }
+        }
+
+        return null;
     }
 
     /** @var array<string, ?string> Hotspot User Profile di router: nama => rate-limit */
@@ -46,8 +52,14 @@ class FakeGateway implements MikrotikGateway
         return array_map(fn ($name, $rate) => ['name' => $name, 'rate_limit' => $rate], array_keys($profiles), $profiles);
     }
 
-    public function setSecret(string $id, array $attributes): void
+    public function setAccount(string $jenis, string $id, array $attributes): void
     {
+        if ($jenis !== 'pppoe') {
+            $i = (int) explode(':', $id)[1];
+            $this->akun[$jenis][$i] = [...$this->akun[$jenis][$i], ...$attributes];
+
+            return;
+        }
         foreach ($this->secrets as $name => $s) {
             if ($s['id'] === $id) {
                 $this->secrets[$name] = [...$s, ...array_filter(['profile' => $attributes['profile'] ?? null, 'remote_address' => $attributes['remote-address'] ?? null])];
@@ -55,12 +67,16 @@ class FakeGateway implements MikrotikGateway
         }
     }
 
-    public function removeActive(string $name): int
+    /** @var list<string> username Hotspot yang sedang login */
+    public array $hotspotActive = ['voucher1'];
+
+    public function removeActive(string $name, string $jenis = 'pppoe'): int
     {
-        if (! in_array($name, $this->active, true)) {
+        $aktif = $jenis === 'hotspot' ? 'hotspotActive' : 'active';
+        if (! in_array($name, $this->{$aktif}, true)) {
             return 0;
         }
-        $this->active = array_values(array_diff($this->active, [$name]));
+        $this->{$aktif} = array_values(array_diff($this->{$aktif}, [$name]));
         $this->kicked[] = $name;
 
         return 1;
@@ -134,5 +150,27 @@ class FakeGateway implements MikrotikGateway
             return;
         }
         $this->akun[$jenis][] = $attributes;
+    }
+
+    /** @var list<array{list: string, address: string, comment: string}> entri statis firewall address-list */
+    public array $addressList = [];
+
+    public function inAddressList(string $list, string $address): bool
+    {
+        return array_any($this->addressList, fn ($e) => $e['list'] === $list && $e['address'] === $address);
+    }
+
+    public function addAddressList(string $list, string $address, string $comment): void
+    {
+        $this->addressList[] = ['list' => $list, 'address' => $address, 'comment' => $comment];
+    }
+
+    public function removeAddressList(string $list, string $address): int
+    {
+        $sisa = array_values(array_filter($this->addressList, fn ($e) => $e['list'] !== $list || $e['address'] !== $address));
+        $dihapus = count($this->addressList) - count($sisa);
+        $this->addressList = $sisa;
+
+        return $dihapus;
     }
 }

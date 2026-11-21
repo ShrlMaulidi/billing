@@ -10,6 +10,11 @@ class RouterOsGateway implements MikrotikGateway
     /** Menu router untuk tiap jenis akun koneksi pelanggan. */
     private const AKUN = ['pppoe' => '/ppp/secret', 'hotspot' => '/ip/hotspot/user', 'ip_binding' => '/ip/hotspot/ip-binding'];
 
+    /** Menu sesi aktif & field username-nya untuk tiap jenis koneksi. */
+    private const AKTIF = ['pppoe' => ['/ppp/active', 'name'], 'hotspot' => ['/ip/hotspot/active', 'user']];
+
+    private const ADDRESS_LIST = '/ip/firewall/address-list';
+
     public function __construct(private RouterOsApi $api) {}
 
     public function info(): array
@@ -25,16 +30,12 @@ class RouterOsGateway implements MikrotikGateway
         ];
     }
 
-    public function findSecret(string $name): ?array
+    public function findAccount(string $jenis, string $name): ?array
     {
-        $row = $this->api->command('/ppp/secret/print', [], ['name' => $name])[0] ?? null;
+        $kunci = $jenis === 'ip_binding' ? 'mac-address' : 'name';
+        $row = $this->api->command(self::AKUN[$jenis].'/print', [], [$kunci => $name])[0] ?? null;
 
-        return $row ? $this->secret($row) : null;
-    }
-
-    public function profiles(): array
-    {
-        return array_values(array_filter(array_map(fn ($row) => $row['name'] ?? null, $this->api->command('/ppp/profile/print'))));
+        return $row ? ['id' => $row['.id'] ?? '', ...$this->akun($row), 'profile' => $row['profile'] ?? $row['type'] ?? 'default'] : null;
     }
 
     public function profileList(string $jenis): array
@@ -44,16 +45,17 @@ class RouterOsGateway implements MikrotikGateway
         return array_values(array_map(fn ($row) => ['name' => $row['name'], 'rate_limit' => $row['rate-limit'] ?? null], $rows));
     }
 
-    public function setSecret(string $id, array $attributes): void
+    public function setAccount(string $jenis, string $id, array $attributes): void
     {
-        $this->api->command('/ppp/secret/set', ['.id' => $id, ...$attributes]);
+        $this->api->command(self::AKUN[$jenis].'/set', ['.id' => $id, ...$attributes]);
     }
 
-    public function removeActive(string $name): int
+    public function removeActive(string $name, string $jenis = 'pppoe'): int
     {
-        $sessions = $this->api->command('/ppp/active/print', [], ['name' => $name]);
+        [$path, $kunci] = self::AKTIF[$jenis];
+        $sessions = $this->api->command("$path/print", [], [$kunci => $name]);
         foreach ($sessions as $session) {
-            $this->api->command('/ppp/active/remove', ['.id' => $session['.id']]);
+            $this->api->command("$path/remove", ['.id' => $session['.id']]);
         }
 
         return count($sessions);
@@ -83,17 +85,53 @@ class RouterOsGateway implements MikrotikGateway
 
     public function accounts(string $jenis): array
     {
-        return array_map(fn ($row) => [
-            'name' => $row['name'] ?? $row['mac-address'] ?? '',
-            'profile' => $row['profile'] ?? $row['type'] ?? null,
-            'address' => $row['address'] ?? $row['remote-address'] ?? null,
-            'comment' => $row['comment'] ?? null,
-        ], $this->api->command(self::AKUN[$jenis].'/print'));
+        return array_map(fn ($row) => $this->akun($row), $this->api->command(self::AKUN[$jenis].'/print'));
     }
 
     public function addAccount(string $jenis, array $attributes): void
     {
         $this->api->command(self::AKUN[$jenis].'/add', $attributes);
+    }
+
+    public function inAddressList(string $list, string $address): bool
+    {
+        return $this->entriAddressList($list, $address) !== [];
+    }
+
+    public function addAddressList(string $list, string $address, string $comment): void
+    {
+        $this->api->command(self::ADDRESS_LIST.'/add', ['list' => $list, 'address' => $address, 'comment' => $comment]);
+    }
+
+    public function removeAddressList(string $list, string $address): int
+    {
+        $rows = $this->entriAddressList($list, $address);
+        foreach ($rows as $row) {
+            $this->api->command(self::ADDRESS_LIST.'/remove', ['.id' => $row['.id']]);
+        }
+
+        return count($rows);
+    }
+
+    /**
+     * Entri statis saja; entri dinamis (dari profile PPP/Hotspot) dikelola router sendiri.
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function entriAddressList(string $list, string $address): array
+    {
+        return $this->api->command(self::ADDRESS_LIST.'/print', [], ['list' => $list, 'address' => $address, 'dynamic' => 'false']);
+    }
+
+    /** @return array{name: string, profile: ?string, address: ?string, comment: ?string} */
+    private function akun(array $row): array
+    {
+        return [
+            'name' => $row['name'] ?? $row['mac-address'] ?? '',
+            'profile' => $row['profile'] ?? $row['type'] ?? null,
+            'address' => $row['address'] ?? $row['remote-address'] ?? null,
+            'comment' => $row['comment'] ?? null,
+        ];
     }
 
     /** Set bila item bernama $name sudah ada, selain itu add. */
@@ -108,18 +146,5 @@ class RouterOsGateway implements MikrotikGateway
         $this->api->command("$path/add", ['name' => $name, ...$attributes]);
 
         return true;
-    }
-
-    private function secret(array $row): array
-    {
-        return [
-            'id' => $row['.id'] ?? '',
-            'name' => $row['name'] ?? '',
-            'profile' => $row['profile'] ?? 'default',
-            'service' => $row['service'] ?? 'any',
-            'remote_address' => $row['remote-address'] ?? null,
-            'comment' => $row['comment'] ?? null,
-            'disabled' => ($row['disabled'] ?? 'false') === 'true',
-        ];
     }
 }

@@ -72,8 +72,9 @@ class RouterController extends Controller
     {
         // Router tanpa cabang dipakai bersama semua cabang
         abort_unless($router->id_lokasi === null || $request->user()->bolehAksesCabang($router->id_lokasi), 404);
+        $jenis = $request->validate(['jenis' => ['nullable', 'in:pppoe,hotspot']])['jenis'] ?? 'pppoe';
         try {
-            return response()->json(['data' => $isolir->profiles($router)]);
+            return response()->json(['data' => $isolir->profiles($router, $jenis)]);
         } catch (RouterOsException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

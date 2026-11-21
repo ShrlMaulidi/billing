@@ -212,14 +212,57 @@ class PelangganTest extends TestCase
             ->assertTooManyRequests()->assertJsonPath('message', 'Terlalu banyak permintaan ke router, coba lagi sebentar lagi');
     }
 
-    public function test_on_off_is_rejected_for_non_pppoe_connection(): void
+    public function test_off_and_on_static_customer_toggles_ip_in_isolir_address_list(): void
     {
-        $p = $this->pelanggan('warung', ['jns_koneksi' => 'hotspot']);
+        $p = $this->pelanggan('rifky', ['jns_koneksi' => 'static', 'username_pppoe' => null, 'ip_address' => '192.168.10.2', 'id_pelanggan' => 'RM001']);
 
         $this->postJson("/pelanggan/{$p->id}/isolir")
-            ->assertStatus(422)->assertJsonPath('message', 'On/Off internet untuk koneksi Hotspot belum tersedia, baru PPPoE');
+            ->assertOk()->assertJsonPath('message', 'Rifky diisolir (IP 192.168.10.2 masuk address-list ISOLIR)');
+        // Off ulang tidak menambah entri ganda
+        $this->postJson("/pelanggan/{$p->id}/isolir")->assertOk()->assertJsonPath('message', 'Rifky sudah dalam address-list ISOLIR');
 
+        $this->assertSame([['list' => 'ISOLIR', 'address' => '192.168.10.2', 'comment' => 'RM001 Rifky']], $this->gw->addressList);
+        $this->assertSame('off', $p->fresh()->status_langganan);
+        $this->assertDatabaseHas('isolir_logs', ['pelanggan_id' => $p->id, 'username' => '192.168.10.2', 'aksi' => 'isolir', 'profile_ke' => 'ISOLIR', 'berhasil' => true]);
+
+        $this->postJson("/pelanggan/{$p->id}/aktifkan")
+            ->assertOk()->assertJsonPath('message', 'Rifky diaktifkan kembali (IP 192.168.10.2 keluar dari address-list ISOLIR)');
+
+        $this->assertSame([], $this->gw->addressList);
         $this->assertSame('on', $p->fresh()->status_langganan);
+    }
+
+    public function test_ip_binding_without_billing_ip_is_isolated_by_its_router_binding_address(): void
+    {
+        $p = $this->pelanggan('kantor', ['jns_koneksi' => 'ip_binding', 'username_pppoe' => null, 'mac_address' => 'AA:BB:CC:DD:EE:01']);
+
+        $this->postJson("/pelanggan/{$p->id}/isolir")
+            ->assertOk()->assertJsonPath('message', 'Kantor diisolir (IP 192.168.10.5 masuk address-list ISOLIR)');
+
+        $this->assertSame('192.168.10.5', $this->gw->addressList[0]['address']);
+    }
+
+    public function test_off_and_on_hotspot_customer_switches_hotspot_user_profile_and_kicks_session(): void
+    {
+        $p = $this->pelanggan('voucher1', ['jns_koneksi' => 'hotspot']);
+
+        // Profile isolir dicari di Hotspot User Profile, bukan PPP Profile (yang sudah punya ISOLIR)
+        $this->postJson("/pelanggan/{$p->id}/isolir")
+            ->assertStatus(422)->assertJsonPath('message', "Profile isolir 'ISOLIR' belum ada di router, buat dulu di IP > Hotspot > User Profiles");
+        $this->gw->hotspotProfiles['ISOLIR'] = null;
+
+        $this->postJson("/pelanggan/{$p->id}/isolir")
+            ->assertOk()->assertJsonPath('message', 'Voucher1 diisolir (HS-1H → ISOLIR), sesi aktif diputus');
+        $this->assertSame('ISOLIR', $this->gw->akun['hotspot'][0]['profile']);
+        $this->assertSame(['voucher1'], $this->gw->kicked);
+        $this->assertSame('HS-1H', $p->fresh()->profile_asal);
+
+        $this->postJson("/pelanggan/{$p->id}/aktifkan")->assertOk()->assertJsonPath('message', 'Voucher1 diaktifkan kembali (ISOLIR → HS-1H)');
+        $this->assertSame('HS-1H', $this->gw->akun['hotspot'][0]['profile']);
+        $this->assertSame('on', $p->fresh()->status_langganan);
+
+        // Pilihan profile saat profile asal tidak diketahui memakai Hotspot User Profile
+        $this->getJson("/mikrotik/router/{$this->router->id}/profiles?jenis=hotspot")->assertOk()->assertJsonPath('data', ['default', 'HS-1H', 'ISOLIR']);
     }
 
     public function test_customer_rows_keep_router_for_the_page_but_drop_unused_relations(): void

@@ -34,6 +34,19 @@ const KONEKSI = { pppoe: 'PPPoE', hotspot: 'Hotspot', static: 'Static', ip_bindi
 // Jenis koneksi yang punya akun di router (Sinkronisasi / Buat baru)
 const AKUN = { pppoe: 'PPP Secret', hotspot: 'Hotspot User', ip_binding: 'IP Binding' };
 const akunDipilih = (jenis, mode) => (v) => (Array.isArray(jenis) ? jenis : [jenis]).includes(v.jns_koneksi) && v.mode_akun === mode;
+// On/Off: PPPoE & Hotspot lewat profile akun, Static & IP Binding lewat address-list ISOLIR di router
+const lewatProfile = (p) => ['pppoe', 'hotspot'].includes(p.jns_koneksi);
+const pesanOnOff = ({ p, aksi }) => {
+    if (!lewatProfile(p)) {
+        const ip = p.ip_address ?? p.mac_address;
+        return aksi === 'isolir'
+            ? <>Internet <strong>{p.nama}</strong> ({ip}) akan diisolir: IP-nya dimasukkan ke address-list <strong>ISOLIR</strong> di router. Pastikan script Template Isolir sudah dipasang di router itu. Lanjutkan?</>
+            : <>Internet <strong>{p.nama}</strong> ({ip}) dinyalakan kembali: IP-nya dikeluarkan dari address-list <strong>ISOLIR</strong> di router. Lanjutkan?</>;
+    }
+    return aksi === 'isolir'
+        ? <>Internet <strong>{p.nama}</strong> ({p.username_pppoe}) akan diisolir: profile diubah ke <strong>{p.router?.profile_isolir}</strong> dan sesi aktif diputus. Lanjutkan?</>
+        : <>Internet <strong>{p.nama}</strong> ({p.username_pppoe}) dikembalikan ke profile <strong>{p.profile_asal ?? p.profile_paket}</strong>{!p.profile_asal && ' (profile paket)'} dan sesinya diputus agar login ulang. Lanjutkan?</>;
+};
 // Pilihan tanpa cabang (router/paket untuk semua cabang) tampil di setiap cabang
 const sesuaiCabang = (options, v) => options.filter((o) => !o.id_lokasi || String(o.id_lokasi) === String(v.id_lokasi));
 
@@ -188,11 +201,11 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
         }
     };
     const klikOn = async (p) => {
-        if (p.profile_asal || p.profile_paket) return setConfirm({ p, aksi: 'aktifkan' });
+        if (!lewatProfile(p) || p.profile_asal || p.profile_paket) return setConfirm({ p, aksi: 'aktifkan' });
         // Profile asal & paket tidak diketahui (mis. diisolir langsung di router) → pilih profile dulu
         setBusy(p.id);
         try {
-            const { data } = await api('GET', `/mikrotik/router/${p.router_id}/profiles`);
+            const { data } = await api('GET', `/mikrotik/router/${p.router_id}/profiles?jenis=${p.jns_koneksi}`);
             setPilihProfile({ p, options: data.filter((x) => x !== p.router?.profile_isolir).map((x) => ({ value: x, label: x })), value: '' });
         } catch (err) {
             notify(err.message, 'danger', 9000);
@@ -262,8 +275,8 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                         {bisa('pelanggan.pembayaran.view') && <ActionButton icon={Clock} color="info" label="Riwayat Pembayaran" onClick={() => setRiwayat(p)} />}
                     </>
                 ) : ['on', 'off'].includes(status) && bisa(`pelanggan.${status}.update`) ? (p) => (status === 'on'
-                    ? <ActionButton icon={WifiOff} label={p.jns_koneksi === 'pppoe' ? 'Off (Isolir)' : 'Off baru tersedia untuk PPPoE'} color="danger" loading={busy === p.id} disabled={!!busy || p.jns_koneksi !== 'pppoe'} onClick={() => setConfirm({ p, aksi: 'isolir' })} />
-                    : <ActionButton icon={Power} label={p.jns_koneksi === 'pppoe' ? 'On (Aktifkan)' : 'On baru tersedia untuk PPPoE'} color="success" loading={busy === p.id} disabled={!!busy || p.jns_koneksi !== 'pppoe'} onClick={() => klikOn(p)} />) : undefined}
+                    ? <ActionButton icon={WifiOff} label="Off (Isolir)" color="danger" loading={busy === p.id} disabled={!!busy} onClick={() => setConfirm({ p, aksi: 'isolir' })} />
+                    : <ActionButton icon={Power} label="On (Aktifkan)" color="success" loading={busy === p.id} disabled={!!busy} onClick={() => klikOn(p)} />) : undefined}
                 columns={[
                     { key: 'id_pelanggan', label: 'ID Pelanggan' },
                     { key: 'nama', label: 'Nama', render: (p) => <>{p.nama}{p.tlp && <><br /><small className="f-light">{p.tlp}</small></>}</> },
@@ -381,9 +394,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                 title={confirm?.aksi === 'isolir' ? 'Matikan Internet (Off)' : 'Nyalakan Internet (On)'}
                 color={confirm?.aksi === 'isolir' ? 'danger' : 'success'}
                 confirmLabel={confirm?.aksi === 'isolir' ? 'Ya, Off-kan' : 'Ya, On-kan'}
-                message={confirm && (confirm.aksi === 'isolir'
-                    ? <>Internet <strong>{confirm.p.nama}</strong> ({confirm.p.username_pppoe}) akan diisolir: profile diubah ke <strong>{confirm.p.router?.profile_isolir}</strong> dan sesi aktif diputus. Lanjutkan?</>
-                    : <>Internet <strong>{confirm.p.nama}</strong> ({confirm.p.username_pppoe}) dikembalikan ke profile <strong>{confirm.p.profile_asal ?? confirm.p.profile_paket}</strong>{!confirm.p.profile_asal && ' (profile paket)'} dan sesinya diputus agar login ulang. Lanjutkan?</>)}
+                message={confirm && pesanOnOff(confirm)}
                 onConfirm={() => jalankan(confirm.p, confirm.aksi)}
             />
 
