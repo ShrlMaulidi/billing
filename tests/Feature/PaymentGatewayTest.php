@@ -58,7 +58,7 @@ class PaymentGatewayTest extends TestCase
         $this->assertArrayNotHasKey('kredensial', $gateway->toArray());
 
         $this->get('/payment-gateway')->assertOk()->assertDontSee('perusahaanABC')
-            ->assertInertia(fn ($page) => $page->where('rows.0.server_key_tersamar', '••••1234')->where('rows.0.pemilik', 'Perusahaan')->where('rows.0.bisa_kelola', true));
+            ->assertInertia(fn ($page) => $page->where('rows.0.kunci_tersamar.0.nilai', '••••1234')->where('rows.0.pemilik', 'Perusahaan')->where('rows.0.bisa_kelola', true));
         $log = AuditLog::where('modul', 'Payment Gateway')->sole();
         $this->assertSame('[disembunyikan]', $log->perubahan['kredensial']['ke']);
         $this->assertStringNotContainsString('perusahaanABC', json_encode($log->toArray()));

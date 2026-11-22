@@ -3,6 +3,10 @@
 namespace App\Models;
 
 use App\Services\Midtrans\MidtransClient;
+use App\Services\Pembayaran\MidtransPenyedia;
+use App\Services\Pembayaran\Penyedia;
+use App\Services\Pembayaran\TripayPenyedia;
+use App\Services\Pembayaran\XenditPenyedia;
 use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
@@ -16,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * untuk transaksi baru: Utama perusahaan untuk semua cabang non Admin Full, Utama cabang untuk pelanggan cabang Admin Full itu.
  * Kredensial terenkripsi di database dan tersembunyi dari toArray()/JSON; di menu Logs selalu tampil "[disembunyikan]".
  *
- * @property array{server_key?: string, signature_key?: string|null} $kredensial
+ * @property array<string, string|null> $kredensial isian sesuai provider, lihat KREDENSIAL
  */
 #[Table('payment_gateway')]
 #[Fillable(['provider', 'nama', 'id_lokasi', 'produksi', 'kredensial', 'status', 'utama', 'diuji_at'])]
@@ -33,7 +37,19 @@ class PaymentGateway extends Model
     public const KOLOM_TANPA_AUDIT = ['diuji_at', 'kunci_pemilik', 'kunci_utama'];
 
     /** Provider yang sudah terintegrasi penuh (buat transaksi, notifikasi, cek status). */
-    public const PROVIDER = ['midtrans' => 'Midtrans'];
+    public const PROVIDER = ['midtrans' => 'Midtrans', 'xendit' => 'Xendit', 'tripay' => 'Tripay'];
+
+    /**
+     * Isian kunci tiap provider: nama => [label, wajib]. Semua disimpan terenkripsi di kolom kredensial dan hanya
+     * ditampilkan 4 karakter terakhirnya.
+     *
+     * @var array<string, array<string, array{0: string, 1: bool}>>
+     */
+    public const KREDENSIAL = [
+        'midtrans' => ['server_key' => ['Server Key', true], 'signature_key' => ['Signature Secret Key', false]],
+        'xendit' => ['secret_key' => ['Secret Key', true], 'callback_token' => ['Callback Verification Token', true]],
+        'tripay' => ['merchant_code' => ['Kode Merchant', true], 'api_key' => ['API Key', true], 'private_key' => ['Private Key', true]],
+    ];
 
     protected $hidden = ['kredensial'];
 
@@ -77,9 +93,31 @@ class PaymentGateway extends Model
         return $this->hasMany(TransaksiMidtrans::class);
     }
 
-    public function client(): MidtransClient
+    /** Isian kunci yang dipakai uji koneksi & tempat menampilkan error kunci. */
+    public const KOLOM_UJI = ['midtrans' => 'server_key', 'xendit' => 'secret_key', 'tripay' => 'api_key'];
+
+    /** Klien provider untuk akun ini (kunci dari kolom kredensial terenkripsi). */
+    public function penyedia(): Penyedia
     {
-        return new MidtransClient((string) ($this->kredensial['server_key'] ?? ''), $this->kredensial['signature_key'] ?? null, $this->produksi);
+        $k = fn (string $nama) => (string) ($this->kredensial[$nama] ?? '');
+
+        return match ($this->provider) {
+            'xendit' => new XenditPenyedia($k('secret_key'), $k('callback_token'), $this->produksi),
+            'tripay' => new TripayPenyedia($k('api_key'), $k('private_key'), $k('merchant_code'), $this->produksi),
+            default => new MidtransPenyedia(new MidtransClient($k('server_key'), $this->kredensial['signature_key'] ?? null, $this->produksi)),
+        };
+    }
+
+    /**
+     * Kunci tersimpan yang aman ditampilkan (tersamar), sesuai isian provider.
+     *
+     * @return list<array{nama: string, label: string, nilai: ?string}>
+     */
+    public function kunciTersamar(): array
+    {
+        return collect(self::KREDENSIAL[$this->provider] ?? [])
+            ->map(fn (array $isian, string $nama) => ['nama' => $nama, 'label' => $isian[0], 'nilai' => self::samarkan($this->kredensial[$nama] ?? null)])
+            ->values()->all();
     }
 
     public function namaPemilik(): string

@@ -73,7 +73,7 @@ class Pembayaran extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    /** Transaksi Midtrans yang mencatat pembayaran ini (hanya untuk metode midtrans). */
+    /** Transaksi online yang mencatat pembayaran ini (metode midtrans / xendit / tripay). */
     public function transaksiMidtrans(): HasOne
     {
         return $this->hasOne(TransaksiMidtrans::class);
@@ -100,7 +100,7 @@ class Pembayaran extends Model
         $nama = self::METODE[$this->metode] ?? str($this->metode)->replace('_', ' ')->title()->toString();
         $rincian = match ($this->metode) {
             'transfer' => $this->rekening?->nama_rekening,
-            'midtrans' => ($tipe = $this->transaksiMidtrans?->payment_type) ? (self::KANAL_MIDTRANS[$tipe] ?? str($tipe)->replace('_', ' ')->title()->toString()) : null,
+            'midtrans', 'xendit', 'tripay' => TransaksiMidtrans::namaKanal($this->metode, $this->transaksiMidtrans?->payment_type),
             default => null,
         };
 

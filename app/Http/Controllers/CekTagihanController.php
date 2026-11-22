@@ -6,7 +6,7 @@ use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\Rekening;
 use App\Models\TransaksiMidtrans;
-use App\Services\Midtrans\AkunMidtrans;
+use App\Services\Pembayaran\AkunPembayaran;
 use App\Support\NomorHp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -113,14 +113,14 @@ class CekTagihanController extends Controller
     public static function hasil(Collection $pelanggan, bool $samarkanNama = true): Collection
     {
         // Pembayaran online yang sudah dibuat & masih menunggu dibayar: tombol jadi "Lanjutkan" + "Ganti metode"
-        $berjalan = TransaksiMidtrans::whereIn('pelanggan_id', $pelanggan->pluck('id'))->where('status', 'pending')
+        $berjalan = TransaksiMidtrans::with('gateway:id,provider')->whereIn('pelanggan_id', $pelanggan->pluck('id'))->where('status', 'pending')
             ->whereNotNull('redirect_url')->where('kedaluwarsa_at', '>', now())->latest('id')->get()->groupBy('pelanggan_id');
 
         // Akun pembayaran online per cabang dicari sekali per cabang
         $bayarOnline = [];
 
         return $pelanggan->map(function (Pelanggan $p) use ($berjalan, &$bayarOnline, $samarkanNama) {
-            $bayarOnline[(int) $p->id_lokasi] ??= AkunMidtrans::untukLokasi($p->lokasi) !== null;
+            $bayarOnline[(int) $p->id_lokasi] ??= AkunPembayaran::untukLokasi($p->lokasi) !== null;
 
             return [
                 'id_pelanggan' => $p->id_pelanggan,
@@ -132,7 +132,7 @@ class CekTagihanController extends Controller
                 'tagihan' => collect($p->tagihanBelumDibayar())->map(fn (array $t) => [
                     ...$t,
                     'online_berjalan' => ($trx = $berjalan->get($p->id)?->first(fn (TransaksiMidtrans $x) => $x->periode === $t['periode'] && $x->gross_amount === $t['nominal']))
-                        ? ['metode' => Pembayaran::KANAL_MIDTRANS[$trx->payment_type] ?? null] : null,
+                        ? ['metode' => TransaksiMidtrans::namaKanal($trx->provider(), $trx->payment_type)] : null,
                 ])->all(),
                 // Riwayat lunas: periode ini tidak bisa dibayar lagi, kwitansi bisa dibuka
                 'lunas' => $p->pembayaran->sortByDesc('periode')->take(self::MAKS_RIWAYAT)->map(fn (Pembayaran $b) => self::barisLunas($b))->values(),

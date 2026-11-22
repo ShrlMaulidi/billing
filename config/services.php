@@ -54,6 +54,13 @@ return [
     ],
 
     // Payment gateway perusahaan (pelanggan cabang non Admin Full). Key hanya di .env, tidak pernah dikirim ke browser.
+    // Pengaturan umum pembayaran online semua provider (Midtrans, Xendit, Tripay)
+    'pembayaran' => [
+        'timeout' => (int) env('PEMBAYARAN_TIMEOUT', 15),
+        // Tripay mewajibkan email pelanggan; pelanggan tidak menyimpan email, jadi memakai alamat ini
+        'email_pelanggan' => env('PEMBAYARAN_EMAIL_PELANGGAN', 'noreply@mediasolusisukses.co.id'),
+    ],
+
     'midtrans' => [
         'server_key' => env('MIDTRANS_SERVER_KEY'),
         // Dashboard Midtrans baru: notifikasi bisa ditandatangani dengan Signature Secret Key (opsional, selain Server Key)

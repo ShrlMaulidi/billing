@@ -33,8 +33,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'semua_cabang' => EnsureUserCoversAllBranches::class,
         ]);
-        // Webhook Midtrans dipanggil server Midtrans (tanpa token CSRF); keabsahan dicek lewat signature_key + cek status ke API
-        $middleware->validateCsrfTokens(except: ['midtrans/notifikasi']);
+        // Webhook payment gateway dipanggil server provider (tanpa token CSRF); keabsahan dicek lewat tanda tangan/token + cek status ke API
+        $middleware->validateCsrfTokens(except: ['midtrans/notifikasi', 'pembayaran/notifikasi/*']);
         $middleware->redirectGuestsTo('/login');
         // User yang sudah login diarahkan ke menu pertama yang boleh dibukanya
         $middleware->redirectUsersTo(fn (Request $request) => HakAkses::halamanAwal($request->user()) ?? '/profil');

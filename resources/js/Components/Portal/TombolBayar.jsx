@@ -1,27 +1,33 @@
 import { useState } from 'react';
 import { CreditCard, RefreshCw } from 'react-feather';
 import { Button, Spinner } from 'reactstrap';
+import PilihKanal from '../PilihKanal';
 import { bayarOnline } from '../TagihanPelanggan';
 
 /**
- * Tombol Bayar Sekarang satu invoice. Cabang dengan pembayaran online: langsung ke halaman pembayaran Midtrans
+ * Tombol Bayar Sekarang satu invoice. Cabang dengan pembayaran online: langsung ke halaman payment gateway (Tripay: pilih metode dulu)
  * (atau lanjutkan pembayaran yang menunggu dibayar, dengan opsi ganti metode). Selain itu tampilkan cara bayar manual.
  */
 export default function TombolBayar({ invoice, langganan, onManual, block = false, size }) {
     const [proses, setProses] = useState(null);
     const [galat, setGalat] = useState('');
+    const [pilihan, setPilihan] = useState(null); // { ganti, kanal: [...] } saat provider meminta metode dipilih (Tripay)
     const berjalan = langganan.bayar_online ? invoice.online_berjalan : null;
 
-    const bayar = async (ganti = false) => {
+    const bayar = async (ganti = false, kanal = null) => {
         if (!langganan.bayar_online) {
             onManual(invoice, langganan);
             return;
         }
-        if (ganti && !window.confirm(`Pembayaran ${berjalan?.metode ?? 'sebelumnya'} akan dibatalkan dan tidak bisa dipakai lagi. Lanjut memilih metode pembayaran lain?`)) return;
+        if (ganti && !kanal && !window.confirm(`Pembayaran ${berjalan?.metode ?? 'sebelumnya'} akan dibatalkan dan tidak bisa dipakai lagi. Lanjut memilih metode pembayaran lain?`)) return;
         setProses(ganti ? 'ganti' : 'bayar');
         setGalat('');
         try {
-            await bayarOnline(langganan.id_pelanggan, invoice.periode, ganti);
+            const hasil = await bayarOnline(langganan.id_pelanggan, invoice.periode, ganti, kanal);
+            if (hasil.pilihKanal) {
+                setPilihan({ ganti, kanal: hasil.pilihKanal });
+                setProses(null);
+            }
         } catch (pesan) {
             setGalat(pesan);
             setProses(null);
@@ -30,6 +36,7 @@ export default function TombolBayar({ invoice, langganan, onManual, block = fals
 
     return (
         <div className={block ? 'd-grid gap-1' : 'd-inline-flex flex-column align-items-end gap-1'}>
+            <PilihKanal kanal={pilihan?.kanal} onTutup={() => setPilihan(null)} onPilih={(kode) => { const { ganti } = pilihan; setPilihan(null); bayar(ganti, kode); }} />
             <Button color="primary" size={size} onClick={() => bayar()} disabled={!!proses}>
                 {proses === 'bayar' ? <Spinner size="sm" className="me-1" /> : <CreditCard size={15} className="me-1" />}
                 {proses === 'bayar' ? 'Menyiapkan…' : berjalan ? `Lanjutkan Pembayaran${berjalan.metode ? ` (${berjalan.metode})` : ''}` : 'Bayar Sekarang'}

@@ -52,8 +52,7 @@ class PaymentGatewayController extends Controller
                     'status' => $g->status,
                     'diuji_at' => $g->diuji_at?->toDateTimeString(),
                     // Nama kolom sengaja beda dari isian form agar nilai tersamar tidak ikut terkirim saat edit
-                    'server_key_tersamar' => PaymentGateway::samarkan($g->kredensial['server_key'] ?? null),
-                    'signature_key_tersamar' => PaymentGateway::samarkan($g->kredensial['signature_key'] ?? null),
+                    'kunci_tersamar' => $g->kunciTersamar(),
                     'jumlah_transaksi' => $g->transaksi_count,
                     'bisa_kelola' => $this->bolehKelola($user, $g->id_lokasi),
                 ]),
@@ -69,6 +68,10 @@ class PaymentGatewayController extends Controller
                 ->map(fn (Lokasi $l) => ['value' => $l->id, 'label' => "{$l->nama_lokasi} (Admin Full)"])
                 ->prepend(['value' => 'perusahaan', 'label' => 'Perusahaan (Utama-nya dipakai cabang non Admin Full)'])
                 ->values(),
+            // Isian kunci per provider untuk form, dan URL notifikasi yang harus diisi di dashboard provider (Xendit)
+            'kredensialProvider' => collect(PaymentGateway::KREDENSIAL)->map(fn (array $isian) => collect($isian)
+                ->map(fn (array $i, string $nama) => ['nama' => $nama, 'label' => $i[0], 'wajib' => $i[1]])->values()),
+            'urlNotifikasi' => ['xendit' => route('pembayaran.notifikasi', 'xendit')],
             'perusahaanDariEnv' => $lokasiUser === null && ! PaymentGateway::whereNull('id_lokasi')->exists() && (new MidtransClient)->aktif(),
         ]);
     }
@@ -83,13 +86,13 @@ class PaymentGatewayController extends Controller
 
         $gateway = new PaymentGateway([
             'provider' => $data['provider'],
+            'kredensial' => collect(PaymentGateway::KREDENSIAL[$data['provider']])->mapWithKeys(fn ($_, string $nama) => [$nama => $data[$nama] ?? null])->all(),
             'nama' => $data['nama'],
             // Gateway pertama milik pemilik ini langsung menjadi Utama
             'utama' => ! PaymentGateway::where('kunci_pemilik', PaymentGateway::kunciPemilik($idLokasi))->exists(),
             'id_lokasi' => $idLokasi,
             'produksi' => $data['produksi'],
             'status' => $data['status'],
-            'kredensial' => ['server_key' => $data['server_key'], 'signature_key' => $data['signature_key'] ?? null],
         ]);
         $this->ujiKunci($gateway);
         try {
@@ -100,7 +103,7 @@ class PaymentGatewayController extends Controller
             $gateway->save();
         }
 
-        return response()->json(['message' => "Payment gateway {$gateway->labelAudit()} ditambahkan".($gateway->utama ? ' sebagai Utama' : '').' dan kuncinya diterima Midtrans']);
+        return response()->json(['message' => "Payment gateway {$gateway->labelAudit()} ditambahkan".($gateway->utama ? ' sebagai Utama' : '').' dan kuncinya diterima '.$gateway->penyedia()->nama()]);
     }
 
     public function update(Request $request, PaymentGateway $gateway): JsonResponse
@@ -110,11 +113,10 @@ class PaymentGatewayController extends Controller
 
         // Kunci yang dikosongkan tetap memakai kunci lama; pemilik & provider tidak bisa diganti
         $kredensial = $gateway->kredensial;
-        if (filled($data['server_key'] ?? null)) {
-            $kredensial['server_key'] = $data['server_key'];
-        }
-        if (filled($data['signature_key'] ?? null)) {
-            $kredensial['signature_key'] = $data['signature_key'];
+        foreach (array_keys(PaymentGateway::KREDENSIAL[$gateway->provider] ?? []) as $nama) {
+            if (filled($data[$nama] ?? null)) {
+                $kredensial[$nama] = $data[$nama];
+            }
         }
         // Satu-satunya gateway boleh dinonaktifkan (menghentikan pembayaran online sementara); bila ada gateway lain,
         // Utama dipindah dulu agar pelanggan tidak kehilangan pembayaran online tanpa sengaja
@@ -165,7 +167,7 @@ class PaymentGatewayController extends Controller
         $this->ujiKunci($gateway, wajib: true);
         $gateway->save();
 
-        return response()->json(['message' => "Koneksi {$gateway->labelAudit()} berhasil: kunci diterima Midtrans (".($gateway->produksi ? 'Production' : 'Sandbox').')']);
+        return response()->json(['message' => "Koneksi {$gateway->labelAudit()} berhasil: kunci diterima {$gateway->penyedia()->nama()} (".($gateway->produksi ? 'Production' : 'Sandbox').')']);
     }
 
     private function adaGatewayLain(PaymentGateway $gateway): bool
@@ -204,21 +206,27 @@ class PaymentGatewayController extends Controller
      */
     private function ujiKunci(PaymentGateway $gateway, bool $wajib = false): void
     {
-        $kunci = (string) ($gateway->kredensial['server_key'] ?? '');
-        if (! MidtransClient::kunciSesuaiMode($kunci, $gateway->produksi)) {
-            throw ValidationException::withMessages(['server_key' => 'Server Key Sandbox diawali "SB-", Server Key Production tidak. Sesuaikan kunci dengan pilihan mode.']);
+        $penyedia = $gateway->penyedia();
+        // Error ditampilkan di isian kunci utama provider (Midtrans: Server Key, Xendit: Secret Key, Tripay: API Key)
+        $kolom = PaymentGateway::KOLOM_UJI[$gateway->provider] ?? 'server_key';
+        $label = PaymentGateway::KREDENSIAL[$gateway->provider][$kolom][0] ?? 'Kunci';
+        if (! $penyedia->sesuaiMode()) {
+            throw ValidationException::withMessages([$kolom => match ($gateway->provider) {
+                'xendit' => 'Secret Key mode Test diawali "xnd_development_", mode Live diawali "xnd_production_". Sesuaikan kunci dengan pilihan mode.',
+                default => 'Server Key Sandbox diawali "SB-", Server Key Production tidak. Sesuaikan kunci dengan pilihan mode.',
+            }]);
         }
         if (! $wajib && $gateway->status !== 'aktif' && ! $gateway->isDirty(['kredensial', 'produksi'])) {
             return;
         }
         try {
-            $diterima = $gateway->client()->ujiKoneksi();
+            $diterima = $penyedia->ujiKoneksi();
         } catch (Throwable $e) {
             report($e);
-            throw ValidationException::withMessages(['server_key' => 'Tidak bisa menghubungi Midtrans untuk menguji kunci. Periksa koneksi server lalu coba lagi.']);
+            throw ValidationException::withMessages([$kolom => "Tidak bisa menghubungi {$penyedia->nama()} untuk menguji kunci. Periksa koneksi server lalu coba lagi."]);
         }
         if (! $diterima) {
-            throw ValidationException::withMessages(['server_key' => 'Server Key ditolak Midtrans. Periksa kembali kunci dan mode (Sandbox/Production).']);
+            throw ValidationException::withMessages([$kolom => "{$label} ditolak {$penyedia->nama()}. Periksa kembali kunci dan mode (Sandbox/Production)."]);
         }
         $gateway->diuji_at = now();
     }
@@ -227,9 +235,14 @@ class PaymentGatewayController extends Controller
     private function validated(Request $request, ?PaymentGateway $gateway): array
     {
         $baru = $gateway === null;
-        // Kunci Midtrans: huruf, angka, dan - _ : . ~ + / = (kunci versi baru bisa memuat ~); spasi & tanda kutip ditolak
-        // karena biasanya tanda salah tempel
+        // Kunci provider: huruf, angka, dan - _ : . ~ + / = (kunci Midtrans versi baru bisa memuat ~); spasi & tanda kutip
+        // ditolak karena biasanya tanda salah tempel. Isian kunci mengikuti provider (lihat PaymentGateway::KREDENSIAL).
         $kunci = ['string', 'max:200', 'regex:/^[A-Za-z0-9_\-:.~+\/=]+$/'];
+        $provider = $gateway?->provider ?? (in_array($request->input('provider'), array_keys(PaymentGateway::PROVIDER), true) ? $request->input('provider') : 'midtrans');
+        $isian = PaymentGateway::KREDENSIAL[$provider];
+        $aturanKunci = collect($isian)->mapWithKeys(fn (array $i, string $nama) => [$nama => [$baru && $i[1] ? 'required' : 'nullable', ...$kunci]])->all();
+        $pesanKunci = collect($isian)->mapWithKeys(fn (array $i, string $nama) => ["{$nama}.regex" => "{$i[0]} tidak boleh berisi spasi atau tanda kutip (periksa kembali hasil salin-tempel)"])->all();
+        $labelKunci = collect($isian)->map(fn (array $i) => $i[0])->all();
 
         return $request->validate([
             'provider' => [Rule::requiredIf($baru), Rule::in(array_keys(PaymentGateway::PROVIDER))],
@@ -240,18 +253,16 @@ class PaymentGatewayController extends Controller
                 ? ['required', Rule::in(Lokasi::where('admin_full', true)->pluck('id')->map(fn (int $id) => (string) $id)->push('perusahaan')->all())]
                 : ['nullable'],
             'produksi' => ['required', 'boolean'],
-            'server_key' => [$baru ? 'required' : 'nullable', ...$kunci],
-            'signature_key' => ['nullable', ...$kunci],
+            ...$aturanKunci,
             'status' => ['required', Rule::in(['aktif', 'tidak_aktif'])],
             'password' => ['required', 'current_password'],
         ], [
             ...$this->pesanValidasi(),
-            'server_key.regex' => 'Server Key tidak boleh berisi spasi atau tanda kutip (periksa kembali hasil salin-tempel)',
-            'signature_key.regex' => 'Signature Key tidak boleh berisi spasi atau tanda kutip (periksa kembali hasil salin-tempel)',
+            ...$pesanKunci,
             'password.current_password' => 'Password salah',
         ], [
-            'provider' => 'Provider', 'nama' => 'Nama gateway', 'id_lokasi' => 'Pemilik gateway', 'produksi' => 'Mode', 'server_key' => 'Server Key',
-            'signature_key' => 'Signature Key', 'status' => 'Status', 'password' => 'Password Anda',
+            'provider' => 'Provider', 'nama' => 'Nama gateway', 'id_lokasi' => 'Pemilik gateway', 'produksi' => 'Mode',
+            ...$labelKunci, 'status' => 'Status', 'password' => 'Password Anda',
         ]);
     }
 }

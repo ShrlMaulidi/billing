@@ -4,6 +4,7 @@ import { CheckCircle, CreditCard, FileText, Printer, RefreshCw } from 'react-fea
 import { periode, rupiah, tanggal } from '../lib/format';
 import { api } from '../lib/ui';
 import InvoiceTagihan from './InvoiceTagihan';
+import PilihKanal from './PilihKanal';
 
 // WhatsApp CS (0857-1839-2893) untuk layanan pelanggan: cek tagihan, bukti transfer, lupa sandi, dashboard pelanggan.
 // Tombol marketing (konsultasi & pasang baru) di landing page memakai nomor marketing sendiri.
@@ -13,15 +14,18 @@ const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
 export const linkWa = (pesan) => `https://wa.me/${WA_CS}?text=${encodeURIComponent(pesan)}`;
 
 /**
- * Buat (atau lanjutkan) pembayaran online Midtrans satu invoice lalu arahkan browser ke halaman pembayarannya.
+ * Buat (atau lanjutkan) pembayaran online satu invoice lalu arahkan browser ke halaman pembayaran payment gateway.
  * ganti = hentikan pembayaran yang menunggu dibayar agar bisa memilih metode lain. Nominal dihitung ulang di server.
+ * Provider yang mewajibkan metode dipilih di billing (Tripay) mengembalikan { pilihKanal: [...] }; panggil ulang dengan kanal.
  * Gagal → melempar pesan yang siap ditampilkan.
  */
-export async function bayarOnline(idPelanggan, periodeTagihan, ganti = false) {
+export async function bayarOnline(idPelanggan, periodeTagihan, ganti = false, kanal = null) {
     try {
-        const res = await api('POST', '/cek-tagihan/bayar', { id_pelanggan: idPelanggan, periode: periodeTagihan, ganti });
+        const res = await api('POST', '/cek-tagihan/bayar', { id_pelanggan: idPelanggan, periode: periodeTagihan, ganti, kanal });
+        if (res.pilih_kanal) return { pilihKanal: res.pilih_kanal };
         if (!res.redirect_url) throw { message: 'Pembayaran online sedang tidak tersedia. Silakan coba lagi.' };
         window.location.assign(res.redirect_url);
+        return {};
     } catch (err) {
         throw err.errors?.bayar?.[0] ?? err.message;
     }
@@ -37,19 +41,24 @@ function TombolBayar({ invoice, pelanggan }) {
     const [info, setInfo] = useState(false);
     const [proses, setProses] = useState(null);
     const [galat, setGalat] = useState('');
+    const [pilihan, setPilihan] = useState(null); // { ganti, kanal: [...] } saat provider meminta metode dipilih (Tripay)
     const berjalan = pelanggan.bayar_online ? invoice.online_berjalan : null;
     const metodeLama = berjalan?.metode ?? 'sebelumnya';
 
-    const bayar = async (ganti = false) => {
+    const bayar = async (ganti = false, kanal = null) => {
         if (!pelanggan.bayar_online) {
             setInfo(true);
             return;
         }
-        if (ganti && !window.confirm(`Pembayaran ${metodeLama} akan dibatalkan dan tidak bisa dipakai lagi. Lanjut memilih metode pembayaran lain?`)) return;
+        if (ganti && !kanal && !window.confirm(`Pembayaran ${metodeLama} akan dibatalkan dan tidak bisa dipakai lagi. Lanjut memilih metode pembayaran lain?`)) return;
         setProses(ganti ? 'ganti' : 'bayar');
         setGalat('');
         try {
-            await bayarOnline(pelanggan.id_pelanggan, invoice.periode, ganti);
+            const hasil = await bayarOnline(pelanggan.id_pelanggan, invoice.periode, ganti, kanal);
+            if (hasil.pilihKanal) {
+                setPilihan({ ganti, kanal: hasil.pilihKanal });
+                setProses(null);
+            }
         } catch (pesan) {
             setGalat(pesan);
             setProses(null);
@@ -62,6 +71,7 @@ function TombolBayar({ invoice, pelanggan }) {
 
     return (
         <>
+            <PilihKanal kanal={pilihan?.kanal} onTutup={() => setPilihan(null)} onPilih={(kode) => { const { ganti } = pilihan; setPilihan(null); bayar(ganti, kode); }} />
             <button type="button" className="lp-btn lp-btn-gold ct-bayar" onClick={() => bayar()} disabled={!!proses}>
                 <CreditCard size={18} /> {label}
             </button>

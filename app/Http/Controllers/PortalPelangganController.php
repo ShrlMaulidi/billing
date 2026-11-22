@@ -6,6 +6,7 @@ use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\Rekening;
 use App\Models\Tiket;
+use App\Models\TransaksiMidtrans;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -100,6 +101,30 @@ class PortalPelangganController extends Controller
                 'cabang' => $pembayaran->lokasi?->only(['nama_lokasi', 'alamat_lokasi', 'tlp_lokasi']),
                 'rekening' => $pembayaran->rekening?->label(),
                 'metode_label' => $pembayaran->keteranganMetode(),
+            ],
+        ]);
+    }
+
+    /**
+     * Hasil pembayaran online setelah kembali dari Midtrans (dialihkan dari /cek-tagihan/selesai bila pelanggan login).
+     * Status sudah disinkronkan dengan Midtrans saat pengalihan; transaksi milik pelanggan lain dijawab 404.
+     */
+    public function pembayaran(Request $request): Response
+    {
+        $transaksi = TransaksiMidtrans::with(['pelanggan:id,nama,id_pelanggan,user_id', 'pembayaran:id', 'gateway:id,provider'])->firstWhere('order_id', (string) $request->query('order_id'));
+        abort_unless($transaksi && $transaksi->pelanggan?->user_id === $request->user()->id, 404);
+
+        return Inertia::render('Portal/PembayaranSelesai', [
+            'transaksi' => [
+                'status' => in_array($transaksi->status, TransaksiMidtrans::LUNAS, true) ? 'lunas' : $transaksi->status,
+                'nominal' => $transaksi->gross_amount,
+                'periode' => $transaksi->periode,
+                'nama' => $transaksi->pelanggan->nama,
+                'id_pelanggan' => $transaksi->pelanggan->id_pelanggan,
+                'metode' => TransaksiMidtrans::namaKanal($transaksi->provider(), $transaksi->payment_type),
+                'pembayaran_id' => $transaksi->pembayaran?->id,
+                // Masih menunggu & belum kedaluwarsa: bisa dilanjutkan di halaman pembayaran Midtrans
+                'lanjut_url' => $transaksi->masihBerlaku() ? $transaksi->redirect_url : null,
             ],
         ]);
     }

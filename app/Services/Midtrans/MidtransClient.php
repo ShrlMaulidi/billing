@@ -35,6 +35,11 @@ class MidtransClient
         return $kunci !== '' && str_starts_with($kunci, 'SB-') !== $produksi;
     }
 
+    public function sesuaiMode(): bool
+    {
+        return self::kunciSesuaiMode($this->serverKey, $this->produksi);
+    }
+
     /** Pembayaran online aktif bila Server Key terisi dan cocok dengan modenya; bila tidak, tombol bayar disembunyikan. */
     public function aktif(): bool
     {

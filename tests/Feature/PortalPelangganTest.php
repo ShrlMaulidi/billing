@@ -8,6 +8,7 @@ use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\Router;
 use App\Models\Tiket;
+use App\Models\TransaksiMidtrans;
 use App\Models\User;
 use App\Services\AkunPelanggan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -103,6 +104,38 @@ class PortalPelangganTest extends TestCase
 
         $this->actingAs($budi->user)->get("/akun-saya/riwayat/{$milikLain->id}/invoice")->assertNotFound();
         $this->get("/akun-saya/riwayat/{$milikLain->id}/kuitansi")->assertNotFound();
+    }
+
+    public function test_customer_returning_from_midtrans_lands_on_dashboard_result_page(): void
+    {
+        $budi = $this->pelanggan('Budi Santoso', '081234567890');
+        $pembayaran = $this->bayar($budi, '2026-11-01');
+        $transaksi = TransaksiMidtrans::create([
+            'order_id' => 'MSSB-202611-'.$budi->id.'-uji', 'pelanggan_id' => $budi->id, 'periode' => '2026-11-01', 'gross_amount' => 200000,
+            'status' => 'lunas', 'payment_type' => 'bank_transfer', 'pembayaran_id' => $pembayaran->id,
+        ]);
+
+        $this->actingAs($budi->user)->get('/cek-tagihan/selesai?order_id='.$transaksi->order_id)
+            ->assertRedirect('/akun-saya/pembayaran?order_id='.$transaksi->order_id);
+        $this->get('/akun-saya/pembayaran?order_id='.$transaksi->order_id)->assertOk()->assertInertia(fn ($page) => $page->component('Portal/PembayaranSelesai')
+            ->where('transaksi.status', 'lunas')
+            ->where('transaksi.nama', 'Budi Santoso')
+            ->where('transaksi.pembayaran_id', $pembayaran->id)
+            ->where('transaksi.lanjut_url', null));
+    }
+
+    public function test_result_page_of_another_customers_payment_is_not_shown_in_dashboard(): void
+    {
+        $lain = $this->pelanggan('Orang Lain', '089900001111');
+        $transaksi = TransaksiMidtrans::create([
+            'order_id' => 'MSSB-202611-'.$lain->id.'-uji', 'pelanggan_id' => $lain->id, 'periode' => '2026-11-01', 'gross_amount' => 200000, 'status' => 'lunas',
+        ]);
+        $budi = $this->pelanggan('Budi', '081234567890');
+
+        // Bukan pemilik: tetap halaman publik (nama disamarkan), halaman dashboard 404
+        $this->actingAs($budi->user)->get('/cek-tagihan/selesai?order_id='.$transaksi->order_id)->assertOk()
+            ->assertInertia(fn ($page) => $page->component('CekTagihan/Selesai'));
+        $this->get('/akun-saya/pembayaran?order_id='.$transaksi->order_id)->assertNotFound();
     }
 
     public function test_account_page_lists_subscriptions_using_this_account(): void

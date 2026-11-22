@@ -3,6 +3,7 @@
 use App\Http\Controllers\AkunPelangganController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BayarOnlineController;
 use App\Http\Controllers\CabangController;
 use App\Http\Controllers\CekTagihanController;
 use App\Http\Controllers\DashboardController;
@@ -12,7 +13,6 @@ use App\Http\Controllers\IsolirController;
 use App\Http\Controllers\KelolaDataController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\LaporanController;
-use App\Http\Controllers\MidtransController;
 use App\Http\Controllers\PajakController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PaymentGatewayController;
@@ -42,9 +42,12 @@ Route::get('/cek-tagihan/kartu/{pelanggan}', [CekTagihanController::class, 'kart
 Route::get('/cek-tagihan/kwitansi/{pembayaran}', [CekTagihanController::class, 'kwitansi'])->whereNumber('pembayaran')
     ->middleware(['signed:relative', 'throttle:cek-tagihan'])->name('cek-tagihan.kwitansi');
 // Pembayaran online Midtrans (tanpa login). Webhook dikecualikan dari CSRF di bootstrap/app.php; keabsahannya lewat signature_key
-Route::post('/cek-tagihan/bayar', [MidtransController::class, 'bayar'])->middleware('throttle:bayar-online')->name('midtrans.bayar');
-Route::get('/cek-tagihan/selesai', [MidtransController::class, 'selesai'])->middleware('throttle:bayar-online')->name('midtrans.selesai');
-Route::post('/midtrans/notifikasi', [MidtransController::class, 'notifikasi'])->middleware('throttle:120,1')->name('midtrans.notifikasi');
+Route::post('/cek-tagihan/bayar', [BayarOnlineController::class, 'bayar'])->middleware('throttle:bayar-online')->name('midtrans.bayar');
+Route::get('/cek-tagihan/selesai', [BayarOnlineController::class, 'selesai'])->middleware('throttle:bayar-online')->name('midtrans.selesai');
+Route::post('/midtrans/notifikasi', [BayarOnlineController::class, 'notifikasi'])->middleware('throttle:120,1')->name('midtrans.notifikasi');
+// Webhook Xendit (Callback URL diisi di dashboard Xendit) & Tripay (callback_url dikirim per transaksi); dikecualikan dari CSRF
+Route::post('/pembayaran/notifikasi/{provider}', [BayarOnlineController::class, 'notifikasi'])->whereIn('provider', ['xendit', 'tripay'])
+    ->middleware('throttle:120,1')->name('pembayaran.notifikasi');
 // Tujuan redirect web proxy router untuk pelanggan terisolir (tanpa login)
 Route::get('/isolir', [IsolirController::class, 'halaman'])->name('isolir');
 Route::middleware('guest')->group(function () {
@@ -68,6 +71,8 @@ Route::middleware('auth')->group(function () {
             Route::get('/riwayat', 'riwayat')->name('akun-saya.riwayat');
             Route::get('/riwayat/{pembayaran}/invoice', 'invoice')->whereNumber('pembayaran')->name('akun-saya.invoice');
             Route::get('/riwayat/{pembayaran}/kuitansi', 'kuitansi')->whereNumber('pembayaran')->name('akun-saya.kuitansi');
+            // Tujuan setelah bayar online (dialihkan dari halaman selesai Midtrans)
+            Route::get('/pembayaran', 'pembayaran')->name('akun-saya.pembayaran');
             Route::get('/akun', 'akun')->name('akun-saya.akun');
             // Login pertama / setelah password di-reset: wajib membuat password baru (lihat BatasiAkunPelanggan)
             Route::get('/password-baru', 'passwordBaru')->name('akun-saya.password-baru');
