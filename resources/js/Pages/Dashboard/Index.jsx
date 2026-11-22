@@ -5,11 +5,12 @@ import { Card, CardBody, CardHeader } from 'reactstrap';
 import DataTable from '../../Components/DataTable';
 import FilterBar from '../../Components/FilterBar';
 import PageHeader from '../../Components/PageHeader';
+import PerubahanGateway from '../../Components/PerubahanGateway';
 import SaldoCard, { RincianSaldo, useSaldoHidden } from '../../Components/SaldoCard';
 import { StatCard, StatusBadge } from '../../Components/ui';
 import { angka, periode, rupiah, tanggal, waktu } from '../../lib/format';
 
-export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik, saldoMitra }) {
+export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik, saldoMitra, perubahanGateway }) {
     const [saldoHidden, toggleSaldo] = useSaldoHidden();
     // Kartu pelanggan membuka menu Pelanggan yang sesuai (data asli, ada aksi lengkap); kategori lain ke daftar dashboard
     const MENU_PELANGGAN = {
@@ -49,6 +50,8 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik, s
         <>
             <PageHeader title="Dashboard" />
             <div className="container-fluid">
+                {/* Super Admin: perubahan payment gateway yang belum diperiksa tampil paling atas */}
+                <PerubahanGateway data={perubahanGateway} />
                 <div className="d-flex justify-content-end mb-3"><FilterBar filters={filters} fields={['cabang']} /></div>
                 {saldoMitra && <SaldoCard saldo={saldoMitra} filters={filters} hidden={saldoHidden} onToggle={toggleSaldo} />}
                 <div className="row stat-compact">

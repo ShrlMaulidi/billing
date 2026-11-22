@@ -27,7 +27,7 @@ class SistemTest extends TestCase
         $this->actingAs(User::factory()->create());
         $this->get('/payment-gateway')->assertInertia(fn ($page) => $page->where('cabangUser', null)
             ->where('pemilikOptions', [
-                ['value' => 'perusahaan', 'label' => 'Perusahaan (dipakai cabang non Admin Full)'],
+                ['value' => 'perusahaan', 'label' => 'Perusahaan (Utama-nya dipakai cabang non Admin Full)'],
                 ['value' => $full->id, 'label' => 'MSS Cimahi (Admin Full)'],
             ]));
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit2, Info, Lock, Zap } from 'react-feather';
+import { Edit2, Info, Lock, Star, Zap } from 'react-feather';
 import CrudPage from '../../Components/CrudPage';
 import { ActionButton, StatusBadge } from '../../Components/ui';
 import { angka, METODE, waktu } from '../../lib/format';
@@ -10,16 +10,31 @@ const MODE = [{ value: false, label: 'Sandbox (uji coba)' }, { value: true, labe
 const STATUS = [{ value: 'aktif', label: 'Aktif' }, { value: 'tidak_aktif', label: 'Tidak Aktif' }];
 
 /**
- * Payment gateway diatur sendiri dari aplikasi. Cabang non Admin Full memakai gateway perusahaan (diatur Super Admin);
- * cabang Admin Full menambah gateway sendiri (uang masuk ke mitra). Kunci tidak pernah dikirim ke browser: tabel hanya
- * menampilkan 4 karakter terakhir, dan kunci yang dikosongkan saat edit tetap memakai kunci lama.
+ * Payment gateway diatur sendiri dari aplikasi. Tiap pemilik boleh punya beberapa gateway; yang ditandai Utama dipakai untuk
+ * transaksi baru. Utama perusahaan (diatur Super Admin) dipakai semua cabang non Admin Full; cabang Admin Full menambah
+ * gateway sendiri dari dashboard-nya (uang masuk ke mitra). Kunci tidak pernah dikirim ke browser: tabel hanya menampilkan
+ * 4 karakter terakhir, dan kunci yang dikosongkan saat edit tetap memakai kunci lama.
  */
-export default function PaymentGateway({ rows, cabangUser, superAdmin, pemilikOptions, perusahaanDariEnv }) {
+export default function PaymentGateway({ rows, cabangUser, superAdmin, pemilikOptions, perusahaanDariEnv, utamaPerusahaan }) {
     const bisa = useBisa();
     const [menguji, setMenguji] = useState(null);
+    const [mengutamakan, setMengutamakan] = useState(null);
     const mitra = !!cabangUser;
     const ikutPerusahaan = mitra && !cabangUser.admin_full;
-    const sudahPunya = mitra && rows.length > 0;
+    // Admin pusat selain Super Admin hanya melihat (tidak punya pilihan pemilik)
+    const hanyaLihat = !mitra && !superAdmin;
+
+    const jadikanUtama = async (r) => {
+        setMengutamakan(r.id);
+        try {
+            notify((await api('POST', `/payment-gateway/${r.id}/utama`)).message, 'success', 6000);
+        } catch (err) {
+            notify(err.message, 'danger', 8000);
+        } finally {
+            setMengutamakan(null);
+            reloadData(['rows']);
+        }
+    };
 
     const uji = async (r) => {
         setMenguji(r.id);
@@ -36,28 +51,45 @@ export default function PaymentGateway({ rows, cabangUser, superAdmin, pemilikOp
     return (
         <CrudPage
             title="Payment Gateway" crumbs={[]} entity="Payment Gateway" rows={rows} filterFields={[]} modalSize="lg"
-            deleteLabel={(r) => `${METODE[r.provider] ?? r.provider} — ${r.pemilik}`}
+            deleteLabel={(r) => `${r.nama ?? METODE[r.provider] ?? r.provider} — ${r.pemilik}`}
             onSave={saveTo('/payment-gateway')} onDelete={deleteFrom('/payment-gateway')}
-            canAdd={bisa('payment_gateway.create') && !ikutPerusahaan && !sudahPunya} canEdit={false} canDelete={bisa('payment_gateway.delete')}
-            defaults={{ provider: 'midtrans', id_lokasi: mitra ? cabangUser.id : '', produksi: true, status: 'aktif' }}
+            canAdd={bisa('payment_gateway.create') && !ikutPerusahaan && !hanyaLihat} canEdit={false} canDelete={bisa('payment_gateway.delete') && !hanyaLihat}
+            defaults={{ provider: 'midtrans', nama: 'Midtrans', id_lokasi: mitra ? cabangUser.id : '', produksi: true, status: 'aktif' }}
             before={(
                 <div className={`alert ${ikutPerusahaan ? 'alert-light-primary' : 'alert-light-warning'} d-flex align-items-start gap-2`}>
                     <Info size={16} className="flex-shrink-0 mt-1" />
                     <span>
-                        {ikutPerusahaan && <>Cabang <strong>{cabangUser.nama_lokasi}</strong> memakai payment gateway perusahaan, jadi tidak perlu menambah payment gateway sendiri. Pembayaran online pelanggan langsung diterima perusahaan.</>}
-                        {mitra && !ikutPerusahaan && <>Cabang <strong>{cabangUser.nama_lokasi}</strong> berstatus <strong>Admin Full</strong>: tambahkan akun Midtrans milik Anda sendiri. Pembayaran online pelanggan masuk ke akun Anda, lalu setorkan kewajiban ke perusahaan sesuai <strong>Saldo / Balance</strong> di Dashboard.</>}
-                        {!mitra && <>Gateway <strong>Perusahaan</strong> dipakai pelanggan cabang non Admin Full dan hanya bisa diatur Super Admin. Cabang Admin Full bisa punya gateway sendiri. URL notifikasi tidak perlu diisi di dashboard Midtrans: billing mengirimnya otomatis di setiap transaksi.{perusahaanDariEnv && <> Saat ini gateway perusahaan masih memakai konfigurasi server (.env); setelah ditambahkan di sini, pengaturan di menu ini yang dipakai.</>}</>}
+                        {ikutPerusahaan && (
+                            <>
+                                Cabang <strong>{cabangUser.nama_lokasi}</strong> bukan Admin Full, jadi memakai <strong>payment gateway Utama perusahaan</strong>
+                                {utamaPerusahaan ? <> (<strong>{utamaPerusahaan.nama ?? METODE[utamaPerusahaan.provider]}</strong> · {utamaPerusahaan.produksi ? 'Production' : 'Sandbox'})</> : ''}.
+                                Tidak perlu menambah payment gateway sendiri; pembayaran online pelanggan langsung diterima perusahaan.
+                            </>
+                        )}
+                        {mitra && !ikutPerusahaan && <>Cabang <strong>{cabangUser.nama_lokasi}</strong> berstatus <strong>Admin Full</strong>: tambahkan akun Midtrans milik Anda sendiri. Gateway bertanda <Star size={12} className="align-baseline" /> <strong>Utama</strong> yang dipakai pelanggan cabang Anda; gateway lain menjadi cadangan. Pembayaran online masuk ke akun Anda, lalu setorkan kewajiban ke perusahaan sesuai <strong>Saldo / Balance</strong> di Dashboard.</>}
+                        {!mitra && <>Gateway <strong>Perusahaan</strong> bertanda <Star size={12} className="align-baseline" /> <strong>Utama</strong> dipakai semua cabang yang <strong>Admin Full-nya Tidak</strong>; gateway perusahaan hanya bisa diatur Super Admin. Cabang Admin Full memakai gateway Utama miliknya sendiri. Gateway pertama tiap pemilik otomatis menjadi Utama. URL notifikasi tidak perlu diisi di dashboard Midtrans: billing mengirimnya otomatis di setiap transaksi.{hanyaLihat && <> <strong>Anda hanya bisa melihat:</strong> gateway cabang Admin Full diatur pemilik cabangnya atau Super Admin.</>}{perusahaanDariEnv && <> Saat ini gateway perusahaan masih memakai konfigurasi server (.env); setelah ditambahkan di sini, pengaturan di menu ini yang dipakai.</>}</>}
                     </span>
                 </div>
             )}
             rowActions={(r, { edit }) => (
                 <>
+                    {r.bisa_kelola && bisa('payment_gateway.update') && !r.utama && r.status === 'aktif' && (
+                        <ActionButton icon={Star} label={mengutamakan === r.id ? 'Memproses…' : 'Jadikan Utama'} color="info" onClick={() => mengutamakan === null && jadikanUtama(r)} />
+                    )}
                     {r.bisa_kelola && <ActionButton icon={Zap} label={menguji === r.id ? 'Menguji…' : 'Uji koneksi'} color="success" onClick={() => menguji === null && uji(r)} />}
                     {r.bisa_kelola && bisa('payment_gateway.update') && <ActionButton icon={Edit2} label="Edit" color="warning" onClick={edit} />}
                 </>
             )}
             columns={[
-                { key: 'provider', label: 'Provider', render: (r) => <strong>{METODE[r.provider] ?? r.provider}</strong> },
+                {
+                    key: 'nama', label: 'Nama', render: (r) => (
+                        <>
+                            <strong>{r.nama ?? METODE[r.provider] ?? r.provider}</strong>
+                            {r.utama && <span className="badge badge-light-primary ms-2"><Star size={11} className="me-1 align-baseline" />Utama</span>}
+                            <br /><small className="f-light">{METODE[r.provider] ?? r.provider}</small>
+                        </>
+                    ),
+                },
                 { key: 'pemilik', label: 'Pemilik' },
                 { key: 'produksi', label: 'Mode', render: (r) => <span className={`badge badge-light-${r.produksi ? 'success' : 'warning'}`}>{r.produksi ? 'Production' : 'Sandbox'}</span> },
                 { key: 'server_key_tersamar', label: 'Server Key', sortable: false, render: (r) => <code>{r.server_key_tersamar}</code> },
@@ -68,10 +100,11 @@ export default function PaymentGateway({ rows, cabangUser, superAdmin, pemilikOp
             ]}
             fields={[
                 { name: 'provider', label: 'Provider', type: 'select', required: true, options: PROVIDER, show: (v) => !v.id },
+                { name: 'nama', label: 'Nama Gateway', required: true, placeholder: 'Midtrans Utama', help: 'Pembeda bila pemilik punya lebih dari satu gateway, mis. "Midtrans Cadangan"' },
                 mitra
                     ? { name: 'pemilik_cabang', label: 'Pemilik', type: 'static', show: (v) => !v.id, render: () => <strong>{cabangUser.nama_lokasi}</strong> }
-                    : { name: 'id_lokasi', label: 'Pemilik Gateway', type: 'select', required: true, options: pemilikOptions, show: (v) => !v.id, help: superAdmin ? 'Cabang yang bisa dipilih hanya cabang Admin Full' : 'Gateway perusahaan hanya bisa diatur Super Admin' },
-                { name: 'pemilik_edit', label: 'Gateway', type: 'static', show: (v) => !!v.id, render: (v) => <strong>{METODE[v.provider] ?? v.provider} — {v.pemilik}</strong> },
+                    : { name: 'id_lokasi', label: 'Pemilik Gateway', type: 'select', required: true, options: pemilikOptions, show: (v) => !v.id, help: 'Cabang yang bisa dipilih hanya cabang Admin Full' },
+                { name: 'pemilik_edit', label: 'Pemilik', type: 'static', show: (v) => !!v.id, render: (v) => <strong>{v.pemilik}{v.utama && ' · Utama'}</strong> },
                 { name: 'produksi', label: 'Mode', type: 'radio', required: true, options: MODE, col: 'col-12', help: 'Production memakai kunci yang diawali "Mid-server-"; Sandbox memakai kunci yang diawali "SB-Mid-server-".' },
                 { name: 'server_key', label: 'Server Key', type: 'password', required: true, show: (v) => !v.id, help: 'Dashboard Midtrans › Settings › Access Keys. Sebaiknya buat Server Key khusus billing.' },
                 {
@@ -80,7 +113,7 @@ export default function PaymentGateway({ rows, cabangUser, superAdmin, pemilikOp
                 },
                 { name: 'server_key', label: 'Server Key baru', type: 'password', show: (v) => !!v.id, help: 'Kosongkan bila tidak diganti' },
                 { name: 'signature_key', label: 'Signature Secret Key', type: 'password', help: 'Opsional, untuk dashboard Midtrans versi baru' },
-                { name: 'status', label: 'Status', type: 'radio', required: true, options: STATUS, help: 'Tidak Aktif: tidak ada transaksi baru; transaksi yang sudah berjalan tetap diproses.' },
+                { name: 'status', label: 'Status', type: 'radio', required: true, options: STATUS, help: 'Tidak Aktif: tidak ada transaksi baru; transaksi yang sudah berjalan tetap diproses. Gateway Utama baru bisa dinonaktifkan setelah gateway lain dijadikan Utama (kecuali satu-satunya gateway).' },
                 {
                     name: 'judul_konfirmasi', type: 'static', col: 'col-12',
                     render: () => <div className="alert alert-light-secondary d-flex align-items-center gap-2 mb-0"><Lock size={14} className="flex-shrink-0" />Kunci akan diuji ke Midtrans sebelum disimpan. Masukkan password Anda untuk konfirmasi.</div>,

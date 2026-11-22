@@ -1,130 +1,19 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { AlertCircle, CheckCircle, CreditCard, Eye, FileText, LifeBuoy, MessageCircle, RefreshCw } from 'react-feather';
-import { Button, Card, CardBody, CardHeader, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from 'reactstrap';
+import { AlertCircle, AlertTriangle, CheckCircle, ChevronRight, CreditCard, Eye, FileText, Key, LifeBuoy, MessageCircle, User, Wifi } from 'react-feather';
+import { Button, Card, CardBody, CardHeader, Modal, ModalBody, ModalFooter, ModalHeader } from 'reactstrap';
 import InvoiceTagihan from '../../Components/InvoiceTagihan';
-import PageHeader from '../../Components/PageHeader';
-import { bayarOnline, linkWa } from '../../Components/TagihanPelanggan';
-import { Avatar, StatCard, StatusBadge } from '../../Components/ui';
+import { KartuBulanIni, MenuItem } from '../../Components/Portal/Beranda';
+import TombolBayar from '../../Components/Portal/TombolBayar';
+import { linkWa } from '../../Components/TagihanPelanggan';
+import { StatusBadge } from '../../Components/ui';
 import { periode, rupiah, tanggal } from '../../lib/format';
+import { notify } from '../../lib/ui';
 import { portalLayout } from '../../Layouts/PortalLayout';
 
 const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
 
-/**
- * Tombol Bayar Sekarang satu invoice. Cabang dengan pembayaran online: langsung ke halaman pembayaran Midtrans
- * (atau lanjutkan pembayaran yang menunggu dibayar, dengan opsi ganti metode). Selain itu tampilkan cara bayar manual.
- */
-function TombolBayar({ invoice, langganan, onManual, block = false, size }) {
-    const [proses, setProses] = useState(null);
-    const [galat, setGalat] = useState('');
-    const berjalan = langganan.bayar_online ? invoice.online_berjalan : null;
-
-    const bayar = async (ganti = false) => {
-        if (!langganan.bayar_online) {
-            onManual(invoice, langganan);
-            return;
-        }
-        if (ganti && !window.confirm(`Pembayaran ${berjalan?.metode ?? 'sebelumnya'} akan dibatalkan dan tidak bisa dipakai lagi. Lanjut memilih metode pembayaran lain?`)) return;
-        setProses(ganti ? 'ganti' : 'bayar');
-        setGalat('');
-        try {
-            await bayarOnline(langganan.id_pelanggan, invoice.periode, ganti);
-        } catch (pesan) {
-            setGalat(pesan);
-            setProses(null);
-        }
-    };
-
-    return (
-        <div className={block ? 'd-grid gap-1' : 'd-inline-flex flex-column align-items-end gap-1'}>
-            <Button color="primary" size={size} onClick={() => bayar()} disabled={!!proses}>
-                {proses === 'bayar' ? <Spinner size="sm" className="me-1" /> : <CreditCard size={15} className="me-1" />}
-                {proses === 'bayar' ? 'Menyiapkan…' : berjalan ? `Lanjutkan Pembayaran${berjalan.metode ? ` (${berjalan.metode})` : ''}` : 'Bayar Sekarang'}
-            </Button>
-            {berjalan && (
-                <button type="button" className="btn btn-link btn-sm p-0" onClick={() => bayar(true)} disabled={!!proses}>
-                    <RefreshCw size={12} className="me-1" />{proses === 'ganti' ? 'Membatalkan…' : 'Ganti metode pembayaran'}
-                </button>
-            )}
-            {galat && <small className="text-danger" role="alert">{galat}</small>}
-        </div>
-    );
-}
-
-/** Selisih hari dari hari ini ke jatuh tempo (tanggal Y-m-d dari server), sebagai teks & warna. */
-function sisaJatuhTempo(jatuhTempo, hariIni) {
-    if (!jatuhTempo) return null;
-    const hari = Math.round((Date.parse(jatuhTempo) - Date.parse(hariIni)) / 86400000);
-    if (hari > 0) return { teks: `${hari} hari lagi`, warna: hari <= 3 ? 'text-warning' : 'f-light' };
-    if (hari === 0) return { teks: 'jatuh tempo hari ini', warna: 'text-danger' };
-    return { teks: `lewat ${-hari} hari`, warna: 'text-danger' };
-}
-
-/**
- * Kartu paling atas Home: tagihan bulan berjalan satu langganan dengan Bayar Sekarang & Lihat Detail.
- * Sudah lunas → tanda lunas + kuitansi; belum terbit → keterangan. Tunggakan bulan sebelumnya diingatkan di bawahnya.
- */
-function TagihanBulanIni({ langganan: p, bulanIni, hariIni, tampilLangganan, onDetail, onManual }) {
-    const t = p.tagihan.find((x) => x.periode_pembayaran === bulanIni);
-    const lunas = p.lunas.find((x) => x.periode_pembayaran === bulanIni);
-    const tunggakan = p.tagihan.filter((x) => x.periode_pembayaran < bulanIni);
-    const sisa = t && sisaJatuhTempo(t.jatuh_tempo, hariIni);
-    const status = t ? 'is-due' : lunas ? 'is-paid' : '';
-
-    return (
-        <Card className={`portal-hero ${status}`}>
-            <CardBody>
-                <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-                    <div>
-                        <span className="portal-hero-label">Tagihan Bulan Ini · {periode(bulanIni)}</span>
-                        {tampilLangganan && <div className="small f-light">{p.paket ?? 'Langganan'} · ID {p.id_pelanggan ?? '-'}</div>}
-                    </div>
-                    {t && <StatusBadge value="belum_lunas" text="Belum Lunas" />}
-                    {!t && lunas && <StatusBadge value="lunas" text="Lunas" />}
-                </div>
-
-                {t && (
-                    <div className="d-flex flex-wrap justify-content-between align-items-end gap-3">
-                        <div>
-                            <div className="portal-hero-nominal">{rupiah(t.nominal)}</div>
-                            <div className="small">
-                                {p.paket ?? '-'}{t.is_prorate ? ' · prorate' : ''}
-                                {t.jatuh_tempo && <> · jatuh tempo {tanggal(t.jatuh_tempo)} <span className={`fw-semibold ${sisa.warna}`}>({sisa.teks})</span></>}
-                            </div>
-                        </div>
-                        <div className="portal-hero-aksi">
-                            <Button color="primary" outline size="lg" onClick={() => onDetail(t, p)}><Eye size={16} className="me-1" />Lihat Detail</Button>
-                            <TombolBayar invoice={t} langganan={p} onManual={onManual} size="lg" />
-                        </div>
-                    </div>
-                )}
-
-                {!t && lunas && (
-                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                        <div className="d-flex align-items-center gap-2 text-success">
-                            <CheckCircle size={28} />
-                            <div><div className="fw-bold fs-5">Sudah lunas</div><small>{rupiah(lunas.jml_bayar)} · dibayar {tanggal(lunas.paid_at)} via {lunas.metode_label}</small></div>
-                        </div>
-                        <Link href={`/akun-saya/riwayat/${lunas.id}/kuitansi`} className="btn btn-outline-success"><FileText size={15} className="me-1" />Lihat Kuitansi</Link>
-                    </div>
-                )}
-
-                {!t && !lunas && <p className="mb-0 f-light">Belum ada tagihan untuk bulan ini.</p>}
-
-                {tunggakan.length > 0 && (
-                    <div className="alert alert-light-danger portal-alert mt-3 mb-0">
-                        <AlertCircle size={18} />
-                        <span className="flex-grow-1">Masih ada <strong>{tunggakan.length} tagihan bulan sebelumnya</strong> ({rupiah(tunggakan.reduce((s, x) => s + (x.nominal ?? 0), 0))}) yang belum dibayar.</span>
-                        <a href="#semua-tagihan" className="fw-semibold text-nowrap">Lihat semua</a>
-                    </div>
-                )}
-            </CardBody>
-        </Card>
-    );
-}
-
-/** Satu langganan: ringkasan + daftar invoice belum dibayar, masing-masing dengan Bayar Sekarang & Lihat Detail. */
+/** Satu langganan yang punya tunggakan: total + daftar invoice belum dibayar, masing-masing dengan Bayar Sekarang & Lihat Detail. */
 function KartuTagihan({ langganan: p, onDetail, onManual }) {
     const total = p.tagihan.reduce((s, t) => s + (t.nominal ?? 0), 0);
 
@@ -171,59 +60,102 @@ function KartuTagihan({ langganan: p, onDetail, onManual }) {
     );
 }
 
-/** Home dashboard pelanggan: yang pertama tampil adalah tagihan bulan berjalan beserta Bayar Sekarang & Lihat Detail. */
+/**
+ * Home dashboard pelanggan (gaya yang sama di HP & desktop): pita biru bersapaan, kartu tagihan bulan ini dengan
+ * Bayar Sekarang & Lihat Detail yang menumpuk di pita, menu utama berbentuk ikon, pengingat tunggakan & tiket.
+ * Desktop: dua kolom (tagihan | menu); HP: satu kolom, kartu langganan bisa digeser.
+ */
 export default function Home({ hasil, tiketAktif, bulanIni, hariIni }) {
     const { auth } = usePage().props;
     const [detail, setDetail] = useState(null); // { invoice, langganan }
     const [manual, setManual] = useState(null); // { invoice, langganan }
-    const semuaTagihan = hasil.flatMap((p) => p.tagihan);
-    const total = semuaTagihan.reduce((s, t) => s + (t.nominal ?? 0), 0);
+    const tunggakan = hasil.flatMap((p) => p.tagihan.filter((t) => t.periode_pembayaran < bulanIni));
     const bukaManual = (invoice, langganan) => { setDetail(null); setManual({ invoice, langganan }); };
+    const bukaDetail = (invoice, langganan) => setDetail({ invoice, langganan });
+    // Menu "Bayar Tagihan": buka detail tagihan bulan ini (atau tagihan tertua bila bulan ini sudah lunas)
+    const bayarTagihan = () => {
+        const p = hasil.find((x) => x.tagihan.some((t) => t.periode_pembayaran === bulanIni)) ?? hasil.find((x) => x.tagihan.length);
+        if (!p) {
+            notify('Tidak ada tagihan yang perlu dibayar. Terima kasih!');
+            return;
+        }
+        bukaDetail(p.tagihan.find((t) => t.periode_pembayaran === bulanIni) ?? p.tagihan[0], p);
+    };
 
     return (
         <>
-            <PageHeader title="Home" home="/akun-saya" />
+            <Head title="Home" />
+            {/* Sapaan: memastikan pelanggan masuk dengan akun yang benar */}
+            <section className="pm-band no-print">
+                <div className="pm-band-dalam">
+                    <p className="pm-halo">HALO, <strong>{auth.user.nama.toUpperCase()}</strong></p>
+                    <p className="pm-user">Masuk sebagai {auth.user.username}</p>
+                </div>
+            </section>
+
             <div className="container-fluid">
-                {/* Sapaan kecil: memastikan pelanggan masuk dengan akun yang benar */}
-                <div className="portal-sapa">
-                    <Avatar name={auth.user.nama} size={26} />
-                    <span>Halo, <strong>{auth.user.nama}</strong></span>
-                    <span className="f-light">· masuk sebagai {auth.user.username}</span>
-                </div>
-                {hasil.map((p) => (
-                    <TagihanBulanIni key={p.id_pelanggan ?? p.nama} langganan={p} bulanIni={bulanIni} hariIni={hariIni} tampilLangganan={hasil.length > 1}
-                        onDetail={(invoice, langganan) => setDetail({ invoice, langganan })} onManual={bukaManual} />
-                ))}
+                <div className="pm-wrap pm-isi pm-beranda">
+                    <div className="pm-kolom">
+                        <div className={`pm-cards ${hasil.length > 1 ? 'is-geser' : ''}`}>
+                            {hasil.map((p) => <KartuBulanIni key={p.id_pelanggan ?? p.nama} langganan={p} bulanIni={bulanIni} hariIni={hariIni} onDetail={bukaDetail} onManual={bukaManual} />)}
+                            {hasil.length === 0 && (
+                                <div className="card pm-card">
+                                    <div className="pm-card-body">
+                                        <span className="pm-card-label">Belum ada langganan aktif</span>
+                                        <div className="pm-due mb-3">Akun ini belum terhubung ke langganan internet yang aktif.</div>
+                                        <a href={linkWa(`Halo MSS, akun pelanggan saya (${auth.user.username}) belum menampilkan langganan.`)} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                                            <MessageCircle size={15} className="me-1" />Hubungi Kami
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        {hasil.length > 1 && <p className="pm-geser">Geser untuk melihat langganan lainnya</p>}
 
-                <div className="row">
-                    <div className="col-sm-6 col-xl-4">
-                        <StatCard title="Total Tagihan" value={rupiah(total)} sub={`${semuaTagihan.length} invoice belum dibayar`} icon={semuaTagihan.length ? AlertCircle : CheckCircle} color={semuaTagihan.length ? 'danger' : 'success'} />
+                        {/* Tunggakan bulan sebelumnya (tagihan bulan ini sudah di kartu atas) */}
+                        {tunggakan.length > 0 && (
+                            <div id="semua-tagihan" className="pm-anchor pm-tunggakan">
+                                <h6 className="pm-title">Tagihan Belum Dibayar</h6>
+                                {hasil.filter((p) => p.tagihan.some((t) => t.periode_pembayaran < bulanIni)).map((p) => (
+                                    <KartuTagihan key={p.id_pelanggan ?? p.nama} langganan={p} onDetail={bukaDetail} onManual={bukaManual} />
+                                ))}
+                            </div>
+                        )}
                     </div>
-                    <div className="col-sm-6 col-xl-4">
-                        <StatCard title="Tiket Aktif" value={tiketAktif} sub="Keluhan yang sedang ditangani" icon={LifeBuoy} color="warning" onClick={() => router.visit('/akun-saya/tiket')} />
-                    </div>
-                    <div className="col-sm-12 col-xl-4">
-                        <StatCard title="Riwayat Tagihan" value="Lihat" sub="Pembayaran & kwitansi" icon={FileText} color="primary" onClick={() => router.visit('/akun-saya/riwayat')} />
-                    </div>
-                </div>
 
-                {hasil.length === 0 && (
-                    <Card>
-                        <CardBody className="text-center py-5">
-                            <h5>Belum ada langganan aktif</h5>
-                            <p className="f-light">Akun ini belum terhubung ke langganan internet yang aktif.</p>
-                            <a href={linkWa(`Halo MSS, akun pelanggan saya (${auth.user.username}) belum menampilkan langganan.`)} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-                                <MessageCircle size={15} className="me-1" />Hubungi Kami
+                    <div className="pm-kolom">
+                        <section className="card pm-panel">
+                            <h6 className="pm-title">Menu Utama</h6>
+                            <div className="pm-menu">
+                                <MenuItem icon={CreditCard} label="Bayar Tagihan" onClick={bayarTagihan} />
+                                <MenuItem icon={FileText} label="Riwayat" href="/akun-saya/riwayat" />
+                                <MenuItem icon={LifeBuoy} label="Tiket" href="/akun-saya/tiket" badge={tiketAktif} />
+                                <MenuItem icon={AlertTriangle} label="Lapor Gangguan" href="/akun-saya/tiket?buat=1" />
+                                <MenuItem icon={Wifi} label="Paket Saya" href="/akun-saya/akun" />
+                                <MenuItem icon={Key} label="Ganti Password" href="/akun-saya/akun#password" />
+                                <MenuItem icon={MessageCircle} label="Hubungi Kami" url={linkWa(`Halo MSS, saya pelanggan dengan nomor ${auth.user.username}.`)} />
+                                <MenuItem icon={User} label="Akun" href="/akun-saya/akun" />
+                            </div>
+                        </section>
+
+                        {tunggakan.length > 0 && (
+                            <a href="#semua-tagihan" className="pm-info is-bahaya">
+                                <span className="pm-info-icon"><AlertCircle size={20} /></span>
+                                <span className="flex-grow-1"><strong>{tunggakan.length} tagihan bulan sebelumnya</strong><br /><small>{rupiah(tunggakan.reduce((s, t) => s + (t.nominal ?? 0), 0))} belum dibayar</small></span>
+                                <ChevronRight size={18} />
                             </a>
-                        </CardBody>
-                    </Card>
-                )}
-
-                {/* Daftar lengkap hanya bila ada tagihan selain bulan ini (tunggakan); tagihan bulan ini sudah di kartu atas */}
-                <div id="semua-tagihan">
-                    {hasil.filter((p) => p.tagihan.some((t) => t.periode_pembayaran !== bulanIni)).map((p) => (
-                        <KartuTagihan key={p.id_pelanggan ?? p.nama} langganan={p} onDetail={(invoice, langganan) => setDetail({ invoice, langganan })} onManual={bukaManual} />
-                    ))}
+                        )}
+                        <Link href="/akun-saya/tiket" className="pm-info">
+                            <span className="pm-info-icon"><LifeBuoy size={20} /></span>
+                            <span className="flex-grow-1"><strong>{tiketAktif ? `${tiketAktif} tiket sedang ditangani` : 'Ada kendala internet?'}</strong><br /><small>{tiketAktif ? 'Lihat perkembangan tiket Anda' : 'Buat tiket, petugas kami siap membantu'}</small></span>
+                            <ChevronRight size={18} />
+                        </Link>
+                        <Link href="/akun-saya/riwayat" className="pm-info">
+                            <span className="pm-info-icon is-sukses"><CheckCircle size={20} /></span>
+                            <span className="flex-grow-1"><strong>Riwayat & kuitansi</strong><br /><small>Lihat pembayaran yang sudah lunas</small></span>
+                            <ChevronRight size={18} />
+                        </Link>
+                    </div>
                 </div>
             </div>
 

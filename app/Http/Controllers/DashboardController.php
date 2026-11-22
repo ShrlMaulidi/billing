@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Lokasi;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
+use App\Support\PerubahanGateway;
 use App\Support\RekapCabang;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -53,7 +55,18 @@ class DashboardController extends Controller
                 'total' => (int) $pemasukanBulanan->get($periode, 0),
             ]),
             'saldoMitra' => $this->saldoMitra($request, $f),
+            // Super Admin: perubahan payment gateway yang belum diperiksa (null untuk user lain)
+            'perubahanGateway' => PerubahanGateway::untuk($request->user()),
         ]);
+    }
+
+    /** Tombol "Tandai sudah diperiksa" pada penanda perubahan payment gateway (khusus Super Admin). */
+    public function gatewayDiperiksa(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Anda tidak memiliki akses ke fitur ini');
+        $request->user()->forceFill(['gateway_diperiksa_at' => now()])->save();
+
+        return response()->json(['message' => 'Perubahan payment gateway ditandai sudah diperiksa']);
     }
 
     public function pelanggan(Request $request)

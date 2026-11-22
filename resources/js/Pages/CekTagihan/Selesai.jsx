@@ -1,9 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle, Clock, FileText, MessageCircle, XCircle } from 'react-feather';
+import { linkWa } from '../../Components/TagihanPelanggan';
 import { periode, rupiah } from '../../lib/format';
 
-const WA_MARKETING = '6281384141950';
-const linkWa = (pesan) => `https://wa.me/${WA_MARKETING}?text=${encodeURIComponent(pesan)}`;
 
 /** Tampilan per status transaksi (status dari server, sudah disinkronkan dengan Midtrans). */
 const TAMPILAN = {

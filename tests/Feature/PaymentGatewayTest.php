@@ -14,6 +14,7 @@ use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class PaymentGatewayTest extends TestCase
@@ -88,8 +89,7 @@ class PaymentGatewayTest extends TestCase
         $this->actingAs($admin)->tambah()->assertForbidden();
         $this->actingAs($admin)->putJson("/payment-gateway/{$perusahaan->id}", $this->isian())->assertForbidden();
         $this->actingAs($admin)->deleteJson("/payment-gateway/{$perusahaan->id}")->assertForbidden();
-        $this->actingAs($admin)->get('/payment-gateway')->assertInertia(fn ($page) => $page->where('rows.0.bisa_kelola', false)
-            ->where('pemilikOptions', [['value' => $this->full->id, 'label' => 'MSS Cimahi (Admin Full)']]));
+        $this->actingAs($admin)->get('/payment-gateway')->assertInertia(fn ($page) => $page->where('rows.0.bisa_kelola', false)->where('pemilikOptions', []));
         $this->actingAs($admin)->tambah(['id_lokasi' => $this->biasa->id])->assertStatus(422)->assertJsonValidationErrors('id_lokasi');
 
         // Mitra cabang biasa ikut gateway perusahaan; mitra Admin Full hanya untuk cabangnya sendiri
@@ -100,8 +100,9 @@ class PaymentGatewayTest extends TestCase
         $this->actingAs($mitraFull)->putJson("/payment-gateway/{$perusahaan->id}", $this->isian())->assertForbidden();
         $this->actingAs($mitraFull)->get('/payment-gateway')->assertInertia(fn ($page) => $page->has('rows', 1)->where('rows.0.pemilik', 'MSS Cimahi'));
 
-        // Satu gateway per pemilik
-        $this->actingAs($admin)->tambah(['id_lokasi' => $this->full->id])->assertStatus(422)->assertJsonValidationErrors(['id_lokasi' => 'Pemilik ini sudah punya payment gateway. Ubah yang sudah ada.']);
+        // Gateway kedua milik pemilik yang sama menjadi cadangan; Utama tetap gateway pertama
+        $this->actingAs($mitraFull)->tambah(['nama' => 'Midtrans Cadangan', 'server_key' => self::KUNCI_MITRA])->assertOk();
+        $this->assertSame(['Midtrans Utama'], PaymentGateway::where('id_lokasi', $this->full->id)->where('utama', true)->pluck('nama')->all());
         $this->assertSame(self::KUNCI_PT, $perusahaan->fresh()->kredensial['server_key']);
     }
 
@@ -185,6 +186,139 @@ class PaymentGatewayTest extends TestCase
         $this->assertSame('lunas', $berjalan->fresh()->status);
     }
 
+    public function test_company_main_gateway_is_used_by_non_admin_full_branches_and_can_be_switched(): void
+    {
+        $this->actingAs(User::factory()->create());
+        $utama = $this->gateway(null, self::KUNCI_PT, 'Midtrans Utama');
+        $cadangan = $this->gateway(null, 'SB-Mid-server-cadangan55556666', 'Midtrans Cadangan');
+        $paket = Paket::create(['nama_paket' => 'Home 20', 'harga' => 200000, 'jenis' => 'bulanan', 'jns_koneksi' => 'pppoe', 'profile_mikrotik' => 'P']);
+        $this->pelanggan('MSS001', $this->biasa, $paket);
+        Http::fake([self::SNAP => Http::response(['token' => 't', 'redirect_url' => 'https://app.sandbox.midtrans.com/snap/v4/redirection/t'], 201)]);
+
+        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01'])->assertOk();
+        $this->postJson("/payment-gateway/{$cadangan->id}/utama")->assertOk()->assertJsonPath('message', 'Midtrans Cadangan · Perusahaan sekarang menjadi payment gateway Utama');
+        $this->postJson('/cek-tagihan/bayar', ['id_pelanggan' => 'MSS001', 'periode' => '2026-11-01'])->assertOk();
+
+        $kunciDipakai = Http::recorded()->map(fn ($r) => $r[0]->header('Authorization')[0])->all();
+        $this->assertSame(['Basic '.base64_encode(self::KUNCI_PT.':'), 'Basic '.base64_encode('SB-Mid-server-cadangan55556666:')], $kunciDipakai);
+        $this->assertSame([false, true], [$utama->fresh()->utama, $cadangan->fresh()->utama]);
+    }
+
+    public function test_main_gateway_must_be_moved_before_it_is_deactivated_or_deleted(): void
+    {
+        $this->actingAs(User::factory()->create());
+        $utama = $this->gateway(null, self::KUNCI_PT, 'Midtrans Utama');
+        $cadangan = $this->gateway(null, 'SB-Mid-server-cadangan55556666', 'Midtrans Cadangan');
+        $cadangan->update(['status' => 'tidak_aktif']);
+
+        $this->postJson("/payment-gateway/{$cadangan->id}/utama")->assertStatus(422)->assertJsonPath('message', 'Hanya gateway Aktif yang bisa dijadikan Utama.');
+        $this->putJson("/payment-gateway/{$utama->id}", $this->isian(['server_key' => '', 'status' => 'tidak_aktif']))
+            ->assertStatus(422)->assertJsonValidationErrors(['status' => 'Gateway Utama tidak bisa dinonaktifkan. Jadikan gateway lain sebagai Utama terlebih dahulu.']);
+        $this->deleteJson("/payment-gateway/{$utama->id}")->assertStatus(422);
+        $this->deleteJson("/payment-gateway/{$cadangan->id}")->assertOk();
+
+        // Satu-satunya gateway boleh dinonaktifkan untuk menghentikan pembayaran online sementara
+        $this->putJson("/payment-gateway/{$utama->id}", $this->isian(['server_key' => '', 'status' => 'tidak_aktif']))->assertOk();
+        $this->assertSame(['tidak_aktif', true], [$utama->fresh()->status, $utama->fresh()->utama]);
+    }
+
+    public function test_admin_full_branch_switches_its_own_main_gateway_but_not_the_company_one(): void
+    {
+        $perusahaan = $this->gateway(null, self::KUNCI_PT);
+        $this->gateway($this->full->id, self::KUNCI_MITRA, 'Midtrans Mitra');
+        $kedua = $this->gateway($this->full->id, 'SB-Mid-server-mitraKedua1111', 'Midtrans Mitra 2');
+        $mitraFull = $this->mitra($this->full);
+
+        $this->actingAs($mitraFull)->postJson("/payment-gateway/{$kedua->id}/utama")->assertOk();
+        $this->actingAs($mitraFull)->postJson("/payment-gateway/{$perusahaan->id}/utama")->assertForbidden();
+
+        $this->assertSame('Midtrans Mitra 2', PaymentGateway::utamaUntuk($this->full->id)->nama);
+        $this->assertSame($perusahaan->id, PaymentGateway::utamaUntuk(null)->id);
+    }
+
+    public function test_non_admin_full_branch_only_sees_which_company_gateway_it_uses(): void
+    {
+        $this->gateway(null, self::KUNCI_PT, 'Midtrans Utama');
+        $mitraBiasa = User::factory()->peran('Mitra')->create(['id_lokasi' => $this->biasa->id]);
+
+        $this->actingAs($mitraBiasa)->get('/payment-gateway')->assertOk()->assertDontSee('perusahaanABC')
+            ->assertInertia(fn ($page) => $page->has('rows', 0)->where('utamaPerusahaan.nama', 'Midtrans Utama')->where('utamaPerusahaan.produksi', false));
+        $this->actingAs($mitraBiasa)->tambah(['server_key' => self::KUNCI_MITRA])->assertForbidden();
+    }
+
+    public function test_only_the_branch_owner_or_super_admin_can_change_an_admin_full_branch_gateway(): void
+    {
+        $this->kunciDiterima();
+        $gateway = $this->gateway($this->full->id, self::KUNCI_MITRA, 'Midtrans Mitra');
+        $cadangan = $this->gateway($this->full->id, 'SB-Mid-server-mitraKedua1111', 'Midtrans Mitra 2');
+        $admin = User::factory()->peran('Admin')->create();
+
+        // Admin pusat (bukan Super Admin) tidak boleh mengalihkan pembayaran milik mitra
+        $this->actingAs($admin)->tambah(['id_lokasi' => $this->full->id, 'server_key' => 'SB-Mid-server-penyusup00001'])->assertForbidden();
+        $this->actingAs($admin)->putJson("/payment-gateway/{$gateway->id}", $this->isian(['server_key' => 'SB-Mid-server-penyusup00001']))->assertForbidden();
+        $this->actingAs($admin)->postJson("/payment-gateway/{$cadangan->id}/utama")->assertForbidden();
+        $this->actingAs($admin)->deleteJson("/payment-gateway/{$cadangan->id}")->assertForbidden();
+        $this->actingAs($admin)->get('/payment-gateway')->assertInertia(fn ($page) => $page->where('rows.0.bisa_kelola', false));
+        $this->assertSame([self::KUNCI_MITRA, true], [$gateway->fresh()->kredensial['server_key'], $gateway->fresh()->utama]);
+
+        // Super Admin tetap bisa membantu mitra
+        $this->actingAs(User::factory()->create())->postJson("/payment-gateway/{$cadangan->id}/utama")->assertOk();
+        $this->assertTrue($cadangan->fresh()->utama);
+    }
+
+    public function test_super_admin_dashboard_flags_gateway_changes_until_marked_as_checked(): void
+    {
+        $this->kunciDiterima();
+        $superAdmin = User::factory()->create(['name' => 'Pak Super']);
+        $this->actingAs($superAdmin)->tambah(['nama' => 'Midtrans Utama'])->assertOk();
+        $this->tambah(['nama' => 'Midtrans Cadangan'])->assertOk();
+        $cadangan = PaymentGateway::firstWhere('nama', 'Midtrans Cadangan');
+        $this->putJson("/payment-gateway/{$cadangan->id}", $this->isian(['nama' => 'Midtrans Cadangan', 'server_key' => 'SB-Mid-server-kunciBaru5555']))->assertOk();
+        $this->postJson("/payment-gateway/{$cadangan->id}/utama")->assertOk();
+
+        // Utama lama yang otomatis jadi cadangan tidak dihitung terpisah: 2 tambah + ganti kunci + jadi Utama
+        $this->get('/dashboard')->assertInertia(fn ($page) => $page
+            ->where('perubahanGateway.baru', 4)
+            ->where('perubahanGateway.daftar.0.poin', ['Dijadikan Utama'])
+            ->where('perubahanGateway.daftar.0.penting', true)
+            ->where('perubahanGateway.daftar.1.poin', ['Server Key / Signature Key diganti'])
+            ->where('perubahanGateway.daftar.0.pelaku', 'Pak Super')
+            ->where('perubahanGateway.daftar', fn ($daftar) => ! str_contains(json_encode($daftar), 'kunciBaru')));
+
+        $this->postJson('/dashboard/perubahan-gateway/diperiksa')->assertOk();
+        $this->get('/dashboard')->assertInertia(fn ($page) => $page->where('perubahanGateway.baru', 0));
+
+        $this->travel(1)->minutes();
+        $this->putJson("/payment-gateway/{$cadangan->id}", $this->isian(['nama' => 'Midtrans Cadangan', 'server_key' => '', 'produksi' => false]))->assertOk();
+        $this->postJson("/payment-gateway/{$cadangan->id}/utama")->assertOk();
+        $lama = PaymentGateway::firstWhere('nama', 'Midtrans Utama');
+        $this->putJson("/payment-gateway/{$lama->id}", $this->isian(['nama' => 'Midtrans Utama', 'server_key' => '', 'status' => 'tidak_aktif']))->assertOk();
+        $this->get('/dashboard')->assertInertia(fn ($page) => $page
+            ->where('perubahanGateway.baru', 1)
+            ->where('perubahanGateway.daftar.0.poin', ['Status: Aktif → Tidak Aktif'])
+            ->where('perubahanGateway.daftar.0.penting', false));
+    }
+
+    public function test_gateway_change_flag_is_only_for_super_admin(): void
+    {
+        $this->gateway(null, self::KUNCI_PT);
+        $admin = User::factory()->peran('Admin')->create();
+
+        $this->actingAs($admin)->get('/dashboard')->assertInertia(fn ($page) => $page->where('perubahanGateway', null));
+        $this->postJson('/dashboard/perubahan-gateway/diperiksa')->assertForbidden();
+    }
+
+    public function test_migration_lets_existing_branch_owner_role_open_payment_gateway(): void
+    {
+        $mitra = Role::findByName('Mitra');
+        $mitra->revokePermissionTo($mitra->permissions->filter(fn ($p) => str_starts_with($p->name, 'payment_gateway.')));
+
+        (require database_path('migrations/2026_11_22_140318_beri_izin_payment_gateway_ke_mitra.php'))->up();
+
+        $this->assertTrue(Role::findByName('Mitra')->hasPermissionTo('payment_gateway.create'));
+        $this->assertFalse(Role::findByName('Sales')->hasPermissionTo('payment_gateway.view'));
+    }
+
     private function kunciDiterima(): void
     {
         Http::fake([self::UJI => Http::response(['status_code' => '404', 'status_message' => "Transaction doesn't exist."], 404)]);
@@ -193,7 +327,7 @@ class PaymentGatewayTest extends TestCase
     /** @param  array<string, mixed>  $isi */
     private function isian(array $isi = []): array
     {
-        return ['provider' => 'midtrans', 'id_lokasi' => 'perusahaan', 'produksi' => false, 'server_key' => self::KUNCI_PT, 'status' => 'aktif', 'password' => 'password', ...$isi];
+        return ['provider' => 'midtrans', 'nama' => 'Midtrans Utama', 'id_lokasi' => 'perusahaan', 'produksi' => false, 'server_key' => self::KUNCI_PT, 'status' => 'aktif', 'password' => 'password', ...$isi];
     }
 
     /** @param  array<string, mixed>  $isi */
@@ -202,9 +336,13 @@ class PaymentGatewayTest extends TestCase
         return $this->postJson('/payment-gateway', $this->isian($isi));
     }
 
-    private function gateway(?int $idLokasi, string $kunci): PaymentGateway
+    /** Gateway aktif; gateway pertama milik pemiliknya menjadi Utama, seperti saat ditambahkan lewat menu. */
+    private function gateway(?int $idLokasi, string $kunci, string $nama = 'Midtrans'): PaymentGateway
     {
-        return PaymentGateway::create(['provider' => 'midtrans', 'id_lokasi' => $idLokasi, 'produksi' => false, 'status' => 'aktif', 'kredensial' => ['server_key' => $kunci]]);
+        return PaymentGateway::create([
+            'provider' => 'midtrans', 'nama' => $nama, 'id_lokasi' => $idLokasi, 'produksi' => false, 'status' => 'aktif', 'kredensial' => ['server_key' => $kunci],
+            'utama' => ! PaymentGateway::where('kunci_pemilik', PaymentGateway::kunciPemilik($idLokasi))->exists(),
+        ]);
     }
 
     private function mitra(Lokasi $lokasi): User

@@ -139,7 +139,8 @@ export default function PortalLayout({ children }) {
 
     return (
         <NavModeContext.Provider value={{ navMode, setNavMode }}>
-            <div className={`page-wrapper compact-wrapper nav-mode-${navMode} ${dark ? 'dark-sidebar' : ''}`} id="pageWrapper">
+            {/* portal-wrapper: gaya khusus dashboard pelanggan di HP (header biru menyatu dengan pita Home, lihat app.css) */}
+            <div className={`page-wrapper compact-wrapper portal-wrapper nav-mode-${navMode} ${dark ? 'dark-sidebar' : ''}`} id="pageWrapper">
                 <PortalHeader closed={closed} onToggle={toggle} dark={dark} onToggleTheme={toggleTheme} navMode={navMode} onToggleNavMode={toggleNavMode} />
                 <div className="page-body-wrapper">
                     <PortalSidebar closed={closed} onToggle={toggle} />

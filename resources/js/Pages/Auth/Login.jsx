@@ -1,6 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { AlertCircle, Eye, EyeOff, Lock, User } from 'react-feather';
+import { AlertCircle, ArrowLeft, Eye, EyeOff, Lock, MessageCircle, Phone, User } from 'react-feather';
+import { linkWa } from '../../Components/TagihanPelanggan';
 
 function GoogleIcon() {
     return (
@@ -13,7 +14,57 @@ function GoogleIcon() {
     );
 }
 
+const LANGKAH_PELANGGAN = [
+    'Kirim pesan ke CS kami lewat WhatsApp.',
+    'CS mencocokkan identitas Anda (nama, alamat pemasangan, dan ID pelanggan).',
+    'Password direset ke nomor HP terdaftar Anda.',
+    'Masuk dengan nomor HP, lalu buat password baru.',
+];
+
+/**
+ * Lupa Sandi. Pelanggan: minta reset ke CS lewat WhatsApp (pesan terisi nomor HP); CS memverifikasi identitas lalu
+ * menekan Reset Password di User › Akun Pelanggan. Tidak ada reset otomatis: nomor HP & ID pelanggan mudah diketahui
+ * orang lain, jadi reset tanpa verifikasi bisa dipakai mengambil alih akun. Staf: hubungi Super Admin.
+ */
+function LupaSandi({ usernameAwal, onKembali }) {
+    const [peran, setPeran] = useState('pelanggan');
+    // Isian username yang berupa nomor HP langsung dipakai
+    const [nomor, setNomor] = useState(/^[0-9+\-. ]{8,}$/.test(usernameAwal.trim()) ? usernameAwal.trim() : '');
+    const pesan = `Halo CS MSS, saya pelanggan dan lupa password akun dashboard pelanggan.${nomor.trim() ? ` Nomor HP terdaftar: ${nomor.trim()}.` : ''} Mohon bantuan reset password.`;
+
+    return (
+        <div className="auth-lupa">
+            <button type="button" className="auth-kembali" onClick={onKembali}><ArrowLeft size={16} />Kembali ke login</button>
+            <h2>Lupa Kata Sandi</h2>
+            <div className="auth-tab" role="tablist">
+                <button type="button" role="tab" aria-selected={peran === 'pelanggan'} className={peran === 'pelanggan' ? 'active' : ''} onClick={() => setPeran('pelanggan')}>Saya Pelanggan</button>
+                <button type="button" role="tab" aria-selected={peran === 'staf'} className={peran === 'staf' ? 'active' : ''} onClick={() => setPeran('staf')}>Saya Staf</button>
+            </div>
+
+            {peran === 'pelanggan' ? (
+                <>
+                    <ol className="auth-langkah">{LANGKAH_PELANGGAN.map((l) => <li key={l}>{l}</li>)}</ol>
+                    <div className="auth-field">
+                        <label htmlFor="nomor-lupa">Nomor HP terdaftar</label>
+                        <div className="auth-input">
+                            <Phone size={20} className="auth-input-icon" />
+                            <input id="nomor-lupa" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} placeholder="Contoh: 0812xxxxxxxx" value={nomor} onChange={(e) => setNomor(e.target.value)} />
+                        </div>
+                    </div>
+                    <a href={linkWa(pesan)} target="_blank" rel="noopener noreferrer" className="auth-btn-primary auth-btn-wa"><MessageCircle size={18} />Hubungi CS via WhatsApp</a>
+                    <p className="auth-catatan">Demi keamanan, password tidak bisa direset tanpa verifikasi CS. Jangan berikan password Anda kepada siapa pun, termasuk petugas.</p>
+                </>
+            ) : (
+                <div className="auth-catatan auth-catatan-kotak">
+                    Hubungi <strong>Super Admin</strong> atau admin pusat. Password akun staf direset lewat menu <strong>User › Manajemen User</strong>.
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function Login() {
+    const [lupa, setLupa] = useState(false);
     const [show, setShow] = useState(false);
     const form = useForm({ username: '', password: '', remember: false });
     const error = form.errors.username || form.errors.password;
@@ -40,6 +91,8 @@ export default function Login() {
                     </div>
 
                     <div className="auth-card">
+                        {lupa ? <LupaSandi usernameAwal={form.data.username} onKembali={() => setLupa(false)} /> : (
+                        <>
                         <form onSubmit={submit} noValidate>
                             {error && <div className="auth-error" role="alert"><AlertCircle size={18} /><span>{error}</span></div>}
                             <div className="auth-field">
@@ -68,7 +121,7 @@ export default function Login() {
                                     <input type="checkbox" checked={form.data.remember} onChange={(e) => form.setData('remember', e.target.checked)} />
                                     <span>Ingat Saya</span>
                                 </label>
-                                <a href="#" className="auth-link">Lupa Sandi?</a>
+                                <button type="button" className="auth-link auth-link-btn" onClick={() => setLupa(true)}>Lupa Sandi?</button>
                             </div>
 
                             <button type="submit" className="auth-btn-primary" disabled={form.processing}>{form.processing ? 'Memproses...' : 'Masuk'}</button>
@@ -80,6 +133,8 @@ export default function Login() {
                             <GoogleIcon />
                             <span>Lanjutkan dengan Google</span>
                         </button>
+                        </>
+                        )}
                     </div>
 
                     <p className="auth-register">Belum punya akun? <a href="#" className="auth-link">Daftar Sekarang</a></p>

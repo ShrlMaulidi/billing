@@ -1,19 +1,17 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Lock, LogOut } from 'react-feather';
-import { Card, CardBody, Modal, ModalBody, ModalHeader } from 'reactstrap';
+import { Modal, ModalBody, ModalHeader } from 'reactstrap';
 import FormGantiPassword from '../../Components/FormGantiPassword';
-import PageHeader from '../../Components/PageHeader';
-import { Avatar } from '../../Components/ui';
 import { portalLayout } from '../../Layouts/PortalLayout';
 
 /** Kerangka kartu dashboard di belakang modal; data tagihan baru dimuat setelah password baru dibuat. */
 const Kerangka = ({ tinggi }) => (
-    <Card aria-hidden="true">
-        <CardBody className="placeholder-glow">
-            <span className="placeholder col-4 mb-3 d-block" />
-            <span className="placeholder col-7 d-block" style={{ height: tinggi }} />
-        </CardBody>
-    </Card>
+    <div className="card pm-card">
+        <div className="pm-card-body placeholder-glow">
+            <span className="placeholder col-5 mb-3 d-block" />
+            <span className="placeholder col-12 d-block rounded" style={{ height: tinggi }} />
+        </div>
+    </div>
 );
 
 /**
@@ -21,20 +19,19 @@ const Kerangka = ({ tinggi }) => (
  * (tidak bisa ditutup). Setelah tersimpan, pelanggan masuk ke Home.
  */
 export default function PasswordBaru({ akun }) {
-    const { auth } = usePage().props;
-
     return (
         <>
-            <PageHeader title="Home" home="/akun-saya" />
-            <div className="container-fluid">
-                <div className="portal-sapa">
-                    <Avatar name={auth.user.nama} size={26} />
-                    <span>Halo, <strong>{akun.nama}</strong></span>
-                    <span className="f-light">· masuk sebagai {akun.username}</span>
+            <Head title="Buat Password Baru" />
+            <section className="pm-band no-print">
+                <div className="pm-band-dalam">
+                    <p className="pm-halo">HALO, <strong>{akun.nama.toUpperCase()}</strong></p>
+                    <p className="pm-user">Masuk sebagai {akun.username}</p>
                 </div>
-                <Kerangka tinggi={44} />
-                <div className="row">
-                    {[1, 2, 3].map((i) => <div key={i} className="col-sm-6 col-xl-4"><Kerangka tinggi={24} /></div>)}
+            </section>
+            <div className="container-fluid">
+                <div className="pm-wrap pm-isi pm-beranda" aria-hidden="true">
+                    <div className="pm-kolom"><Kerangka tinggi={120} /></div>
+                    <div className="pm-kolom"><Kerangka tinggi={150} /></div>
                 </div>
             </div>
 

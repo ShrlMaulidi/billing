@@ -12,12 +12,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Akun payment gateway yang diatur dari menu Payment Gateway. Pemilik: perusahaan (id_lokasi null) atau cabang Admin Full.
+ * Satu pemilik boleh punya beberapa gateway; yang ditandai Utama (satu per pemilik, dijamin kolom unik kunci_utama) dipakai
+ * untuk transaksi baru: Utama perusahaan untuk semua cabang non Admin Full, Utama cabang untuk pelanggan cabang Admin Full itu.
  * Kredensial terenkripsi di database dan tersembunyi dari toArray()/JSON; di menu Logs selalu tampil "[disembunyikan]".
  *
  * @property array{server_key?: string, signature_key?: string|null} $kredensial
  */
 #[Table('payment_gateway')]
-#[Fillable(['provider', 'id_lokasi', 'produksi', 'kredensial', 'status', 'diuji_at'])]
+#[Fillable(['provider', 'nama', 'id_lokasi', 'produksi', 'kredensial', 'status', 'utama', 'diuji_at'])]
 class PaymentGateway extends Model
 {
     use TercatatAudit;
@@ -28,7 +30,7 @@ class PaymentGateway extends Model
     public const JENIS_AUDIT = 'payment gateway';
 
     /** Hasil uji koneksi & kunci pemilik bukan perubahan yang perlu diaudit. */
-    public const KOLOM_TANPA_AUDIT = ['diuji_at', 'kunci_pemilik'];
+    public const KOLOM_TANPA_AUDIT = ['diuji_at', 'kunci_pemilik', 'kunci_utama'];
 
     /** Provider yang sudah terintegrasi penuh (buat transaksi, notifikasi, cek status). */
     public const PROVIDER = ['midtrans' => 'Midtrans'];
@@ -39,6 +41,7 @@ class PaymentGateway extends Model
     {
         return [
             'produksi' => 'boolean',
+            'utama' => 'boolean',
             'kredensial' => 'encrypted:array',
             'diuji_at' => 'datetime',
         ];
@@ -46,10 +49,13 @@ class PaymentGateway extends Model
 
     protected static function booted(): void
     {
-        static::saving(fn (self $gateway) => $gateway->kunci_pemilik = self::kunciPemilik($gateway->id_lokasi));
+        static::saving(function (self $gateway) {
+            $gateway->kunci_pemilik = self::kunciPemilik($gateway->id_lokasi);
+            $gateway->kunci_utama = $gateway->utama ? $gateway->kunci_pemilik : null;
+        });
     }
 
-    /** Kunci unik per pemilik: satu gateway untuk perusahaan dan satu untuk tiap cabang Admin Full. */
+    /** Penanda pemilik: perusahaan atau satu cabang Admin Full. */
     public static function kunciPemilik(?int $idLokasi): string
     {
         return $idLokasi ? "lokasi:{$idLokasi}" : 'perusahaan';
@@ -83,6 +89,12 @@ class PaymentGateway extends Model
 
     public function labelAudit(): string
     {
-        return (self::PROVIDER[$this->provider] ?? $this->provider).' · '.$this->namaPemilik();
+        return ($this->nama ?: (self::PROVIDER[$this->provider] ?? $this->provider)).' · '.$this->namaPemilik();
+    }
+
+    /** Gateway Utama aktif milik pemilik ini (perusahaan bila $idLokasi null). */
+    public static function utamaUntuk(?int $idLokasi): ?self
+    {
+        return self::where('kunci_utama', self::kunciPemilik($idLokasi))->where('status', 'aktif')->first();
     }
 }

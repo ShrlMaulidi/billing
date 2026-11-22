@@ -2,7 +2,7 @@ import { Link } from '@inertiajs/react';
 import { LogOut } from 'react-feather';
 import { Card, CardBody, CardHeader, Input, Label } from 'reactstrap';
 import FormGantiPassword from '../../Components/FormGantiPassword';
-import PageHeader from '../../Components/PageHeader';
+import PitaPortal from '../../Components/Portal/PitaPortal';
 import { Avatar, StatusBadge } from '../../Components/ui';
 import { rupiah, tanggal, waktu } from '../../lib/format';
 import { portalLayout, useNavMode } from '../../Layouts/PortalLayout';
@@ -12,7 +12,7 @@ const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
 /** Ganti password (wajib konfirmasi password lama); perangkat lain yang memakai akun ini dikeluarkan. */
 function GantiPassword() {
     return (
-        <Card>
+        <Card id="password" className="portal-anchor">
             <CardHeader className="pb-0"><h5 className="mb-0">Ganti Password</h5></CardHeader>
             <CardBody>
                 <FormGantiPassword perluPasswordLama keterangan="Minimal 8 karakter, berisi huruf dan angka. Perangkat lain yang memakai akun ini akan keluar." />
@@ -48,25 +48,17 @@ function PilihanNavigasi() {
 export default function Akun({ akun, langganan }) {
     return (
         <>
-            <PageHeader title="Akun" home="/akun-saya" />
+            <PitaPortal judul={akun.nama} judulTab="Akun" keterangan={`Username: ${akun.username}${akun.last_login_at ? ` · login terakhir ${waktu(akun.last_login_at)}` : ''}`} ikon={<Avatar name={akun.nama} size={48} />} />
             <div className="container-fluid">
-                <div className="row">
-                    <div className="col-xl-5">
-                        <Card>
-                            <CardBody className="d-flex align-items-center gap-3">
-                                <Avatar name={akun.nama} size={56} />
-                                <div className="min-w-0">
-                                    <h5 className="mb-1">{akun.nama}</h5>
-                                    <div className="f-light">Username: {akun.username}</div>
-                                    {akun.last_login_at && <small className="f-light">Login terakhir {waktu(akun.last_login_at)}</small>}
-                                </div>
-                            </CardBody>
-                        </Card>
+                <div className="pm-wrap">
+                <div className="row pm-isi">
+                    {/* HP: kartu Langganan Saya tampil pertama (menumpuk di pita), lalu pengaturan akun */}
+                    <div className="col-xl-5 order-2 order-xl-1">
                         <PilihanNavigasi />
                         <GantiPassword />
                         <Link href="/logout" method="post" as="button" className="btn btn-outline-danger w-100 mb-4"><LogOut size={15} className="me-1" />Logout</Link>
                     </div>
-                    <div className="col-xl-7">
+                    <div className="col-xl-7 order-1 order-xl-2">
                         <Card>
                             <CardHeader className="pb-0"><h5 className="mb-0">Langganan Saya</h5></CardHeader>
                             <CardBody>
@@ -90,6 +82,7 @@ export default function Akun({ akun, langganan }) {
                             </CardBody>
                         </Card>
                     </div>
+                </div>
                 </div>
             </div>
         </>

@@ -28,7 +28,17 @@ export default function AkunPelanggan({ rows, filters }) {
 
     const pesan = (c) => {
         if (!c) return null;
-        if (c.aksi === 'reset') return <>Kembalikan password akun <strong>{c.row.nama}</strong> ke nomor HP <strong>{c.row.username}</strong>? Pelanggan akan keluar dari semua perangkat.</>;
+        if (c.aksi === 'reset') {
+            return (
+                <>
+                    Kembalikan password akun <strong>{c.row.nama}</strong> ke nomor HP <strong>{c.row.username}</strong>? Pelanggan akan keluar dari semua perangkat
+                    dan wajib membuat password baru saat login.
+                    <div className="alert alert-light-warning mt-3 mb-0 small">
+                        Pastikan yang meminta benar pemilik akun: cocokkan nama, alamat pemasangan, dan ID pelanggan. Nomor HP saja tidak cukup sebagai bukti.
+                    </div>
+                </>
+            );
+        }
         return <>{c.row.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan'} akun <strong>{c.row.nama}</strong>?{c.row.status === 'aktif' && ' Pelanggan akan langsung keluar dan tidak bisa login.'}</>;
     };
 

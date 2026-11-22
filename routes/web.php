@@ -99,6 +99,7 @@ Route::middleware('auth')->group(function () {
     Route::controller(DashboardController::class)->group(function () {
         Route::get('/dashboard', 'index')->middleware('permission:dashboard.view')->name('dashboard');
         Route::get('/dashboard/pelanggan', 'pelanggan')->middleware('permission:dashboard.view')->name('dashboard.pelanggan');
+        Route::post('/dashboard/perubahan-gateway/diperiksa', 'gatewayDiperiksa')->middleware('permission:dashboard.view')->name('dashboard.gateway-diperiksa');
         Route::get('/dashboard-cabang', 'cabang')->middleware('permission:dashboard_cabang.view')->name('dashboard-cabang');
         Route::get('/dashboard-cabang/{id}', 'cabangDetail')->middleware('permission:dashboard_cabang.view')->name('dashboard-cabang.detail');
         Route::get('/income-summary', 'income')->middleware('permission:income_summary.view')->name('income-summary');
@@ -191,6 +192,7 @@ Route::middleware('auth')->group(function () {
             Route::put('/{gateway}', 'update')->middleware('permission:payment_gateway.update')->name('payment-gateway.update');
             Route::delete('/{gateway}', 'destroy')->middleware('permission:payment_gateway.delete')->name('payment-gateway.destroy');
             Route::post('/{gateway}/uji', 'uji')->middleware('permission:payment_gateway.view')->name('payment-gateway.uji');
+            Route::post('/{gateway}/utama', 'utama')->middleware('permission:payment_gateway.update')->name('payment-gateway.utama');
         });
     });
 

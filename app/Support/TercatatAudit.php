@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 trait TercatatAudit
 {
     /** Kolom yang perubahannya tidak perlu dicatat. */
-    protected static array $kolomAbaikanAudit = ['created_at', 'updated_at', 'remember_token', 'last_login_at', 'last_login_ip', 'synced_at', 'sync_error'];
+    protected static array $kolomAbaikanAudit = ['created_at', 'updated_at', 'remember_token', 'last_login_at', 'last_login_ip', 'gateway_diperiksa_at', 'synced_at', 'sync_error'];
 
     public static function bootTercatatAudit(): void
     {

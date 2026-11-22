@@ -83,7 +83,9 @@ class HakAkses
     {
         return match ($role) {
             'Admin' => self::untukMenu(array_diff(array_keys(self::MENU), self::KHUSUS_SUPER_ADMIN)),
-            'Mitra' => self::untukMenu(['dashboard', 'dashboard_cabang', 'tiket', 'laporan', 'laporan.mitra', 'transaksi.penarikan', 'transaksi.setor', 'transaksi.pengeluaran'], ['view', 'create', 'update']),
+            // Payment gateway: hanya cabang Admin Full yang bisa menambah gateway sendiri (dicek di PaymentGatewayController)
+            'Mitra' => [...self::untukMenu(['dashboard', 'dashboard_cabang', 'tiket', 'laporan', 'laporan.mitra', 'transaksi.penarikan', 'transaksi.setor', 'transaksi.pengeluaran'], ['view', 'create', 'update']),
+                ...self::untukMenu(['payment_gateway'])],
             'Sales' => ['dashboard.view', 'pelanggan.data.view', 'pelanggan.data.create'],
             'Teknisi' => ['dashboard.view', 'pelanggan.data.view', 'pelanggan.on.view', 'pelanggan.off.view', 'tiket.view', 'tiket.update'],
             default => [],

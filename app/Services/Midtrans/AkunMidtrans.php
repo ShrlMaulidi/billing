@@ -8,8 +8,8 @@ use App\Models\TransaksiMidtrans;
 
 /**
  * Akun Midtrans yang menerima pembayaran pelanggan suatu cabang:
- * - cabang Admin Full: payment gateway milik cabang itu sendiri (uang masuk ke mitra), tanpa cadangan;
- * - cabang lain: payment gateway perusahaan dari menu Payment Gateway, atau konfigurasi .env bila belum diatur di menu.
+ * - cabang Admin Full: payment gateway Utama milik cabang itu sendiri (uang masuk ke mitra), tanpa cadangan;
+ * - cabang lain: payment gateway Utama perusahaan dari menu Payment Gateway, atau konfigurasi .env bila belum ada.
  * Hanya gateway aktif yang dipakai untuk transaksi baru; transaksi lama selalu diproses dengan akun tempat ia dibuat.
  */
 final class AkunMidtrans
@@ -19,9 +19,10 @@ final class AkunMidtrans
     public static function untukLokasi(?Lokasi $lokasi): ?self
     {
         $adminFull = (bool) $lokasi?->admin_full;
-        $gateway = PaymentGateway::where('provider', 'midtrans')->where('status', 'aktif')
-            ->when($adminFull, fn ($q) => $q->where('id_lokasi', $lokasi->id), fn ($q) => $q->whereNull('id_lokasi'))
-            ->first();
+        $gateway = PaymentGateway::utamaUntuk($adminFull ? $lokasi->id : null);
+        if ($gateway && $gateway->provider !== 'midtrans') {
+            $gateway = null;
+        }
         if (! $gateway && ! $adminFull) {
             $env = new MidtransClient;
 

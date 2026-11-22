@@ -50,6 +50,7 @@ class User extends Authenticatable
             'wajib_ganti_password' => 'boolean',
             'id_lokasi' => 'integer',
             'last_login_at' => 'datetime',
+            'gateway_diperiksa_at' => 'datetime',
         ];
     }
 

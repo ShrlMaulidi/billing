@@ -26,9 +26,10 @@ const PERUSAHAAN = {
     budaya: ['Aktif Kreatif', 'Semangat', 'Berjiwa Muda', 'Kerja Keras', 'Loyalitas', 'Dedikasi', 'Team Work'],
     kantor: [
         { judul: 'Admin Official · NOC', tlp: '+62 21 397 00 444', email: 'admin.office@mediasolusisukses.co.id', alamat: 'Perum. Bumi Karawang Residence, Blok G12 No. 7-9, Desa Cengkong, Kec. Purwasari, Kab. Karawang 41373' },
-        { judul: 'Marketing Official', tlp: '+62 813 8414 1950', email: 'marketing.mss@mediasolusisukses.co.id', alamat: 'Block A1 No. 37, Jl. Graha, Purwadana, Telukjambe Timur, Karawang, Jawa Barat 41361' },
+        { judul: 'Marketing Official', tlp: '+62 898 7515 353', email: 'marketing.mss@mediasolusisukses.co.id', alamat: 'Block A1 No. 37, Jl. Graha, Purwadana, Telukjambe Timur, Karawang, Jawa Barat 41361' },
     ],
-    whatsapp: '6281384141950',
+    // WhatsApp marketing 0898-7515-353 (konsultasi & pasang baru); layanan pelanggan memakai nomor CS di Components/TagihanPelanggan.jsx
+    whatsapp: '628987515353',
 };
 
 const SOROTAN = [

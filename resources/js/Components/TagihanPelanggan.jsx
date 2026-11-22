@@ -5,10 +5,12 @@ import { periode, rupiah, tanggal } from '../lib/format';
 import { api } from '../lib/ui';
 import InvoiceTagihan from './InvoiceTagihan';
 
-const WA_MARKETING = '6281384141950';
+// WhatsApp CS (0857-1839-2893) untuk layanan pelanggan: cek tagihan, bukti transfer, lupa sandi, dashboard pelanggan.
+// Tombol marketing (konsultasi & pasang baru) di landing page memakai nomor marketing sendiri.
+const WA_CS = '6285718392893';
 const JENIS = { prabayar: 'Prabayar', pascabayar: 'Pascabayar' };
 
-export const linkWa = (pesan) => `https://wa.me/${WA_MARKETING}?text=${encodeURIComponent(pesan)}`;
+export const linkWa = (pesan) => `https://wa.me/${WA_CS}?text=${encodeURIComponent(pesan)}`;
 
 /**
  * Buat (atau lanjutkan) pembayaran online Midtrans satu invoice lalu arahkan browser ke halaman pembayarannya.
