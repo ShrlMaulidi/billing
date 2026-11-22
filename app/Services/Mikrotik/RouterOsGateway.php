@@ -15,6 +15,8 @@ class RouterOsGateway implements MikrotikGateway
 
     private const ADDRESS_LIST = '/ip/firewall/address-list';
 
+    private const QUEUE = '/queue/simple';
+
     public function __construct(private RouterOsApi $api) {}
 
     public function info(): array
@@ -111,6 +113,30 @@ class RouterOsGateway implements MikrotikGateway
         }
 
         return count($rows);
+    }
+
+    public function queues(): array
+    {
+        $rows = $this->api->command(self::QUEUE.'/print', [], ['dynamic' => 'false']);
+
+        return array_values(array_map(fn ($row) => [
+            'id' => $row['.id'] ?? '', 'name' => $row['name'] ?? '', 'target' => $row['target'] ?? '', 'comment' => $row['comment'] ?? null,
+        ], $rows));
+    }
+
+    public function addQueue(array $attributes, ?string $placeBefore = null): void
+    {
+        $this->api->command(self::QUEUE.'/add', [...$attributes, ...($placeBefore ? ['place-before' => $placeBefore] : [])]);
+    }
+
+    public function setQueue(string $id, array $attributes): void
+    {
+        $this->api->command(self::QUEUE.'/set', ['.id' => $id, ...$attributes]);
+    }
+
+    public function removeQueue(string $id): void
+    {
+        $this->api->command(self::QUEUE.'/remove', ['.id' => $id]);
     }
 
     /**

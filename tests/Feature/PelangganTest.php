@@ -142,7 +142,67 @@ class PelangganTest extends TestCase
             ->assertOk()->assertJsonPath('message', 'Pelanggan Kantor Desa ditambahkan');
 
         $this->assertSame($secrets, $this->gw->secrets);
+        // Paket Static tanpa rate limit: billing tidak mengatur queue
+        $this->assertSame([], $this->gw->queues);
         $this->assertDatabaseHas('pelanggan', ['nama' => 'Kantor Desa', 'jns_koneksi' => 'static', 'ip_address' => '10.20.0.5', 'username_pppoe' => null]);
+    }
+
+    public function test_static_customer_gets_simple_queue_from_package_rate_limit_above_existing_queues(): void
+    {
+        $this->gw->queues = [['id' => '*1', 'name' => 'IP STATIC 355', 'target' => '192.168.10.0/24', 'max-limit' => '1G/1G']];
+
+        $this->postJson('/pelanggan', $this->dataStatic(['id_paket' => $this->paketQueue('10M/10M')->id]))
+            ->assertOk()->assertJsonPath('message', 'Pelanggan Agus ditambahkan. Queue RM010 Agus dibuat (10M/10M) di router CCR Pusat');
+
+        $this->assertSame(['name' => 'RM010 Agus', 'target' => '192.168.10.2/32', 'max-limit' => '10M/10M', 'comment' => 'RM010'], array_diff_key($this->gw->queues[0], ['id' => 0]));
+        $this->assertSame('IP STATIC 355', $this->gw->queues[1]['name']);
+    }
+
+    public function test_ip_binding_takes_over_manual_queue_of_its_ip_and_follows_package_and_ip_changes(): void
+    {
+        $this->gw->queues = [['id' => '*7', 'name' => 'RIDWAN FAUJI', 'target' => '192.168.10.5/32', 'max-limit' => '50M/50M', 'parent' => 'IP STATIC 355']];
+        $binding = ['id_pelanggan' => 'RM009', 'nama' => 'Ridwan', 'jns_koneksi' => 'ip_binding', 'mode_akun' => 'sinkron', 'mac_address' => 'AA:BB:CC:DD:EE:01'];
+
+        // Tanpa IP di billing: memakai address IP Binding di router (192.168.10.5)
+        $this->postJson('/pelanggan', $this->dataStatic([...$binding, 'ip_address' => null, 'id_paket' => $this->paketQueue('10M/10M', 'ip_binding')->id]))
+            ->assertOk()->assertJsonPath('message', 'Pelanggan Ridwan ditambahkan. Queue RM009 Ridwan diperbarui (10M/10M) di router CCR Pusat');
+        $ridwan = Pelanggan::firstWhere('id_pelanggan', 'RM009');
+        $paketBurst = $this->paketQueue('20M/20M 40M/40M 15M/15M 8/8 5', 'ip_binding');
+        $this->putJson("/pelanggan/{$ridwan->id}", $this->dataStatic([...$binding, 'ip_address' => '192.168.10.9', 'id_paket' => $paketBurst->id, 'status' => 'aktif']))
+            ->assertOk();
+
+        // Posisi & parent queue manual tetap; rate limit berformat PPP dipecah ke kolom burst Simple Queue
+        $this->assertCount(1, $this->gw->queues);
+        $this->assertEquals([
+            'id' => '*7', 'name' => 'RM009 Ridwan', 'target' => '192.168.10.9/32', 'parent' => 'IP STATIC 355', 'comment' => 'RM009',
+            'max-limit' => '20M/20M', 'burst-limit' => '40M/40M', 'burst-threshold' => '15M/15M', 'burst-time' => '8/8', 'priority' => '5/5',
+        ], $this->gw->queues[0]);
+
+        // Edit yang tidak menyentuh data queue tidak menghubungi router
+        $this->connector->gagal = RouterOsException::koneksi('Tidak dapat terhubung ke 203.0.113.10:8728');
+        $this->putJson("/pelanggan/{$ridwan->id}", $this->dataStatic([...$binding, 'ip_address' => '192.168.10.9', 'id_paket' => $paketBurst->id, 'alamat' => 'Jl. Baru 2', 'status' => 'aktif']))
+            ->assertOk()->assertJsonMissingPath('type');
+    }
+
+    public function test_queue_failure_keeps_static_customer_and_returns_warning(): void
+    {
+        $this->connector->gagal = RouterOsException::koneksi('Tidak dapat terhubung ke 203.0.113.10:8728');
+
+        $this->postJson('/pelanggan', $this->dataStatic(['id_paket' => $this->paketQueue('10M/10M')->id]))
+            ->assertOk()->assertJsonPath('type', 'warning')
+            ->assertJsonPath('message', 'Pelanggan Agus ditambahkan, tetapi queue limit gagal diatur di router: Tidak dapat terhubung ke 203.0.113.10:8728');
+        $this->assertDatabaseHas('pelanggan', ['id_pelanggan' => 'RM010', 'jns_koneksi' => 'static']);
+    }
+
+    public function test_switching_static_customer_to_pppoe_removes_its_billing_queue(): void
+    {
+        $this->postJson('/pelanggan', $this->dataStatic(['id_paket' => $this->paketQueue('10M/10M')->id]))->assertOk();
+        $agus = Pelanggan::firstWhere('id_pelanggan', 'RM010');
+
+        $this->putJson("/pelanggan/{$agus->id}", $this->data(['id_pelanggan' => 'RM010', 'nama' => 'Agus', 'mode_akun' => 'baru', 'username_pppoe' => 'agus', 'password_akun' => 'x', 'ip_address' => '10.12.10.6', 'status' => 'aktif']))
+            ->assertOk()->assertJsonPath('message', "Data Agus diperbarui. Queue RM010 Agus dihapus dari router CCR Pusat. PPP Secret 'agus' dibuat di router CCR Pusat");
+
+        $this->assertSame([], $this->gw->queues);
     }
 
     public function test_package_must_match_connection_type_but_old_mismatched_package_is_kept_on_edit(): void
@@ -522,6 +582,18 @@ class PelangganTest extends TestCase
             'id_paket' => $this->paket->id, 'tgl_registrasi' => '2026-10-30', 'tgl_jatuh_tempo' => 10, 'ppn' => true, 'sales_id' => $this->sales->id,
             ...$override,
         ];
+    }
+
+    /** Pelanggan Static RM010 Agus (IP 192.168.10.2) untuk test Simple Queue. */
+    private function dataStatic(array $override = []): array
+    {
+        return $this->data(['id_pelanggan' => 'RM010', 'nama' => 'Agus', 'jns_koneksi' => 'static', 'mode_akun' => null, 'username_pppoe' => null, 'ip_address' => '192.168.10.2', ...$override]);
+    }
+
+    /** Paket tanpa profile berlimit: pelanggannya mendapat Simple Queue. */
+    private function paketQueue(string $rateLimit, string $jenis = 'static'): Paket
+    {
+        return Paket::create(['nama_paket' => "Paket $rateLimit", 'harga' => 100000, 'jenis' => 'bulanan', 'jns_koneksi' => $jenis, 'rate_limit' => $rateLimit]);
     }
 
     /** Pelanggan PPPoE 'budi' yang disimpan lewat form (cabang, sales, paket 20Mbps lengkap). */

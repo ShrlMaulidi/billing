@@ -159,19 +159,29 @@ class PelangganController extends Controller
             $akunPelanggan->sinkronkan($pelanggan);
         });
         $pesan = "Data {$pelanggan->nama} diperbarui";
+        $peringatan = false;
+
+        // Koneksi diganti dari Static/IP Binding: queue limit lama dihapus agar tidak mendahului limit profile PPPoE/Hotspot
+        if ($pelanggan->wasChanged('jns_koneksi') && in_array($pelanggan->getPrevious()['jns_koneksi'] ?? null, Paket::KONEKSI_QUEUE, true)
+            && ! in_array($pelanggan->jns_koneksi, Paket::KONEKSI_QUEUE, true)) {
+            [$pesan, $peringatan] = $this->langkahRouter($pesan, fn () => $mikrotik->hapusQueue($pelanggan), 'queue lama gagal dihapus dari router');
+        }
 
         // PPP Secret yang sudah ada ikut diperbarui saat paket / IP diganti ("Buat baru" sudah memakai data terbaru)
         $gantiPaket = $pelanggan->wasChanged('id_paket');
         $gantiIp = $pelanggan->wasChanged('ip_address');
         if (($gantiPaket || $gantiIp) && $akun['mode'] === 'sinkron' && $pelanggan->jns_koneksi === 'pppoe') {
             try {
-                return response()->json(['message' => "$pesan, {$mikrotik->perbaruiSecret($pelanggan->load('paket'), $gantiPaket, $gantiIp)}"]);
+                return $this->jawaban("$pesan, {$mikrotik->perbaruiSecret($pelanggan->load('paket'), $gantiPaket, $gantiIp)}", $peringatan);
             } catch (RouterOsException $e) {
-                return response()->json(['message' => "$pesan, tetapi akun di router gagal diperbarui: {$e->getMessage()}", 'type' => 'warning']);
+                return $this->jawaban("$pesan, tetapi akun di router gagal diperbarui: {$e->getMessage()}", true);
             }
         }
 
-        return $this->simpanAkun($pelanggan, $akun, $pesan, $mikrotik);
+        // Queue Static/IP Binding hanya disentuh bila data yang dipakai queue berubah
+        $aturQueue = $pelanggan->wasChanged(['id_paket', 'ip_address', 'mac_address', 'nama', 'id_pelanggan', 'router_id', 'jns_koneksi']);
+
+        return $this->simpanAkun($pelanggan, $akun, $pesan, $mikrotik, $aturQueue, $peringatan);
     }
 
     /**
@@ -282,22 +292,47 @@ class PelangganController extends Controller
     }
 
     /**
-     * Pilihan "Buat baru" membuat akun di router setelah data tersimpan. Data tetap tersimpan walau gagal;
-     * kegagalan dikembalikan sebagai peringatan agar akun bisa dibuat ulang lewat Edit.
+     * Langkah router setelah data tersimpan: pilihan "Buat baru" membuat akun, lalu pelanggan Static/IP Binding berpaket
+     * berlimit mendapat Simple Queue. Data tetap tersimpan walau gagal; kegagalan dikembalikan sebagai peringatan
+     * agar bisa diulang lewat Edit.
      *
      * @param  array{mode: ?string, password: ?string}  $akun
      */
-    private function simpanAkun(Pelanggan $pelanggan, array $akun, string $pesan, IsolirService $mikrotik): JsonResponse
+    private function simpanAkun(Pelanggan $pelanggan, array $akun, string $pesan, IsolirService $mikrotik, bool $aturQueue = true, bool $peringatan = false): JsonResponse
     {
-        if ($akun['mode'] !== 'baru') {
-            return response()->json(['message' => $pesan]);
+        if ($akun['mode'] === 'baru') {
+            [$pesan, $gagal] = $this->langkahRouter($pesan, fn () => $mikrotik->buatAkun($pelanggan, $akun['password']), 'akun gagal dibuat di router');
+            $peringatan = $peringatan || $gagal;
+        }
+        if (($aturQueue || $akun['mode'] === 'baru') && $pelanggan->load('paket')->paket?->pakaiQueue() && in_array($pelanggan->jns_koneksi, Paket::KONEKSI_QUEUE, true)) {
+            [$pesan, $gagal] = $this->langkahRouter($pesan, fn () => $mikrotik->sinkronQueue($pelanggan), 'queue limit gagal diatur di router');
+            $peringatan = $peringatan || $gagal;
         }
 
+        return $this->jawaban($pesan, $peringatan);
+    }
+
+    /**
+     * Jalankan satu aksi router dan sambungkan hasilnya ke pesan.
+     *
+     * @param  callable(): ?string  $aksi
+     * @return array{0: string, 1: bool} pesan & apakah gagal
+     */
+    private function langkahRouter(string $pesan, callable $aksi, string $labelGagal): array
+    {
         try {
-            return response()->json(['message' => "$pesan. {$mikrotik->buatAkun($pelanggan, $akun['password'])}"]);
+            $hasil = $aksi();
+
+            return [$hasil ? "$pesan. $hasil" : $pesan, false];
         } catch (RouterOsException $e) {
-            return response()->json(['message' => "$pesan, tetapi akun gagal dibuat di router: {$e->getMessage()}", 'type' => 'warning']);
+            return ["$pesan, tetapi $labelGagal: {$e->getMessage()}", true];
         }
+    }
+
+    /** type 'warning': data tersimpan tetapi ada langkah di router yang gagal. */
+    private function jawaban(string $pesan, bool $peringatan = false): JsonResponse
+    {
+        return response()->json(['message' => $pesan, ...($peringatan ? ['type' => 'warning'] : [])]);
     }
 
     /**

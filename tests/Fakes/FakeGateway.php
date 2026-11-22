@@ -173,4 +173,32 @@ class FakeGateway implements MikrotikGateway
 
         return $dihapus;
     }
+
+    /** @var list<array<string, string>> Simple Queue statis sesuai urutan di router; tiap entri punya 'id' */
+    public array $queues = [];
+
+    private int $queueId = 100;
+
+    public function queues(): array
+    {
+        return array_map(fn ($q) => ['id' => $q['id'], 'name' => $q['name'] ?? '', 'target' => $q['target'] ?? '', 'comment' => $q['comment'] ?? null], $this->queues);
+    }
+
+    public function addQueue(array $attributes, ?string $placeBefore = null): void
+    {
+        $baru = ['id' => '*'.dechex($this->queueId++), ...$attributes];
+        $posisi = $placeBefore === null ? count($this->queues) : array_search($placeBefore, array_column($this->queues, 'id'), true);
+        array_splice($this->queues, $posisi, 0, [$baru]);
+    }
+
+    public function setQueue(string $id, array $attributes): void
+    {
+        $i = array_search($id, array_column($this->queues, 'id'), true);
+        $this->queues[$i] = [...$this->queues[$i], ...$attributes];
+    }
+
+    public function removeQueue(string $id): void
+    {
+        $this->queues = array_values(array_filter($this->queues, fn ($q) => $q['id'] !== $id));
+    }
 }

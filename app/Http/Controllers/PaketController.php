@@ -68,14 +68,14 @@ class PaketController extends Controller
         return response()->json(['message' => "Paket {$paket->nama_paket} dihapus"]);
     }
 
-    /** Tombol "Sinkron ke MikroTik". */
+    /** Tombol "Sinkron ke MikroTik": profile paket PPPoE/Hotspot, atau queue semua pelanggan paket Static/IP Binding. */
     public function sinkron(Request $request, Paket $paket, IsolirService $isolir): JsonResponse
     {
         $this->pastikanCabangPaket($request, $paket);
-        if (! $paket->pakaiProfile()) {
-            return response()->json(['message' => "Paket {$paket->nama_paket} ({$paket->labelKoneksi()}) tidak memakai profile MikroTik"], 422);
+        if (! $paket->pakaiProfile() && ! $paket->pakaiQueue()) {
+            return response()->json(['message' => "Paket {$paket->nama_paket} ({$paket->labelKoneksi()}) belum diisi rate limit, tidak ada yang disinkronkan"], 422);
         }
-        [$berhasil, $pesan] = $this->sinkronSemua($paket, $isolir);
+        [$berhasil, $pesan] = $paket->pakaiQueue() ? $isolir->sinkronQueuePaket($paket) : $this->sinkronSemua($paket, $isolir);
         Audit::catat('Paket', 'sinkron', "Sinkron paket {$paket->nama_paket} ke Mikrotik: ".($berhasil ? 'berhasil' : 'gagal'), $paket, ['hasil' => ['ke' => $pesan]]);
 
         return response()->json(['message' => $pesan], $berhasil ? 200 : 422);
@@ -95,11 +95,19 @@ class PaketController extends Controller
         }
     }
 
-    /** Data tetap tersimpan walau sinkron gagal; kegagalan dikembalikan sebagai peringatan. Paket Static & IP Binding tanpa sinkron. */
+    /**
+     * Data tetap tersimpan walau sinkron gagal; kegagalan dikembalikan sebagai peringatan. Paket Static & IP Binding:
+     * rate limit diubah → queue semua pelanggannya ikut diperbarui (dikosongkan → queue di router dibiarkan).
+     */
     private function simpanDanSinkron(Paket $paket, string $pesan, IsolirService $isolir): JsonResponse
     {
         if (! $paket->pakaiProfile()) {
-            return response()->json(['message' => $pesan, 'type' => 'success']);
+            if (! $paket->pakaiQueue() || ! $paket->wasChanged('rate_limit') || ! $paket->pelanggan()->where('status', 'aktif')->exists()) {
+                return response()->json(['message' => $pesan, 'type' => 'success']);
+            }
+            [$berhasil, $hasil] = $isolir->sinkronQueuePaket($paket);
+
+            return response()->json(['message' => "$pesan. $hasil", 'type' => $berhasil ? 'success' : 'warning']);
         }
         [$berhasil, $hasil] = $this->sinkronSemua($paket, $isolir);
 
@@ -205,9 +213,11 @@ class PaketController extends Controller
             $data = [...$data, 'profile_mikrotik' => null, 'buat_profile' => false];
         }
 
-        // Sinkronisasi memakai profile router apa adanya: pengaturan profile diambil dari router, bukan dari form
+        // Sinkronisasi memakai profile router apa adanya: pengaturan profile diambil dari router, bukan dari form.
+        // Static & IP Binding tetap menyimpan rate limit: dipakai sebagai limit Simple Queue pelanggannya
         if (empty($data['buat_profile'])) {
-            $data = [...$data, 'rate_limit' => null, 'local_address' => null, 'buat_pool' => false];
+            $tanpaProfile = in_array($data['jns_koneksi'], Paket::KONEKSI_QUEUE, true);
+            $data = [...$data, 'rate_limit' => $tanpaProfile ? ($data['rate_limit'] ?? null) : null, 'local_address' => null, 'buat_pool' => false];
         }
         if (empty($data['buat_pool'])) {
             $data['nama_pool'] = null;

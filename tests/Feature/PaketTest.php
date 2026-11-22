@@ -193,16 +193,42 @@ class PaketTest extends TestCase
             ->assertOk()->assertJsonPath('message', 'Paket Ultra 30 Mbps ditambahkan. CCR Pusat: profile UP-30M dibuat');
     }
 
-    public function test_static_package_is_saved_without_profile_and_never_synced_to_router(): void
+    public function test_static_package_keeps_rate_limit_for_customer_queues_without_creating_a_profile(): void
     {
-        $this->postJson('/paket', $this->data(['nama_paket' => 'Static 10M', 'jns_koneksi' => 'static', 'profile_mikrotik' => 'abaikan', 'buat_profile' => true]))
+        $this->postJson('/paket', $this->data(['nama_paket' => 'Static 10M', 'jns_koneksi' => 'static', 'profile_mikrotik' => 'abaikan', 'buat_profile' => true, 'rate_limit' => '10M/10M']))
             ->assertOk()->assertJsonPath('message', 'Paket Static 10M ditambahkan');
 
         $paket = Paket::firstWhere('nama_paket', 'Static 10M');
-        $this->assertSame([null, false, null], [$paket->profile_mikrotik, $paket->buat_profile, $paket->rate_limit]);
+        $this->assertSame([null, false, '10M/10M'], [$paket->profile_mikrotik, $paket->buat_profile, $paket->rate_limit]);
         $this->assertSame([], $this->gw->savedProfiles);
+        $paket->update(['rate_limit' => null]);
         $this->postJson("/paket/{$paket->id}/sinkron")
-            ->assertStatus(422)->assertJsonPath('message', 'Paket Static 10M (Static) tidak memakai profile MikroTik');
+            ->assertStatus(422)->assertJsonPath('message', 'Paket Static 10M (Static) belum diisi rate limit, tidak ada yang disinkronkan');
+    }
+
+    public function test_changing_static_package_rate_limit_updates_queues_of_active_customers_and_sync_button_repeats_it(): void
+    {
+        $static = ['nama_paket' => 'Static 10M', 'jns_koneksi' => 'static', 'rate_limit' => '10M/10M'];
+        $this->postJson('/paket', $this->data($static))->assertOk();
+        $paket = Paket::firstWhere('nama_paket', 'Static 10M');
+        $pelanggan = fn (string $id, string $nama, ?string $ip, string $status = 'aktif') => Pelanggan::create([
+            'id_pelanggan' => $id, 'nama' => $nama, 'id_lokasi' => $this->lokasi->id, 'router_id' => $this->router->id,
+            'jns_koneksi' => 'static', 'ip_address' => $ip, 'id_paket' => $paket->id, 'status' => $status,
+        ]);
+        $pelanggan('RM001', 'Agus', '192.168.10.2');
+        $budi = $pelanggan('RM002', 'Budi', null);
+        $pelanggan('RM003', 'Cici', '192.168.10.4', 'berhenti');
+        $this->gw->queues = [['id' => '*7', 'name' => 'AGUS MANUAL', 'target' => '192.168.10.2/32', 'max-limit' => '10M/10M']];
+
+        $this->putJson("/paket/{$paket->id}", $this->data([...$static, 'rate_limit' => '15M/15M']))
+            ->assertOk()->assertJsonPath('type', 'warning')
+            ->assertJsonPath('message', 'Paket Static 10M diperbarui. CCR Pusat: queue 1 pelanggan diperbarui, gagal: Budi (IP address Budi belum diisi, edit data pelanggan dulu)');
+        $this->assertSame([['*7', 'RM001 Agus', '15M/15M']], array_map(fn ($q) => [$q['id'], $q['name'], $q['max-limit']], $this->gw->queues));
+
+        $budi->update(['ip_address' => '192.168.10.3']);
+        $this->postJson("/paket/{$paket->id}/sinkron")->assertOk()->assertJsonPath('message', 'CCR Pusat: queue 2 pelanggan diperbarui');
+        // Queue Agus diperbarui di tempat; queue baru Budi ditaruh paling atas
+        $this->assertSame(['RM002 Budi', 'RM001 Agus'], array_column($this->gw->queues, 'name'));
     }
 
     public function test_package_list_can_be_filtered_by_connection_type(): void

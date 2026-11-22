@@ -13,7 +13,8 @@ use Throwable;
  * - PPPoE & Hotspot: profile akun (PPP Secret / Hotspot User) diubah ke profile isolir router (profile asal disimpan),
  *   lalu sesi aktif diputus agar langsung berlaku. Aktifkan = kembalikan ke profile asal (atau profile paket).
  * - Static & IP Binding: IP pelanggan dimasukkan ke address-list ISOLIR. Aktifkan = keluarkan dari address-list.
- * Keduanya mengandalkan aturan firewall dari script Template Isolir. Profile paket disinkronkan lewat sinkronPaket().
+ * Keduanya mengandalkan aturan firewall dari script Template Isolir. Profile paket disinkronkan lewat sinkronPaket();
+ * limit pelanggan Static & IP Binding (tanpa profile) lewat Simple Queue per IP, disinkronkan lewat sinkronQueue().
  */
 class IsolirService
 {
@@ -154,6 +155,82 @@ class IsolirService
             ]);
 
             return [$secret['profile'], implode(', ', $hasil).($diputus ? ', sesi diputus agar login ulang' : '')];
+        });
+    }
+
+    /**
+     * Simple Queue pelanggan Static & IP Binding: target IP pelanggan, limit dari rate limit paket.
+     *
+     * @return string pesan hasil
+     */
+    public function sinkronQueue(Pelanggan $pelanggan): string
+    {
+        $router = $this->routerOf($pelanggan);
+
+        return $this->onRouter($router, fn (MikrotikGateway $gw) => $this->terapkanQueue($gw, $pelanggan, $gw->queues()))
+            ." di router {$router->nama_router}";
+    }
+
+    /**
+     * Queue semua pelanggan aktif paket Static/IP Binding, satu koneksi per router (dipakai saat rate limit paket berubah).
+     *
+     * @return array{0: bool, 1: string} semua berhasil & pesan hasil
+     */
+    public function sinkronQueuePaket(Paket $paket): array
+    {
+        $perRouter = $paket->pelanggan()->where('status', 'aktif')->whereNotNull('router_id')
+            ->with(['router', 'paket'])->orderBy('nama')->get()->groupBy('router_id');
+        if ($perRouter->isEmpty()) {
+            return [true, 'belum ada pelanggan aktif di paket ini'];
+        }
+
+        $hasil = [];
+        $semuaBerhasil = true;
+        foreach ($perRouter as $pelanggan) {
+            $router = $pelanggan->first()->router;
+            try {
+                $gagal = $this->onRouter($router, function (MikrotikGateway $gw) use ($pelanggan) {
+                    $queues = $gw->queues();
+                    $gagal = [];
+                    foreach ($pelanggan as $p) {
+                        try {
+                            $this->terapkanQueue($gw, $p, $queues);
+                        } catch (RouterOsException $e) {
+                            $gagal[] = "{$p->nama} ({$e->getMessage()})";
+                        }
+                    }
+
+                    return $gagal;
+                });
+                $berhasil = count($pelanggan) - count($gagal);
+                $hasil[] = "{$router->nama_router}: queue $berhasil pelanggan diperbarui".($gagal ? ', gagal: '.implode(', ', $gagal) : '');
+                $semuaBerhasil = $semuaBerhasil && ! $gagal;
+            } catch (RouterOsException $e) {
+                $hasil[] = "{$router->nama_router}: {$e->getMessage()}";
+                $semuaBerhasil = false;
+            }
+        }
+
+        return [$semuaBerhasil, implode('; ', $hasil)];
+    }
+
+    /**
+     * Jenis koneksi diganti dari Static/IP Binding: queue buatan billing dihapus agar tidak mendahului limit profile.
+     *
+     * @return string|null pesan hasil, null bila queue tidak ada
+     */
+    public function hapusQueue(Pelanggan $pelanggan): ?string
+    {
+        $router = $this->routerOf($pelanggan);
+
+        return $this->onRouter($router, function (MikrotikGateway $gw) use ($pelanggan, $router) {
+            $queue = array_find($gw->queues(), fn (array $q) => $q['comment'] === $pelanggan->id_pelanggan);
+            if (! $queue) {
+                return null;
+            }
+            $gw->removeQueue($queue['id']);
+
+            return "Queue {$queue['name']} dihapus dari router {$router->nama_router}";
         });
     }
 
@@ -305,6 +382,48 @@ class IsolirService
         return $dihapus
             ? [self::ADDRESS_LIST, "{$pelanggan->nama} diaktifkan kembali (IP $ip keluar dari address-list ".self::ADDRESS_LIST.')']
             : [null, "{$pelanggan->nama} sudah aktif, IP $ip tidak ada di address-list ".self::ADDRESS_LIST];
+    }
+
+    /**
+     * Queue dicari lewat comment = ID pelanggan, lalu lewat target IP (queue buatan manual diambil alih, posisi & parent-nya
+     * tetap). Belum ada → dibuat paling atas, agar tidak didahului queue lain yang targetnya satu subnet.
+     *
+     * @param  list<array{id: string, name: string, target: string, comment: ?string}>  $queues
+     */
+    private function terapkanQueue(MikrotikGateway $gw, Pelanggan $pelanggan, array $queues): string
+    {
+        $ip = $this->ipPelanggan($gw, $pelanggan);
+        $atribut = [
+            'name' => trim("{$pelanggan->id_pelanggan} {$pelanggan->nama}"),
+            'target' => "$ip/32",
+            ...$this->limitQueue((string) $pelanggan->paket?->rate_limit),
+            'comment' => (string) $pelanggan->id_pelanggan,
+        ];
+        $queue = array_find($queues, fn (array $q) => $q['comment'] === $pelanggan->id_pelanggan)
+            ?? array_find($queues, fn (array $q) => in_array($q['target'], [$ip, "$ip/32"], true));
+        if ($queue) {
+            $gw->setQueue($queue['id'], $atribut);
+
+            return "Queue {$atribut['name']} diperbarui ({$atribut['max-limit']})";
+        }
+        $gw->addQueue($atribut, $queues[0]['id'] ?? null);
+
+        return "Queue {$atribut['name']} dibuat ({$atribut['max-limit']})";
+    }
+
+    /**
+     * Rate limit paket berformat PPP ("rx/tx [burst rx/tx [threshold rx/tx [waktu burst [prioritas [limit-at]]]]]",
+     * mis. 10M/10M 20M/20M 8M/8M 16/16 8) menjadi atribut Simple Queue. Urutan rx/tx PPP = upload/download pelanggan,
+     * sama dengan Simple Queue. Nilai tunggal dipakai untuk upload & download.
+     *
+     * @return array<string, string>
+     */
+    private function limitQueue(string $rateLimit): array
+    {
+        $kolom = ['max-limit', 'burst-limit', 'burst-threshold', 'burst-time', 'priority', 'limit-at'];
+        $nilai = array_slice(preg_split('/\s+/', trim($rateLimit)) ?: [], 0, count($kolom));
+
+        return array_combine(array_slice($kolom, 0, count($nilai)), array_map(fn (string $v) => str_contains($v, '/') ? $v : "$v/$v", $nilai));
     }
 
     /** IP pelanggan di billing; IP Binding tanpa IP memakai address IP Binding di router. */

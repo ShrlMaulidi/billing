@@ -15,6 +15,8 @@ const KONEKSI_OPTIONS = Object.entries(KONEKSI).map(([value, label]) => ({ value
 const pakaiProfile = (v) => !!JENIS_PROFILE[v.jns_koneksi];
 const sinkronisasi = (v) => pakaiProfile(v) && !v.buat_profile;
 const buatBaru = (v) => pakaiProfile(v) && !!v.buat_profile;
+// Static & IP Binding berlimit: billing membuat & memperbarui Simple Queue tiap pelanggannya
+const pakaiQueue = (v) => !pakaiProfile(v) && !!v.rate_limit;
 // Router milik cabang terpilih, plus router bersama yang tidak diberi cabang; kosong sebelum cabang dipilih
 const routerCabang = (options, v) => (v.id_lokasi ? options.filter((o) => !o.id_lokasi || String(o.id_lokasi) === String(v.id_lokasi)) : []);
 
@@ -83,17 +85,20 @@ export default function Paket({ filters, rows, routerOptions }) {
                         <strong> Profile MikroTik</strong> (khusus PPPoE &amp; Hotspot) dipakai saat akun pelanggan dibuat, saat ganti paket, dan saat internet di-<strong>On</strong>-kan.
                         <em> Sinkronisasi</em>: pilih profile yang sudah ada di router. <em>Buat Baru</em>: profile (rate limit, local address, IP pool) dibuat otomatis
                         di router saat disimpan, tanpa perlu membuat manual di MikroTik. Nama profile tidak boleh sama dengan profile isolir router.
+                        <strong> Static &amp; IP Binding</strong> tanpa profile: isi Rate Limit agar billing membuat <em>Simple Queue</em> per IP pelanggan secara otomatis.
                     </span>
                 </div>
             }
-            rowActions={(r) => bisa('kelola_data.paket.update') && pakaiProfile(r) && (
-                <ActionButton icon={RefreshCw} label="Sinkron ke MikroTik" color="info" loading={syncing === r.id} disabled={!!syncing} onClick={() => sinkron(r)} />
+            rowActions={(r) => bisa('kelola_data.paket.update') && (pakaiProfile(r) || pakaiQueue(r)) && (
+                <ActionButton icon={RefreshCw} label={pakaiQueue(r) ? 'Sinkron queue pelanggan' : 'Sinkron ke MikroTik'} color="info" loading={syncing === r.id} disabled={!!syncing} onClick={() => sinkron(r)} />
             )}
             columns={[
                 { key: 'nama_paket', label: 'Nama Paket', render: (r) => <>{r.nama_paket}{r.keterangan && <><br /><small className="f-light">{r.keterangan}</small></>}</> },
                 { key: 'harga', label: 'Harga', align: 'end', render: (r) => (r.harga ? rupiah(r.harga) : <StatusBadge value="free" text="Free" />) },
                 { key: 'jenis', label: 'Jenis', render: (r) => <>{r.jenis === 'bulanan' ? 'Bulanan' : 'Non-bulanan'}<br /><small className="f-light">{KONEKSI[r.jns_koneksi] ?? r.jns_koneksi}</small></> },
-                { key: 'profile_mikrotik', label: 'Profile MikroTik', render: (r) => (pakaiProfile(r) ? <>{r.profile_mikrotik}{r.rate_limit && <><br /><small className="f-light">{r.rate_limit}</small></>}</> : <small className="f-light">Tanpa profile</small>) },
+                { key: 'profile_mikrotik', label: 'Profile MikroTik', render: (r) => (pakaiProfile(r)
+                    ? <>{r.profile_mikrotik}{r.rate_limit && <><br /><small className="f-light">{r.rate_limit}</small></>}</>
+                    : pakaiQueue(r) ? <>Simple Queue<br /><small className="f-light">{r.rate_limit}</small></> : <small className="f-light">Tanpa limit</small>) },
                 { key: 'router', label: 'Router', render: (r) => r.router?.nama_router ?? (pakaiProfile(r) ? 'Semua Router' : '-') },
                 { key: 'cabang', label: 'Cabang', render: (r) => (r.semua_cabang ? <>{r.cabang}<br /><small className="f-light">Tampil di semua cabang</small></> : r.cabang) },
                 {
@@ -130,7 +135,7 @@ export default function Paket({ filters, rows, routerOptions }) {
                 },
                 {
                     name: 'jns_koneksi', label: 'Jenis Koneksi', type: 'select', required: true, options: KONEKSI_OPTIONS, resets: ['profile_mikrotik'],
-                    help: 'Pelanggan hanya bisa memilih paket dengan jenis koneksi yang sama · Static & IP Binding tidak memakai profile MikroTik',
+                    help: 'Pelanggan hanya bisa memilih paket dengan jenis koneksi yang sama · Static & IP Binding tanpa profile, limitnya lewat Simple Queue',
                 },
                 {
                     name: 'buat_profile', label: 'Profile di MikroTik', type: 'radio', required: true, resets: ['profile_mikrotik'], show: pakaiProfile,
@@ -140,6 +145,10 @@ export default function Paket({ filters, rows, routerOptions }) {
                 { name: 'profile_mikrotik', label: 'Pilih Profile dari Router', type: 'custom', required: true, render: renderProfile, show: sinkronisasi },
                 { name: 'profile_mikrotik', label: 'Nama Profile Baru', required: true, placeholder: 'UP-20M', help: 'Nama PPP Profile (atau Hotspot User Profile) yang dibuat di router', show: buatBaru },
                 { name: 'rate_limit', label: 'Rate Limit (rx/tx)', placeholder: '20M/20M', help: 'Format MikroTik, mis. 20M/20M. Kosongkan = tanpa limit', show: buatBaru },
+                {
+                    name: 'rate_limit', label: 'Rate Limit (upload/download)', placeholder: '20M/20M', show: (v) => !pakaiProfile(v),
+                    help: 'Simple Queue tiap pelanggan paket ini dibuat & diperbarui otomatis di router, mis. 20M/20M · Kosongkan = billing tidak mengatur queue',
+                },
                 { name: 'local_address', label: 'Local Address', placeholder: '10.10.1.1', help: 'IP gateway PPPoE (opsional)', show: (v) => buatBaru(v) && v.jns_koneksi !== 'hotspot' },
                 { name: 'tampil_registrasi', label: 'Tampil di form registrasi', type: 'switch' },
                 { name: 'buat_pool', label: 'Buat IP pool', type: 'switch', show: buatBaru },

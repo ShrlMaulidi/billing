@@ -26,9 +26,18 @@ class Paket extends Model
     /** Jenis koneksi yang memakai profile MikroTik (PPP Profile / Hotspot User Profile). */
     public const KONEKSI_PROFILE = ['pppoe', 'hotspot'];
 
+    /** Jenis koneksi tanpa profile: limit diatur lewat Simple Queue per IP pelanggan, dari rate limit paket. */
+    public const KONEKSI_QUEUE = ['static', 'ip_binding'];
+
     public function pakaiProfile(): bool
     {
         return in_array($this->jns_koneksi, self::KONEKSI_PROFILE, true);
+    }
+
+    /** Paket Static/IP Binding berlimit: billing membuat & memperbarui Simple Queue pelanggannya. Kosong = queue tidak diatur. */
+    public function pakaiQueue(): bool
+    {
+        return in_array($this->jns_koneksi, self::KONEKSI_QUEUE, true) && filled($this->rate_limit);
     }
 
     public function labelKoneksi(): string

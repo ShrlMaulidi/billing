@@ -422,6 +422,22 @@ CRUD area per cabang (kode, nama, cakupan, status). Pelanggan di area yang dihap
 - Hasil sinkron disimpan di `synced_at` / `sync_error`. Data paket tetap tersimpan walau sinkron gagal. Tombol **Sinkron ke MikroTik**: `POST /paket/{id}/sinkron`.
 - Profile paket tidak boleh bernama sama dengan profile isolir router.
 
+**Paket Static & IP Binding** tidak memakai profile. Rate limit-nya (format sama, `upload/download` boleh dengan burst) menjadi limit **Simple Queue** per IP pelanggan (`IsolirService::sinkronQueue()`):
+
+| Kejadian | Di router |
+|---|---|
+| Pelanggan disimpan / diedit (paket, IP, MAC, nama, ID, router, atau jenis koneksi berubah) | Queue pelanggan dibuat / diperbarui |
+| Rate limit paket diubah, atau tombol sinkron paket | Queue semua pelanggan aktif paket itu diperbarui (satu koneksi per router) |
+| Jenis koneksi diganti ke PPPoE/Hotspot | Queue buatan billing dihapus |
+
+- Queue dicari lewat `comment` = ID pelanggan, lalu lewat target IP. Queue buatan manual dengan IP yang sama diambil alih: posisi dan parent-nya tetap.
+- Queue baru dibuat **paling atas**, supaya tidak didahului queue lain yang targetnya satu subnet. Nama queue `{ID pelanggan} {nama}`, target `{IP}/32`.
+- Rate limit berformat PPP dipecah ke kolom queue: `max-limit`, `burst-limit`, `burst-threshold`, `burst-time`, `priority`, `limit-at`.
+- IP Binding tanpa IP di billing memakai `address` IP Binding di router.
+- Rate limit kosong = billing tidak mengatur queue. Queue yang sudah ada dibiarkan. Hapus pelanggan juga tidak menghapus queue (sama seperti akun router).
+- Gagal di router → data tetap tersimpan, dikembalikan sebagai peringatan.
+- Aturan `fasttrack-connection` di router membuat trafik melewati Simple Queue, jadi limit tidak berlaku untuk trafik yang di-fasttrack.
+
 ### 9.5 Router `/kelola-data/router` ([RouterController](../app/Http/Controllers/RouterController.php))
 
 - Field: kode, nama, cabang (kosong = dipakai bersama semua cabang), mode koneksi, host (mode langsung) atau tunnel (mode tunnel), port API, SSL, username & password API, profile isolir.

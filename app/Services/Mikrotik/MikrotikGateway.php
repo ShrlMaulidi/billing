@@ -76,4 +76,24 @@ interface MikrotikGateway
 
     /** Hapus entri statis $address dari address-list $list; mengembalikan jumlah entri yang dihapus. */
     public function removeAddressList(string $list, string $address): int;
+
+    /**
+     * Simple Queue statis sesuai urutan di router; queue dinamis (dari PPP/Hotspot) dikelola router sendiri.
+     *
+     * @return list<array{id: string, name: string, target: string, comment: ?string}>
+     */
+    public function queues(): array;
+
+    /**
+     * Tambah Simple Queue, mis. ['name' => 'P001 Agus', 'target' => '192.168.10.2/32', 'max-limit' => '10M/10M'].
+     *
+     * @param  array<string, string>  $attributes
+     * @param  string|null  $placeBefore  id queue yang didahului; null = paling bawah
+     */
+    public function addQueue(array $attributes, ?string $placeBefore = null): void;
+
+    /** @param  array<string, string>  $attributes */
+    public function setQueue(string $id, array $attributes): void;
+
+    public function removeQueue(string $id): void;
 }
