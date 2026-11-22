@@ -21,6 +21,7 @@ export default function AppLayout({ children }) {
                 </footer>
             </div>
             {navMode === 'navbar' && <MobileNav />}
+            {/* Ajakan pasang aplikasi: melayang di depan konten (tidak ikut tergulir) sampai ditutup */}
             <PasangAplikasi />
             <ToastHost />
         </div>

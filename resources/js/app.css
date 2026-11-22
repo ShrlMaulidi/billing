@@ -830,10 +830,25 @@ body.dark-only .pm-info { background: #262932; }
 body.dark-only .pm-menu-label { color: rgba(255, 255, 255, .8); }
 body.dark-only .pm-menu-badge { border-color: #262932; }
 
-/* Ajakan pasang aplikasi / PWA (Components/PasangAplikasi.jsx): kartu melayang di bawah header sampai ditutup */
-.pasang-aplikasi { position: fixed; z-index: 1030; top: 92px; right: 24px; width: min(440px, calc(100vw - 48px)); padding: 12px 12px 12px 14px;
-    border-radius: 18px; background: #fff; border: 1px solid rgba(106, 113, 133, .15); box-shadow: 0 12px 32px rgba(11, 42, 111, .18); animation: pasang-muncul .3s ease-out; }
-@keyframes pasang-muncul { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+/* Ajakan pasang aplikasi / PWA (Components/PasangAplikasi.jsx): melayang di depan konten di bawah header (tidak ikut tergulir)
+   sampai ditutup; di tengah layar pada desktop, selebar layar pada HP. Di bawah modal (z-index 1050). */
+.pasang-aplikasi { position: fixed; z-index: 1030; top: 92px; left: 50%; width: min(520px, calc(100vw - 48px)); transform: translateX(-50%);
+    padding: 12px 12px 12px 14px; border-radius: 18px; background: #fff; border: 1px solid rgba(106, 113, 133, .15);
+    box-shadow: 0 14px 36px rgba(11, 42, 111, .22); animation: pasang-muncul .3s ease-out; }
+@media (max-width: 767.98px) {
+    /* HP: lebih ringkas agar tidak menutupi banyak konten */
+    .pasang-aplikasi { top: 68px; width: calc(100vw - 24px); padding: 8px 6px 8px 10px; border-radius: 14px; box-shadow: 0 10px 28px rgba(11, 42, 111, .2); }
+    .pasang-aplikasi-baris { gap: 10px; }
+    .pasang-aplikasi-ikon { width: 36px; height: 36px; border-radius: 9px; }
+    .pasang-aplikasi-teks strong { font-size: 13px; }
+    .pasang-aplikasi-teks span { font-size: 11.5px; }
+    .pasang-aplikasi-tombol { gap: 5px; padding: 7px 13px; font-size: 12.5px; box-shadow: 0 4px 10px rgba(31, 79, 160, .25); }
+    .pasang-aplikasi-tombol svg { width: 14px; height: 14px; }
+    .pasang-aplikasi-tutup { padding: 4px; }
+    .pasang-aplikasi-tutup svg { width: 16px; height: 16px; }
+    .pasang-aplikasi-panduan { margin-top: 8px; padding: 8px 10px; font-size: 12px; }
+}
+@keyframes pasang-muncul { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translateX(-50%); } }
 .pasang-aplikasi-baris { display: flex; align-items: center; gap: 12px; }
 .pasang-aplikasi-ikon { flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px; object-fit: contain; background: #f1f4fa; border: 1px solid rgba(106, 113, 133, .12); }
 .pasang-aplikasi-teks { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.3; }
@@ -845,9 +860,6 @@ body.dark-only .pm-menu-badge { border-color: #262932; }
 .pasang-aplikasi-tutup { display: flex; flex-shrink: 0; padding: 6px; color: #8a8fa3; background: none; border: 0; border-radius: 50%; }
 .pasang-aplikasi-tutup:hover { color: #1f2a4d; background: rgba(106, 113, 133, .1); }
 .pasang-aplikasi-panduan { margin-top: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.55; color: #3f4254; background: #f1f4fa; border-radius: 12px; }
-@media (max-width: 767.98px) {
-    .pasang-aplikasi { top: 72px; right: 12px; left: 12px; width: auto; }
-}
 body.dark-only .pasang-aplikasi { background: #262932; border-color: rgba(255, 255, 255, .08); }
 body.dark-only .pasang-aplikasi-teks strong { color: #fff; }
 body.dark-only .pasang-aplikasi-panduan { color: rgba(255, 255, 255, .8); background: rgba(255, 255, 255, .06); }

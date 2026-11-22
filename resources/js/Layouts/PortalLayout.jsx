@@ -153,6 +153,7 @@ export default function PortalLayout({ children }) {
                     </footer>
                 </div>
                 {navMode === 'navbar' && <PortalMobileNav />}
+                {/* Ajakan pasang aplikasi: melayang di depan konten (tidak ikut tergulir) sampai ditutup */}
                 <PasangAplikasi />
                 <ToastHost />
             </div>
