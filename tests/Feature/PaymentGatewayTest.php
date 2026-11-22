@@ -64,6 +64,19 @@ class PaymentGatewayTest extends TestCase
         $this->assertStringNotContainsString('perusahaanABC', json_encode($log->toArray()));
     }
 
+    public function test_key_with_tilde_and_other_midtrans_characters_is_accepted(): void
+    {
+        $this->actingAs(User::factory()->create());
+        $this->kunciDiterima();
+
+        // Kunci rekaan berformat kunci Midtrans versi baru (memuat . ~ - _)
+        $this->tambah(['server_key' => 'SB-Mid-server-Ab1-Cd2e.Fg3~Hi4_Jk5', 'signature_key' => 'Ab1+Cd2/Ef3='])->assertOk();
+
+        $this->assertSame('SB-Mid-server-Ab1-Cd2e.Fg3~Hi4_Jk5', PaymentGateway::sole()->kredensial['server_key']);
+        $this->tambah(['server_key' => 'SB-Mid-server-Ab1 Cd2'])->assertStatus(422)
+            ->assertJsonValidationErrors(['server_key' => 'Server Key tidak boleh berisi spasi atau tanda kutip (periksa kembali hasil salin-tempel)']);
+    }
+
     public function test_key_is_rejected_when_midtrans_refuses_it_the_mode_is_wrong_the_password_is_wrong_or_midtrans_is_unreachable(): void
     {
         $this->actingAs(User::factory()->create());

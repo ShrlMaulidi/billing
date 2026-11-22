@@ -227,8 +227,9 @@ class PaymentGatewayController extends Controller
     private function validated(Request $request, ?PaymentGateway $gateway): array
     {
         $baru = $gateway === null;
-        // Kunci Midtrans hanya huruf, angka, dan - _ : . (tanpa spasi atau tanda kutip yang biasanya salah tempel)
-        $kunci = ['string', 'max:200', 'regex:/^[A-Za-z0-9_\-:.]+$/'];
+        // Kunci Midtrans: huruf, angka, dan - _ : . ~ + / = (kunci versi baru bisa memuat ~); spasi & tanda kutip ditolak
+        // karena biasanya tanda salah tempel
+        $kunci = ['string', 'max:200', 'regex:/^[A-Za-z0-9_\-:.~+\/=]+$/'];
 
         return $request->validate([
             'provider' => [Rule::requiredIf($baru), Rule::in(array_keys(PaymentGateway::PROVIDER))],
@@ -245,8 +246,8 @@ class PaymentGatewayController extends Controller
             'password' => ['required', 'current_password'],
         ], [
             ...$this->pesanValidasi(),
-            'server_key.regex' => 'Server Key hanya berisi huruf, angka, dan tanda - _ : . (periksa spasi atau tanda kutip)',
-            'signature_key.regex' => 'Signature Key hanya berisi huruf, angka, dan tanda - _ : . (periksa spasi atau tanda kutip)',
+            'server_key.regex' => 'Server Key tidak boleh berisi spasi atau tanda kutip (periksa kembali hasil salin-tempel)',
+            'signature_key.regex' => 'Signature Key tidak boleh berisi spasi atau tanda kutip (periksa kembali hasil salin-tempel)',
             'password.current_password' => 'Password salah',
         ], [
             'provider' => 'Provider', 'nama' => 'Nama gateway', 'id_lokasi' => 'Pemilik gateway', 'produksi' => 'Mode', 'server_key' => 'Server Key',
