@@ -18,6 +18,17 @@ const preloadPages = () => {
 // Akun pelanggan hanya membuka dashboard pelanggan, jadi tidak perlu mengunduh JS halaman staf
 const preloadBilaLogin = (page) => page?.props?.auth?.user && page.props.auth.user.role !== 'Pelanggan' && preloadPages();
 
+// Aplikasi terpasang (PWA): daftarkan service worker, dan simpan tawaran instal dari browser sedini mungkin
+// (event bisa datang sebelum React tampil) agar tombol "Pasang" di banner bisa memakainya.
+if ('serviceWorker' in navigator && window.isSecureContext) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    window.__tawaranPasang = event;
+    window.dispatchEvent(new Event('mss:bisa-pasang'));
+});
+
 createInertiaApp({
     title: (title) => (title ? `${title} · MSS Billing` : 'MSS Billing'),
     resolve: async (name) => {

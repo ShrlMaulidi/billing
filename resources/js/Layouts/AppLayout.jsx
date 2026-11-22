@@ -2,6 +2,7 @@ import Header from './Header';
 import MobileNav from './MobileNav';
 import Sidebar from './Sidebar';
 import useNavLayout from './useNavLayout';
+import PasangAplikasi from '../Components/PasangAplikasi';
 import ToastHost from '../Components/ToastHost';
 
 export default function AppLayout({ children }) {
@@ -20,6 +21,7 @@ export default function AppLayout({ children }) {
                 </footer>
             </div>
             {navMode === 'navbar' && <MobileNav />}
+            <PasangAplikasi />
             <ToastHost />
         </div>
     );

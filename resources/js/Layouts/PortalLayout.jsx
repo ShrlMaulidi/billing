@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react';
 import { AlignCenter, Grid, LogOut, Moon, Sidebar as SidebarIcon, Sun, User, X } from 'react-feather';
 import useNavLayout from './useNavLayout';
 import Icon from '../Components/Icon';
+import PasangAplikasi from '../Components/PasangAplikasi';
 import ToastHost from '../Components/ToastHost';
 import { Avatar } from '../Components/ui';
 
@@ -152,6 +153,7 @@ export default function PortalLayout({ children }) {
                     </footer>
                 </div>
                 {navMode === 'navbar' && <PortalMobileNav />}
+                <PasangAplikasi />
                 <ToastHost />
             </div>
         </NavModeContext.Provider>
