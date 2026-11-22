@@ -172,8 +172,7 @@ class CekTagihanController extends Controller
             return collect();
         }
 
-        // Saring kasar di database dengan 9 digit terakhir (pemisah spasi/-/. dibuang), lalu cocokkan persis setelah dinormalkan
-        return $query()->whereRaw("REPLACE(REPLACE(REPLACE(tlp, '-', ''), ' ', ''), '.', '') LIKE ?", ['%'.substr($nomor, -9)])->limit(50)->get()
+        return $query()->nomorHpMirip($nomor)->limit(50)->get()
             ->filter(fn (Pelanggan $p) => NomorHp::normalkan((string) $p->tlp) === $nomor)
             ->take(self::MAKS_HASIL)->values();
     }

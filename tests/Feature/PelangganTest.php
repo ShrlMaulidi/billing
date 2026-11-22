@@ -124,7 +124,7 @@ class PelangganTest extends TestCase
         $this->postJson('/pelanggan', $this->data(['jns_koneksi' => 'hotspot', 'mode_akun' => 'baru', 'username_pppoe' => 'warung', 'password_akun' => 'abc', 'id_paket' => $hotspot->id]))
             ->assertOk()->assertJsonPath('message', "Pelanggan Budi Santoso ditambahkan. Hotspot User 'warung' dibuat di router CCR Pusat");
         $binding = Paket::create([...$this->paket->only(['harga', 'jenis']), 'nama_paket' => 'Binding 10M', 'jns_koneksi' => 'ip_binding']);
-        $this->postJson('/pelanggan', $this->data(['nama' => 'Sari', 'jns_koneksi' => 'ip_binding', 'mode_akun' => 'baru', 'mac_address' => 'aa:bb:cc:dd:ee:02', 'ip_address' => '192.168.10.7', 'id_paket' => $binding->id]))
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Sari', 'tlp' => '081300000007', 'jns_koneksi' => 'ip_binding', 'mode_akun' => 'baru', 'mac_address' => 'aa:bb:cc:dd:ee:02', 'ip_address' => '192.168.10.7', 'id_paket' => $binding->id]))
             ->assertOk()->assertJsonPath('message', "Pelanggan Sari ditambahkan. IP Binding 'AA:BB:CC:DD:EE:02' dibuat di router CCR Pusat");
 
         $this->assertSame(['name' => 'warung', 'password' => 'abc', 'profile' => 'HS-5M'], array_intersect_key(end($this->gw->akun['hotspot']), array_flip(['name', 'password', 'profile'])));
@@ -138,7 +138,7 @@ class PelangganTest extends TestCase
 
         $this->postJson('/pelanggan', $this->data())->assertOk()->assertJsonPath('message', 'Pelanggan Budi Santoso ditambahkan');
         $static = Paket::create([...$this->paket->only(['harga', 'jenis']), 'nama_paket' => 'Static 10M', 'jns_koneksi' => 'static']);
-        $this->postJson('/pelanggan', $this->data(['nama' => 'Kantor Desa', 'jns_koneksi' => 'static', 'mode_akun' => null, 'username_pppoe' => 'abaikan', 'ip_address' => '10.20.0.5', 'id_paket' => $static->id]))
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Kantor Desa', 'tlp' => '081300000005', 'jns_koneksi' => 'static', 'mode_akun' => null, 'username_pppoe' => 'abaikan', 'ip_address' => '10.20.0.5', 'id_paket' => $static->id]))
             ->assertOk()->assertJsonPath('message', 'Pelanggan Kantor Desa ditambahkan');
 
         $this->assertSame($secrets, $this->gw->secrets);
@@ -197,7 +197,7 @@ class PelangganTest extends TestCase
             ->assertOk()->assertJsonPath('type', 'warning')
             ->assertJsonPath('message', "Pelanggan Budi Santoso ditambahkan, tetapi akun gagal dibuat di router: PPP Secret 'budi' sudah ada di router CCR Pusat, pilih Sinkronisasi");
         $this->connector->gagal = RouterOsException::koneksi('Tidak dapat terhubung ke 203.0.113.10:8728');
-        $this->postJson('/pelanggan', $this->data(['nama' => 'Tono', 'username_pppoe' => 'tono.baru', 'ip_address' => '10.12.10.6', 'mode_akun' => 'baru', 'password_akun' => 'x']))
+        $this->postJson('/pelanggan', $this->data(['nama' => 'Tono', 'tlp' => '081300000006', 'username_pppoe' => 'tono.baru', 'ip_address' => '10.12.10.6', 'mode_akun' => 'baru', 'password_akun' => 'x']))
             ->assertOk()->assertJsonPath('type', 'warning')
             ->assertJsonPath('message', 'Pelanggan Tono ditambahkan, tetapi akun gagal dibuat di router: Tidak dapat terhubung ke 203.0.113.10:8728');
 

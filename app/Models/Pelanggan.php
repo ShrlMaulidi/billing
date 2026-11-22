@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\NomorHp;
 use App\Support\TercatatAudit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -83,6 +84,16 @@ class Pelanggan extends Model
     public function pembayaran(): HasMany
     {
         return $this->hasMany(Pembayaran::class);
+    }
+
+    /**
+     * Saring kasar nomor HP: 9 digit terakhir, setelah pemisah spasi/-/. dibuang. Hasilnya dicocokkan persis lagi dengan
+     * NomorHp::normalkan, karena 0812…, 62812…, dan +62 812-… dianggap nomor yang sama.
+     */
+    #[Scope]
+    protected function nomorHpMirip(Builder $query, string $tlp): void
+    {
+        $query->whereRaw("REPLACE(REPLACE(REPLACE(tlp, '-', ''), ' ', ''), '.', '') LIKE ?", ['%'.substr(NomorHp::normalkan($tlp), -9)]);
     }
 
     /** Pelanggan aktif yang sudah membayar tagihan yang muncul di bulan tagihan (Y-m-01). */

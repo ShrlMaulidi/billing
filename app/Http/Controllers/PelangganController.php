@@ -324,6 +324,34 @@ class PelangganController extends Controller
     }
 
     /**
+     * Pesan penolakan bila nomor HP sudah dipakai pelanggan lain (status apa pun, termasuk berhenti), karena nomor HP menjadi
+     * username login pelanggan. Data lama yang terlanjur dobel tetap bisa diedit selama nomornya tidak diganti.
+     * User cabang tidak diberi tahu nama pelanggan cabang lain.
+     */
+    private function nomorHpDipakaiPelangganLain(Request $request, string $tlp, ?Pelanggan $pelanggan): ?string
+    {
+        $nomor = NomorHp::normalkan($tlp);
+        if ($pelanggan && NomorHp::normalkan((string) $pelanggan->tlp) === $nomor) {
+            return null;
+        }
+
+        $pemakai = Pelanggan::nomorHpMirip($nomor)->when($pelanggan, fn ($q) => $q->whereKeyNot($pelanggan->id))
+            ->orderBy('id')->get(['id', 'id_pelanggan', 'nama', 'tlp', 'id_lokasi', 'status'])
+            ->first(fn (Pelanggan $p) => NomorHp::normalkan((string) $p->tlp) === $nomor);
+        if (! $pemakai) {
+            return null;
+        }
+
+        $cabangUser = $request->user()->id_lokasi;
+        if ($cabangUser && (int) $pemakai->id_lokasi !== (int) $cabangUser) {
+            return 'No. telepon sudah dipakai pelanggan di cabang lain';
+        }
+
+        return "No. telepon sudah dipakai pelanggan {$pemakai->id_pelanggan} - {$pemakai->nama}"
+            .($pemakai->status === 'berhenti' ? ' (sudah berhenti)' : '');
+    }
+
+    /**
      * @return array{0: array<string, mixed>, 1: array{mode: ?string, password: ?string}} data pelanggan & pilihan akun router
      */
     private function validated(Request $request, ?Pelanggan $pelanggan = null): array
@@ -334,11 +362,13 @@ class PelangganController extends Controller
             'id_pelanggan' => ['nullable', 'string', 'max:50', Rule::unique('pelanggan')->ignore($pelanggan)],
             'nama' => ['required', 'string', 'max:100'],
             // Juga username & password awal akun login pelanggan (lihat AkunPelanggan)
-            'tlp' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, Closure $fail) {
+            'tlp' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, Closure $fail) use ($request, $pelanggan) {
                 if (! NomorHp::sah((string) $value)) {
                     $fail('No. telepon harus nomor HP yang valid (10–15 digit, mis. 0812xxxxxxxx)');
                 } elseif (AkunPelanggan::dipakaiUserLain((string) $value)) {
                     $fail('No. telepon ini sudah dipakai sebagai username user aplikasi');
+                } elseif ($dipakai = $this->nomorHpDipakaiPelangganLain($request, (string) $value, $pelanggan)) {
+                    $fail($dipakai);
                 }
             }],
             'nik' => ['nullable', 'digits:16'],

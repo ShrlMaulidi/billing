@@ -79,10 +79,12 @@ class AkunPelangganTest extends TestCase
             ->where('hasil.0.nama', 'Budi Santoso'));
     }
 
-    public function test_customers_with_the_same_phone_share_one_account_and_see_only_their_subscriptions(): void
+    public function test_legacy_customers_with_the_same_phone_share_one_account_and_see_only_their_subscriptions(): void
     {
         $this->actingAs($this->admin)->postJson('/pelanggan', $this->data())->assertOk();
-        $this->postJson('/pelanggan', $this->data(['nama' => 'Budi Kantor', 'ip_address' => '10.12.10.6']))->assertOk();
+        // Data lama sebelum nomor HP wajib unik: tidak lewat form
+        $kantor = Pelanggan::create(['nama' => 'Budi Kantor', 'tlp' => '0812-3456-7890', 'id_lokasi' => $this->lokasi->id, 'router_id' => $this->router->id, 'status' => 'aktif']);
+        app(AkunPelanggan::class)->sinkronkan($kantor);
         $this->postJson('/pelanggan', $this->data(['nama' => 'Orang Lain', 'tlp' => '089900001111', 'ip_address' => '10.12.10.7']))->assertOk();
 
         $akun = User::firstWhere('username', '081234567890');
@@ -142,6 +144,43 @@ class AkunPelangganTest extends TestCase
         $this->postJson('/pelanggan', $this->data(['tlp' => '0812-1111-2222']))
             ->assertStatus(422)->assertJsonValidationErrors(['tlp' => 'No. telepon ini sudah dipakai sebagai username user aplikasi']);
         $this->assertSame(0, Pelanggan::count());
+    }
+
+    public function test_store_rejects_phone_already_used_by_another_customer_in_any_format_including_stopped_ones(): void
+    {
+        $this->actingAs($this->admin)->postJson('/pelanggan', $this->data(['id_pelanggan' => 'RM001']))->assertOk();
+        $kedua = $this->data(['nama' => 'Agus', 'tlp' => '+62 812-3456-7890', 'ip_address' => '10.12.10.6']);
+
+        $this->postJson('/pelanggan', $kedua)
+            ->assertStatus(422)->assertJsonValidationErrors(['tlp' => 'No. telepon sudah dipakai pelanggan RM001 - Budi Santoso']);
+        Pelanggan::firstWhere('id_pelanggan', 'RM001')->update(['status' => 'berhenti']);
+        $this->postJson('/pelanggan', $kedua)
+            ->assertStatus(422)->assertJsonValidationErrors(['tlp' => 'No. telepon sudah dipakai pelanggan RM001 - Budi Santoso (sudah berhenti)']);
+        $this->assertSame(1, Pelanggan::count());
+    }
+
+    public function test_legacy_shared_phone_can_still_be_edited_but_a_customer_cannot_switch_to_a_used_phone(): void
+    {
+        $this->actingAs($this->admin)->postJson('/pelanggan', $this->data(['id_pelanggan' => 'RM001']))->assertOk();
+        $lama = Pelanggan::create(['id_pelanggan' => 'RM002', 'nama' => 'Budi Kantor', 'tlp' => '081234567890', 'id_lokasi' => $this->lokasi->id, 'router_id' => $this->router->id, 'status' => 'aktif']);
+        $this->postJson('/pelanggan', $this->data(['id_pelanggan' => 'RM003', 'nama' => 'Agus', 'tlp' => '085700002222', 'ip_address' => '10.12.10.7']))->assertOk();
+
+        $this->putJson("/pelanggan/{$lama->id}", $this->data(['id_pelanggan' => 'RM002', 'nama' => 'Budi Kantor Baru', 'ip_address' => '10.12.10.6', 'status' => 'aktif']))->assertOk();
+        $agus = Pelanggan::firstWhere('id_pelanggan', 'RM003');
+        $this->putJson("/pelanggan/{$agus->id}", $this->data(['id_pelanggan' => 'RM003', 'nama' => 'Agus', 'ip_address' => '10.12.10.7', 'status' => 'aktif']))
+            ->assertStatus(422)->assertJsonValidationErrors(['tlp' => 'No. telepon sudah dipakai pelanggan RM001 - Budi Santoso']);
+
+        $this->assertSame(['Budi Kantor Baru', '085700002222'], [$lama->fresh()->nama, $agus->fresh()->tlp]);
+    }
+
+    public function test_branch_user_is_not_told_which_customer_of_another_branch_uses_the_phone(): void
+    {
+        $this->actingAs($this->admin)->postJson('/pelanggan', $this->data())->assertOk();
+        $tasik = Lokasi::create(['kode_lokasi' => 'C002', 'nama_lokasi' => 'MSS Tasik']);
+        $mitra = User::factory()->peran('Admin')->create(['id_lokasi' => $tasik->id]);
+
+        $this->actingAs($mitra)->postJson('/pelanggan', $this->data(['nama' => 'Siti', 'id_lokasi' => $tasik->id, 'ip_address' => '10.12.10.8']))
+            ->assertStatus(422)->assertJsonValidationErrors(['tlp' => 'No. telepon sudah dipakai pelanggan di cabang lain']);
     }
 
     public function test_customer_account_is_refused_on_staff_pages_even_if_its_role_is_given_permissions(): void

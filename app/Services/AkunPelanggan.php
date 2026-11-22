@@ -11,7 +11,8 @@ use Spatie\Permission\Models\Role;
 
 /**
  * Akun login pelanggan (role Pelanggan) yang dibuat otomatis dari Data Pelanggan.
- * Username & password awal = nomor HP terdaftar dalam format 08…; beberapa pelanggan bernomor HP sama memakai satu akun.
+ * Username & password awal = nomor HP terdaftar dalam format 08…. Form pelanggan menolak nomor HP yang sudah dipakai pelanggan
+ * lain; data lama yang terlanjur bernomor sama tetap memakai satu akun bersama.
  * Akun yang tidak lagi dipakai pelanggan mana pun (nomor HP diganti / pelanggan dihapus) dinonaktifkan, dan bila nomor itu
  * dipakai lagi oleh pelanggan baru, password-nya dikembalikan ke nomor HP agar pemilik lama tidak bisa masuk.
  * Selama masih memakai password awal (wajib_ganti_password), pelanggan wajib membuat password baru setelah login.

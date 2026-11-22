@@ -332,6 +332,7 @@ Validasi penting di `PelangganController::validated()`:
 
 - Router harus milik cabang pelanggan atau router tanpa cabang. Paket harus untuk semua cabang atau khusus cabang itu. Area harus di cabang itu.
 - `username_pppoe`, `mac_address`, `ip_address` unik per router.
+- No. telepon (`tlp`) unik di semua pelanggan, termasuk yang berhenti, karena menjadi username login pelanggan. Format `0812…`, `62812…`, dan `+62 812-…` dianggap sama. User cabang tidak diberi tahu nama pelanggan cabang lain. Data lama yang terlanjur bernomor sama tetap bisa diedit selama nomornya tidak diganti, dan memakai satu akun bersama.
 - Nilai yang dikirim ke router menolak karakter kontrol.
 - Sales lama yang sudah nonaktif boleh dipertahankan saat edit.
 
