@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Inbox, UploadCloud } from 'react-feather';
 import { Button, FormFeedback, Spinner, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from 'reactstrap';
 import { label as toLabel } from '../lib/format';
+import { notify } from '../lib/ui';
 import Select from './Select';
 
 const STATUS_COLOR = {
@@ -194,14 +195,46 @@ export function Field({ field, value, onChange, error, values }) {
 // Modal form berbasis skema field (onSubmit menerima values).
 // field.resets: daftar field yang dikosongkan saat field ini berubah (mis. ganti cabang → kosongkan router),
 // atau fungsi (nilaiBaru, nilaiForm) => { field: nilai } untuk mengisi ulang field lain (mis. ganti tipe → isi nilai bawaan tipe itu).
+const WAJIB = 'Wajib diisi';
+const MAKS_PESAN_TOAST = 3;
+
 export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmit, size = 'lg', submitLabel = 'Simpan', children }) {
     const [values, setValues] = useState(initial);
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
+    // Naik setiap submit gagal validasi → efek di bawah mengarahkan ke isian salah pertama setelah error tergambar
+    const [sorotError, setSorotError] = useState(0);
+    const formRef = useRef(null);
 
     useEffect(() => {
         if (isOpen) { setValues(initial); setErrors({}); }
     }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (!sorotError) return;
+        // Isian salah pertama sesuai urutan di form: scroll ke sana & fokuskan kontrolnya
+        const grup = formRef.current?.querySelector('.invalid-feedback')?.parentElement;
+        if (!grup) return;
+        grup.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        grup.querySelector('input:not([type=hidden]), textarea, button')?.focus({ preventScroll: true });
+    }, [sorotError]);
+
+    /**
+     * Tampilkan error validasi (klien maupun server) di bawah isiannya, ringkas di toast, lalu arahkan ke
+     * isian salah pertama. Toast juga memuat error untuk field yang tidak tampil di form.
+     */
+    const tampilkanError = (errs) => {
+        setErrors(errs);
+        // Set: satu error server bisa disalin ke dua field (mis. periode → bulan_periode), cukup tampil sekali
+        const pesan = [...new Set(Object.entries(errs).map(([name, msg]) => {
+            const label = fields.find((f) => f.name === name)?.label;
+            return msg === WAJIB && typeof label === 'string' ? `${label} wajib diisi` : msg;
+        }))];
+        if (!pesan.length) return;
+        const lainnya = pesan.length > MAKS_PESAN_TOAST ? ` (+${pesan.length - MAKS_PESAN_TOAST} lainnya)` : '';
+        notify(`Periksa kembali isian: ${pesan.slice(0, MAKS_PESAN_TOAST).join(' · ')}${lainnya}`, 'danger', 7000);
+        setSorotError((n) => n + 1);
+    };
 
     const visible = fields.filter((f) => !f.show || f.show(values));
     const submit = async (e) => {
@@ -209,9 +242,9 @@ export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmi
         const errs = {};
         visible.forEach((f) => {
             const v = values[f.name];
-            if (f.required && (v === '' || v === null || v === undefined)) errs[f.name] = 'Wajib diisi';
+            if (f.required && (v === '' || v === null || v === undefined)) errs[f.name] = WAJIB;
         });
-        setErrors(errs);
+        tampilkanError(errs);
         if (Object.keys(errs).length) return;
         // onSubmit boleh async: modal tetap terbuka sampai selesai, error validasi server ditampilkan per field
         const result = onSubmit?.(values);
@@ -220,7 +253,7 @@ export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmi
             try {
                 await result;
             } catch (err) {
-                setErrors(Object.fromEntries(Object.entries(err?.errors ?? {}).map(([k, v]) => [k, [].concat(v)[0]])));
+                tampilkanError(Object.fromEntries(Object.entries(err?.errors ?? {}).map(([k, v]) => [k, [].concat(v)[0]])));
                 return;
             } finally {
                 setSaving(false);
@@ -231,7 +264,7 @@ export function FormModal({ isOpen, toggle, title, fields, initial = {}, onSubmi
 
     return (
         <Modal isOpen={isOpen} toggle={toggle} size={size} centered scrollable>
-            <form onSubmit={submit} noValidate className="d-contents">
+            <form ref={formRef} onSubmit={submit} noValidate className="d-contents">
                 <ModalHeader toggle={toggle}>{title}</ModalHeader>
                 <ModalBody>
                     <div className="row">

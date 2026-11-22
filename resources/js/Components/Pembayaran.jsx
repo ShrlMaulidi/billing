@@ -102,8 +102,8 @@ export function BayarMassal({ rows, periode, isOpen, onClose, onSaved, rekeningO
             notify(res.message, res.type ?? 'success', res.type ? 15000 : 7000);
             onSaved?.();
         } catch (err) {
-            // Hanya error metode yang punya field di form ini
-            if (!err.errors?.metode) notify(err.message, 'danger', 7000);
+            // Error validasi (termasuk yang tidak punya field di form ini) diringkas FormModal di toast
+            if (!err.errors) notify(err.message, 'danger', 7000);
             throw err;
         }
     };
