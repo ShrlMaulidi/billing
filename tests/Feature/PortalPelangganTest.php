@@ -12,6 +12,8 @@ use App\Models\TransaksiMidtrans;
 use App\Models\User;
 use App\Services\AkunPelanggan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PortalPelangganTest extends TestCase
@@ -147,6 +149,67 @@ class PortalPelangganTest extends TestCase
             ->has('langganan', 1)
             ->where('langganan.0.paket', 'Home 20 Mbps')
             ->where('langganan.0.cabang', 'MSS Garut'));
+    }
+
+    public function test_member_card_is_offered_only_for_active_subscriptions(): void
+    {
+        $budi = $this->pelanggan('Budi', '081234567890');
+
+        $this->actingAs($budi->user)->get('/akun-saya/akun')->assertInertia(fn ($page) => $page
+            ->where('langganan.0.link_kartu', fn (string $link) => str_contains($link, "/cek-tagihan/kartu/{$budi->id}") && str_contains($link, 'signature=')));
+
+        Pelanggan::whereKey($budi->id)->update(['status' => 'berhenti']);
+        $this->actingAs($budi->user)->get('/akun-saya/akun')->assertInertia(fn ($page) => $page->where('langganan.0.link_kartu', null));
+    }
+
+    public function test_customer_uploads_and_replaces_own_profile_photo(): void
+    {
+        Storage::fake('local');
+        $user = $this->pelanggan('Budi', '081234567890')->user;
+
+        $this->actingAs($user)->post('/akun-saya/foto', ['foto' => UploadedFile::fake()->image('foto.jpg', 400, 400)])->assertOk();
+        $pertama = $user->fresh()->foto;
+        Storage::disk('local')->assertExists($pertama);
+        $this->assertStringStartsWith(User::FOLDER_FOTO.'/', $pertama);
+
+        $this->actingAs($user)->get('/akun-saya/akun')->assertInertia(fn ($page) => $page->where('auth.user.foto', fn (string $url) => str_starts_with($url, '/akun-saya/foto?v=')));
+        $this->actingAs($user)->get('/akun-saya/foto')->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+
+        $this->actingAs($user)->post('/akun-saya/foto', ['foto' => UploadedFile::fake()->image('baru.png', 300, 300)])->assertOk();
+        Storage::disk('local')->assertMissing($pertama);
+        Storage::disk('local')->assertExists($user->fresh()->foto);
+    }
+
+    public function test_profile_photo_must_be_a_raster_image(): void
+    {
+        Storage::fake('local');
+        $user = $this->pelanggan('Budi', '081234567890')->user;
+        $svg = UploadedFile::fake()->createWithContent('foto.svg', '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>');
+
+        $this->actingAs($user)->postJson('/akun-saya/foto', ['foto' => $svg])->assertUnprocessable()->assertJsonValidationErrors('foto');
+        $this->actingAs($user)->postJson('/akun-saya/foto', ['foto' => UploadedFile::fake()->create('foto.pdf', 100, 'application/pdf')])->assertUnprocessable();
+        $this->actingAs($user)->postJson('/akun-saya/foto', ['foto' => UploadedFile::fake()->image('besar.jpg', 400, 400)->size(3000)])->assertUnprocessable();
+        $this->assertNull($user->fresh()->foto);
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
+    public function test_customer_deletes_profile_photo(): void
+    {
+        Storage::fake('local');
+        $user = $this->pelanggan('Budi', '081234567890')->user;
+        $this->actingAs($user)->post('/akun-saya/foto', ['foto' => UploadedFile::fake()->image('foto.jpg', 200, 200)]);
+        $path = $user->fresh()->foto;
+
+        $this->actingAs($user)->deleteJson('/akun-saya/foto')->assertOk();
+
+        Storage::disk('local')->assertMissing($path);
+        $this->assertNull($user->fresh()->foto);
+        $this->actingAs($user)->get('/akun-saya/foto')->assertNotFound();
+    }
+
+    public function test_profile_photo_routes_are_refused_for_staff(): void
+    {
+        $this->actingAs(User::factory()->create())->postJson('/akun-saya/foto', ['foto' => UploadedFile::fake()->image('foto.jpg', 200, 200)])->assertForbidden();
     }
 
     public function test_customer_pages_are_refused_for_staff(): void

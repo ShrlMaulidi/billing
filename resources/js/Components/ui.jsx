@@ -36,7 +36,11 @@ export function StatCard({ title, value, sub, icon: IconCmp, color = 'primary', 
 }
 
 // Avatar inisial (pengganti foto sampai fitur upload foto tersedia)
-export function Avatar({ name = '', size = 37 }) {
+/** Foto profil bulat bila ada (src), selain itu inisial nama. */
+export function Avatar({ name = '', size = 37, src }) {
+    if (src) {
+        return <img src={src} alt={name} className="avatar-foto rounded-circle flex-shrink-0" style={{ width: size, height: size }} />;
+    }
     const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     return (
         <span className="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0" style={{ width: size, height: size, fontSize: size * 0.4, fontWeight: 600 }}>

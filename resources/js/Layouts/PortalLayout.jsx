@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react';
 import { AlignCenter, Grid, LogOut, Moon, Sidebar as SidebarIcon, Sun, User, X } from 'react-feather';
 import useNavLayout from './useNavLayout';
 import Icon from '../Components/Icon';
+import LoncengNotifikasi from '../Components/LoncengNotifikasi';
 import PasangAplikasi from '../Components/PasangAplikasi';
 import ToastHost from '../Components/ToastHost';
 import { Avatar } from '../Components/ui';
@@ -47,11 +48,14 @@ function PortalHeader({ closed, onToggle, dark, onToggleTheme, navMode, onToggle
                             </button>
                         </li>
                         <li>
+                            <LoncengNotifikasi />
+                        </li>
+                        <li>
                             <div className="mode" onClick={onToggleTheme} title="Dark / Light">{dark ? <Sun /> : <Moon />}</div>
                         </li>
                         <li className="profile-nav onhover-dropdown pe-0 py-0">
                             <div className="media profile-media d-flex">
-                                <Avatar name={auth.user.nama} size={37} />
+                                <Avatar name={auth.user.nama} src={auth.user.foto} size={37} />
                                 <div className="media-body">
                                     <span>{auth.user.nama}</span>
                                     <p className="mb-0 font-roboto">Pelanggan <i className="middle fa fa-angle-down" /></p>

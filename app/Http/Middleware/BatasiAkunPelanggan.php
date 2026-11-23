@@ -17,8 +17,8 @@ class BatasiAkunPelanggan
     /** Route ber-login yang boleh dibuka akun pelanggan: dashboard pelanggan (akun-saya*) & logout. */
     private const AWALAN_BOLEH = 'akun-saya';
 
-    /** Route yang masih boleh dibuka selama pelanggan belum membuat password baru. */
-    private const ROUTE_PASSWORD_AWAL = ['akun-saya.password-baru', 'akun-saya.password', 'logout'];
+    /** Route yang masih boleh dibuka selama pelanggan belum membuat password baru (foto: avatar header di balik modal password). */
+    private const ROUTE_PASSWORD_AWAL = ['akun-saya.password-baru', 'akun-saya.password', 'akun-saya.foto', 'logout'];
 
     /**
      * @param  Closure(Request): (Response)  $next

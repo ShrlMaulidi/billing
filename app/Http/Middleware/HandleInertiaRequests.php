@@ -46,6 +46,7 @@ class HandleInertiaRequests extends Middleware
                     'role' => $request->user()->getRoleNames()->first(),
                     'super_admin' => $request->user()->isSuperAdmin(),
                     'id_lokasi' => $request->user()->id_lokasi,
+                    'foto' => $request->user()->urlFoto(),
                 ] : null,
                 // Untuk menyembunyikan menu & tombol; server tetap memeriksa permission di setiap route
                 'permissions' => fn () => $request->user()?->getAllPermissions()->pluck('name') ?? [],

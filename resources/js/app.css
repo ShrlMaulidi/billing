@@ -1119,3 +1119,33 @@ html.tema-transisi *::before,
 html.tema-transisi *::after {
     transition: background-color .4s ease, color .4s ease, border-color .4s ease, fill .4s ease, stroke .4s ease, box-shadow .4s ease !important;
 }
+
+/* Foto profil (Components/ui Avatar dengan src) */
+.avatar-foto { object-fit: cover; display: inline-block; background: #e8effc; }
+
+/* Kartu member di menu Akun pelanggan: gambar yang sama dengan file unduhan, lebarnya mengikuti layar */
+.kartu-member-daftar { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.kartu-member-item { display: flex; flex-direction: column; align-items: flex-start; }
+.kartu-member-gambar { display: block; width: 100%; max-width: 340px; height: auto; aspect-ratio: 340 / 210; border-radius: 14px; box-shadow: 0 8px 22px rgba(62, 51, 201, .22); }
+.kartu-member-memuat { background: linear-gradient(135deg, #7366ff, #3e33c9); opacity: .35; }
+
+/* Lonceng notifikasi (Components/LoncengNotifikasi): panel dibuka dengan klik, di HP selebar layar */
+.notif-lonceng { position: relative; }
+.page-wrapper .page-header .header-wrapper .nav-right .notif-tombol { position: relative; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; background: none; }
+.notif-angka { position: absolute; top: -4px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px; font-size: 10px; font-weight: 700; line-height: 17px; color: #fff; text-align: center; background: #fc4438; border-radius: 999px; }
+.notif-pop { position: absolute; top: calc(100% + 14px); right: -10px; z-index: 30; width: 300px; padding: 14px; text-align: left; background: #fff; border-radius: 14px; box-shadow: 0 12px 32px rgba(15, 23, 42, .18); animation: notif-muncul .16s ease-out; }
+.notif-pop-judul { margin-bottom: 6px; font-size: 15px; font-weight: 600; color: #2c323f; }
+.notif-kosong { display: flex; flex-direction: column; align-items: center; padding: 18px 8px 8px; text-align: center; }
+.notif-kosong strong { font-size: 14px; color: #2c323f; }
+.notif-kosong p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: #8a8fa3; }
+.notif-kosong-ikon { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-bottom: 10px; border-radius: 50%; background: #e8effc; }
+/* Aturan header (ikon putih di header biru pelanggan) jangan ikut mewarnai ikon di dalam panel */
+.page-wrapper .page-header .header-wrapper .nav-right ul li .notif-pop svg { width: 22px; height: 22px; stroke: #1f4fa0; }
+@keyframes notif-muncul { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 575.98px) {
+    .notif-pop { position: fixed; top: 64px; right: 12px; left: 12px; width: auto; }
+}
+body.dark-only .notif-pop { background: #262932; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+body.dark-only .notif-pop-judul, body.dark-only .notif-kosong strong { color: rgba(255, 255, 255, .9); }
+body.dark-only .notif-kosong-ikon { background: rgba(115, 102, 255, .15); }
+body.dark-only .page-wrapper .page-header .header-wrapper .nav-right ul li .notif-pop svg { stroke: #a99fff; }

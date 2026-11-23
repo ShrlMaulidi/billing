@@ -7,13 +7,18 @@ use App\Models\Pembayaran;
 use App\Models\Rekening;
 use App\Models\Tiket;
 use App\Models\TransaksiMidtrans;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * Dashboard pelanggan (role Pelanggan, prefix /akun-saya, tampilan template Cuba): Home berisi tagihan + Bayar Sekarang,
@@ -138,11 +143,66 @@ class PortalPelangganController extends Controller
             'akun' => ['nama' => $user->name, 'username' => $user->username, 'last_login_at' => $user->last_login_at?->toDateTimeString()],
             'langganan' => Pelanggan::with(['paket:id,nama_paket,harga', 'lokasi:id,nama_lokasi'])->where('user_id', $user->id)->orderBy('nama')->get()
                 ->map(fn (Pelanggan $p) => [
-                    'id_pelanggan' => $p->id_pelanggan, 'nama' => $p->nama, 'alamat' => $p->alamat, 'status' => $p->status,
+                    'id' => $p->id, 'id_pelanggan' => $p->id_pelanggan, 'nama' => $p->nama, 'alamat' => $p->alamat, 'tlp' => $p->tlp, 'status' => $p->status,
                     'paket' => $p->paket?->nama_paket, 'harga' => $p->paket?->harga, 'cabang' => $p->lokasi?->nama_lokasi,
                     'jns_tagihan' => $p->jns_tagihan, 'tgl_jatuh_tempo' => $p->tgl_jatuh_tempo, 'tgl_registrasi' => $p->tgl_registrasi?->toDateString(),
+                    // Kartu member hanya untuk langganan aktif (sama dengan menu Kartu Member staf); QR = link Cek Tagihan bertanda tangan
+                    'link_kartu' => $p->status === 'aktif' ? url(URL::signedRoute('cek-tagihan.kartu', ['pelanggan' => $p->id], absolute: false)) : null,
                 ]),
         ]);
+    }
+
+    /** Foto profil akun ini (disk privat); tidak ada route untuk melihat foto akun lain. */
+    public function foto(Request $request): StreamedResponse
+    {
+        $path = $request->user()->foto;
+        abort_unless($path && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path, null, ['X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, max-age=31536000']);
+    }
+
+    /**
+     * Ganti foto profil. Browser sudah memotongnya menjadi persegi kecil (JPEG, tanpa metadata); server tetap hanya menerima
+     * gambar JPG/PNG/WebP (bukan SVG) sampai 2 MB. Nama file acak, foto lama dihapus setelah foto baru tersimpan.
+     */
+    public function unggahFoto(Request $request): JsonResponse
+    {
+        $request->validate([
+            'foto' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048', 'dimensions:min_width=64,min_height=64,max_width=4000,max_height=4000'],
+        ], [
+            ...$this->pesanValidasi(),
+            'foto.image' => 'File harus berupa gambar',
+            'foto.mimes' => 'Foto harus berformat JPG, PNG, atau WebP',
+            'foto.max' => 'Ukuran foto maksimal 2 MB',
+            'foto.dimensions' => 'Ukuran gambar minimal 64 × 64 piksel',
+        ], ['foto' => 'Foto']);
+
+        $user = $request->user();
+        $lama = $user->foto;
+        $path = $request->file('foto')->store(User::FOLDER_FOTO, 'local');
+        try {
+            $user->forceFill(['foto' => $path])->save();
+        } catch (Throwable $e) {
+            // Simpan ke database gagal: jangan tinggalkan file yatim
+            Storage::disk('local')->delete($path);
+            throw $e;
+        }
+        if ($lama) {
+            Storage::disk('local')->delete($lama);
+        }
+
+        return response()->json(['message' => 'Foto profil diperbarui', 'foto' => $user->urlFoto()]);
+    }
+
+    public function hapusFoto(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if ($user->foto) {
+            Storage::disk('local')->delete($user->foto);
+            $user->forceFill(['foto' => null])->save();
+        }
+
+        return response()->json(['message' => 'Foto profil dihapus', 'foto' => null]);
     }
 
     /** Halaman wajib buat password baru setelah login pertama / password di-reset (sebelum bisa membuka Akun Saya). */

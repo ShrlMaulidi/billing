@@ -1,38 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Eye, Printer } from 'react-feather';
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from 'reactstrap';
 import CrudPage from '../../Components/CrudPage';
+import { MemberCard } from '../../Components/KartuMember';
 import { ActionButton } from '../../Components/ui';
 import { rupiah, tanggal } from '../../lib/format';
-
-/**
- * QR asli berisi link Cek Tagihan bertanda tangan milik pelanggan (dari server). Library QR dimuat saat kartu tampil
- * agar tidak membebani halaman lain. SVG dihasilkan library dari teks link, bukan masukan pengguna.
- */
-function QrKartu({ link }) {
-    const [svg, setSvg] = useState('');
-    useEffect(() => {
-        let aktif = true;
-        if (!link) return undefined;
-        import('qrcode').then((qr) => qr.toString(link, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' }))
-            .then((hasil) => aktif && setSvg(hasil))
-            .catch(() => aktif && setSvg(''));
-        return () => { aktif = false; };
-    }, [link]);
-    return svg ? <div className="qr-svg" dangerouslySetInnerHTML={{ __html: svg }} /> : null;
-}
-
-export function MemberCard({ p }) {
-    return (
-        <div className="member-card mb-3">
-            <div className="d-flex justify-content-between"><strong>MSS NET</strong><small>KARTU MEMBER</small></div>
-            <h5 className="text-white mt-3 mb-0">{p.nama}</h5>
-            <div style={{ fontSize: 13, opacity: 0.9 }}>{p.id_pelanggan}</div>
-            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 10, maxWidth: 220 }}>{p.paket} · {rupiah(p.harga)}<br />Jatuh tempo tiap tgl {p.tgl_jatuh_tempo}<br />{p.tlp}</div>
-            <div className="qr" title="Scan untuk cek tagihan"><QrKartu link={p.link_kartu} /></div>
-        </div>
-    );
-}
 
 export default function KartuMember({ filters, rows }) {
     const [selected, setSelected] = useState(new Set());

@@ -23,7 +23,7 @@ use Spatie\Permission\Traits\HasRoles;
  * id_lokasi terisi = user hanya boleh mengakses data cabang itu; kosong = semua cabang.
  */
 #[Fillable(['name', 'username', 'email', 'tlp', 'id_lokasi', 'status', 'password', 'wajib_ganti_password', 'last_login_at', 'last_login_ip'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'foto'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -33,6 +33,9 @@ class User extends Authenticatable
     public const MODUL_AUDIT = 'User';
 
     public const JENIS_AUDIT = 'user';
+
+    /** Folder foto profil di disk privat `local`; file hanya disajikan ke pemilik akunnya (PortalPelangganController::foto). */
+    public const FOLDER_FOTO = 'foto-profil';
 
     /** Sama dengan default kolom, agar user yang baru dibuat langsung terbaca aktif. */
     protected $attributes = ['status' => 'aktif'];
@@ -69,6 +72,15 @@ class User extends Authenticatable
     public function isPelanggan(): bool
     {
         return $this->hasRole(AkunPelanggan::ROLE);
+    }
+
+    /**
+     * URL foto profil untuk tampilan (avatar header & menu Akun), atau null bila belum ada. Parameter v berubah setiap foto
+     * diganti agar browser tidak memakai foto lama dari cache.
+     */
+    public function urlFoto(): ?string
+    {
+        return $this->foto ? route('akun-saya.foto', ['v' => substr(md5($this->foto), 0, 10)], absolute: false) : null;
     }
 
     /** Hapus sesi login & token "ingat saya", sehingga user harus login ulang. */

@@ -74,6 +74,10 @@ Route::middleware('auth')->group(function () {
             // Tujuan setelah bayar online (dialihkan dari halaman selesai Midtrans)
             Route::get('/pembayaran', 'pembayaran')->name('akun-saya.pembayaran');
             Route::get('/akun', 'akun')->name('akun-saya.akun');
+            // Foto profil milik akun yang login saja (tanpa parameter ID)
+            Route::get('/foto', 'foto')->name('akun-saya.foto');
+            Route::post('/foto', 'unggahFoto')->middleware('throttle:10,1')->name('akun-saya.foto.unggah');
+            Route::delete('/foto', 'hapusFoto')->middleware('throttle:10,1')->name('akun-saya.foto.hapus');
             // Login pertama / setelah password di-reset: wajib membuat password baru (lihat BatasiAkunPelanggan)
             Route::get('/password-baru', 'passwordBaru')->name('akun-saya.password-baru');
             Route::put('/password', 'gantiPassword')->middleware('throttle:6,1')->name('akun-saya.password');

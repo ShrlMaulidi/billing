@@ -1,6 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle, ChevronRight, CreditCard, Eye, FileText, Key, LifeBuoy, MessageCircle, User, Wifi } from 'react-feather';
+import { AlertCircle, AlertTriangle, Award, CheckCircle, ChevronRight, CreditCard, Eye, FileText, Key, LifeBuoy, MessageCircle, Wifi } from 'react-feather';
 import { Button, Card, CardBody, CardHeader, Modal, ModalBody, ModalFooter, ModalHeader } from 'reactstrap';
 import InvoiceTagihan from '../../Components/InvoiceTagihan';
 import { KartuBulanIni, MenuItem } from '../../Components/Portal/Beranda';
@@ -134,7 +134,7 @@ export default function Home({ hasil, tiketAktif, bulanIni, hariIni }) {
                                 <MenuItem icon={Wifi} label="Paket Saya" href="/akun-saya/akun" />
                                 <MenuItem icon={Key} label="Ganti Password" href="/akun-saya/akun#password" />
                                 <MenuItem icon={MessageCircle} label="Hubungi Kami" url={linkWa(`Halo MSS, saya pelanggan dengan nomor ${auth.user.username}.`)} />
-                                <MenuItem icon={User} label="Akun" href="/akun-saya/akun" />
+                                <MenuItem icon={Award} label="Kartu Member" href="/akun-saya/akun#kartu" />
                             </div>
                         </section>
 
