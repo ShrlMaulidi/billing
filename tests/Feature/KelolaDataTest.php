@@ -29,7 +29,6 @@ class KelolaDataTest extends TestCase
 
     #[TestWith(['/kelola-data/pajak', 'KelolaData/Pajak'])]
     #[TestWith(['/kelola-data/rekening', 'KelolaData/Rekening'])]
-    #[TestWith(['/kelola-data/notifikasi', 'KelolaData/Notifikasi'])]
     #[TestWith(['/kelola-data/pph', 'KelolaData/Pph'])]
     public function test_menu_without_table_renders_no_rows(string $url, string $component): void
     {

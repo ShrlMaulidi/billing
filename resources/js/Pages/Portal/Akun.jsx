@@ -48,11 +48,11 @@ function FotoProfil({ nama }) {
         e.target.value = '';
         if (!file) return;
         if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
-            notify('Pilih file gambar (JPG, PNG, atau WebP)', 'error');
+            notify('Pilih file gambar (JPG, PNG, atau WebP)', 'danger');
             return;
         }
         if (file.size > MAKS_FILE_ASLI) {
-            notify('Ukuran foto terlalu besar (maksimal 15 MB)', 'error');
+            notify('Ukuran foto terlalu besar (maksimal 15 MB)', 'danger');
             return;
         }
         setProses('unggah');
@@ -64,7 +64,7 @@ function FotoProfil({ nama }) {
             notify((await api('POST', '/akun-saya/foto', data)).message);
             router.reload({ only: ['auth'] });
         } catch (err) {
-            notify(err.errors?.foto?.[0] ?? err.message, 'error');
+            notify(err.errors?.foto?.[0] ?? err.message, 'danger');
         } finally {
             setProses(null);
         }
@@ -76,7 +76,7 @@ function FotoProfil({ nama }) {
             notify((await api('DELETE', '/akun-saya/foto')).message);
             router.reload({ only: ['auth'] });
         } catch (err) {
-            notify(err.message, 'error');
+            notify(err.message, 'danger');
         } finally {
             setProses(null);
         }
@@ -119,7 +119,7 @@ function KartuMemberSaya({ langganan }) {
         try {
             await unduhKartuMember(l);
         } catch (e) {
-            notify('Kartu gagal diunduh, coba lagi', 'error');
+            notify('Kartu gagal diunduh, coba lagi', 'danger');
         } finally {
             setMengunduh(null);
         }

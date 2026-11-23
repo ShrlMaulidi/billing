@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\URL;
 
 /**
  * Pelanggan. Akun koneksi di router: username_pppoe untuk PPPoE & Hotspot, ip_address untuk Static,
@@ -254,6 +255,15 @@ class Pelanggan extends Model
      *
      * @return array<string, mixed>
      */
+    /**
+     * Link Cek Tagihan bertanda tangan untuk pelanggan ini (isi QR kartu member & link di pesan WhatsApp). Permanen karena
+     * kartu dicetak; tanda tangan relatif agar tetap sah di balik proxy/Cloudflare.
+     */
+    public function linkCekTagihan(): string
+    {
+        return url(URL::signedRoute('cek-tagihan.kartu', ['pelanggan' => $this->id], absolute: false));
+    }
+
     public function toBaris(): array
     {
         return [

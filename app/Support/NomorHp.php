@@ -22,6 +22,12 @@ class NomorHp
         return preg_match('/^0\d{9,14}$/', self::normalkan($tlp)) === 1;
     }
 
+    /** Format internasional tanpa + untuk WhatsApp: 0812… → 62812…. Pastikan nomor sah() lebih dulu. */
+    public static function internasional(string $tlp): string
+    {
+        return '62'.substr(self::normalkan($tlp), 1);
+    }
+
     /** Teks login yang berupa nomor HP (hanya angka, spasi, +, -, titik) dinormalkan; selain itu dikembalikan apa adanya. */
     public static function normalkanBilaNomor(string $teks): string
     {

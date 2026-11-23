@@ -40,13 +40,13 @@ export default function CrudPage({
                             columns={columns}
                             data={rows}
                             actions={canEdit || canDelete || rowActions ? actions : undefined}
-                            toolbar={
+                            toolbar={(canAdd || headerActions) ? (
                                 <>
                                     {canAdd && <Button color="primary" onClick={() => setForm({ row: null })}><Plus size={14} className="me-1" />Tambah {name}</Button>}
                                     {headerActions}
-                                    {filterFields?.length > 0 && <FilterBar filters={filters} fields={filterFields} />}
                                 </>
-                            }
+                            ) : null}
+                            filterBar={filterFields?.length > 0 ? <FilterBar filters={filters} fields={filterFields} /> : null}
                             {...tableProps}
                         />
                     </CardBody>

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Lokasi;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
+use App\Models\PesanWa;
+use App\Services\WhatsApp\WaGateway;
 use App\Support\PerubahanGateway;
 use App\Support\RekapCabang;
 use Illuminate\Http\JsonResponse;
@@ -13,8 +15,8 @@ use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 
 /**
- * Data pelanggan, cabang, tarif pajak, pembayaran, dan penarikan diambil dari database. Setoran, pengeluaran, dan WAGW belum punya tabel,
- * sehingga nilainya kosong/0 sampai modul tersebut terhubung ke database.
+ * Data pelanggan, cabang, tarif pajak, pembayaran, dan penarikan diambil dari database. Setoran & pengeluaran belum punya tabel,
+ * sehingga nilainya kosong/0 sampai modul tersebut terhubung ke database. Data WAGW dari wa-gateway & tabel pesan_wa.
  */
 class DashboardController extends Controller
 {
@@ -49,7 +51,7 @@ class DashboardController extends Controller
                 ->whereBetween('tgl_registrasi', $this->bulanIni())
                 ->latest('tgl_registrasi')->take(8)->get()
                 ->map->toBaris(),
-            'wagw' => ['devices' => [], 'sent' => 0, 'outbox' => 0, 'failed' => 0],
+            'wagw' => $this->wagw($f),
             'grafik' => collect(range(11, 0))->map(fn ($i) => [
                 'periode' => $periode = $today->copy()->startOfMonth()->subMonths($i)->format('Y-m-01'),
                 'total' => (int) $pemasukanBulanan->get($periode, 0),
@@ -156,6 +158,32 @@ class DashboardController extends Controller
      *
      * @return array<string, mixed>|null baris rekap cabang + nama_mitra
      */
+    /**
+     * Kartu Data WAGW: WhatsApp cabang yang pernah di-scan (status dari wa-gateway) dan jumlah pesan hari ini / bulan ini.
+     *
+     * @return array{gateway: string, devices: list<array<string, mixed>>, sent: int, failed: int, bulan: int}
+     */
+    private function wagw(array $f): array
+    {
+        $wa = app(WaGateway::class);
+        $sesi = $wa->semuaStatus();
+        $lokasi = Lokasi::when($f['cabang'], fn ($q, $id) => $q->whereKey($id))->whereIn('id', array_keys($sesi ?? []))->orderBy('nama_lokasi')->get(['id', 'nama_lokasi']);
+        $pesan = PesanWa::query()->when($f['cabang'], fn ($q) => $q->where('id_lokasi', $f['cabang']));
+        $hariIni = (clone $pesan)->where('created_at', '>=', today())
+            ->selectRaw("SUM(CASE WHEN status = 'terkirim' THEN 1 ELSE 0 END) AS terkirim, SUM(CASE WHEN status = 'gagal' THEN 1 ELSE 0 END) AS gagal")->first();
+
+        return [
+            'gateway' => ! $wa->dikonfigurasi() ? 'belum_dikonfigurasi' : ($sesi === null ? 'offline' : 'siap'),
+            'devices' => $lokasi->map(fn (Lokasi $l) => [
+                'id' => $l->id, 'nama_device' => $l->nama_lokasi, 'nomor' => $sesi[$l->id]['nomor'],
+                'status' => $sesi[$l->id]['status'] === 'connected' ? 'connected' : 'disconnected', 'sejak' => $sesi[$l->id]['sejak'],
+            ])->values()->all(),
+            'sent' => (int) ($hariIni->terkirim ?? 0),
+            'failed' => (int) ($hariIni->gagal ?? 0),
+            'bulan' => (clone $pesan)->where('status', 'terkirim')->where('created_at', '>=', today()->startOfMonth())->count(),
+        ];
+    }
+
     private function saldoMitra(Request $request, array $f): ?array
     {
         $user = $request->user();

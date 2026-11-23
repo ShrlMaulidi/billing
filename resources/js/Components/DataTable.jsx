@@ -11,9 +11,11 @@ const cellValue = (row, col) => (col.sortValue ? col.sortValue(row) : row[col.ke
  * baris total, seleksi, serta empty / loading / error state.
  * card(row): bila diisi, di layar HP (< 576px) baris tampil sebagai kartu dari fungsi ini, bukan tabel lebar;
  * pencarian & paginasi tetap sama.
+ * toolbar = tombol aksi (kiri baris pertama, sejajar Cari/Kolom/Export di kanan); filterBar = filter, tampil di baris kedua
+ * bila ada tombol aksi, atau di baris pertama bila tidak ada.
  */
 export default function DataTable({
-    columns, data = [], rowKey = 'id', toolbar, actions, exportable = true, stickyFirst = false, footer,
+    columns, data = [], rowKey = 'id', toolbar, filterBar, actions, exportable = true, stickyFirst = false, footer,
     pageSize = 10, selectable = false, selected, onSelect, onRowClick, error, onRetry, emptyText, searchable = true, title, card,
 }) {
     const loading = useNavLoading();
@@ -50,36 +52,40 @@ export default function DataTable({
 
     return (
         <div className={card ? 'dt-has-cards' : undefined}>
-            <div className="dt-toolbar d-flex flex-wrap gap-2 align-items-center mb-3">
-                {title && <h5 className="mb-0 me-2">{title}</h5>}
-                {toolbar}
-                <div className="dt-tools ms-auto d-flex flex-wrap gap-2">
-                    {searchable && (
-                        <div className="input-group dt-search" style={{ width: 220 }}>
-                            <span className="input-group-text"><Search size={14} /></span>
-                            <Input placeholder="Cari..." value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
-                        </div>
-                    )}
-                    <UncontrolledDropdown className="dt-cols">
-                        <DropdownToggle color="light" title="Tampilkan kolom"><Columns size={16} /></DropdownToggle>
-                        <DropdownMenu end style={{ maxHeight: 320, overflowY: 'auto' }}>
-                            {columns.map((c) => (
-                                <DropdownItem key={c.key} toggle={false} onClick={() => setHidden((h) => { const n = new Set(h); n.has(c.key) ? n.delete(c.key) : n.add(c.key); return n; })}>
-                                    <Input type="checkbox" readOnly checked={!hidden.has(c.key)} className="me-2" />{c.label}
-                                </DropdownItem>
-                            ))}
-                        </DropdownMenu>
-                    </UncontrolledDropdown>
-                    {exportable && (
-                        <UncontrolledDropdown className="dt-export">
-                            <DropdownToggle color="success" caret><Download size={14} className="me-1" />Export</DropdownToggle>
-                            <DropdownMenu end>
-                                <DropdownItem onClick={() => dummy('Export Excel')}>Excel (.xlsx)</DropdownItem>
-                                <DropdownItem onClick={() => dummy('Export PDF')}>PDF</DropdownItem>
+            <div className="dt-toolbar mb-3">
+                <div className="dt-toolbar-baris">
+                    {title && <h5 className="mb-0 me-2">{title}</h5>}
+                    {toolbar && <div className="dt-aksi">{toolbar}</div>}
+                    {!toolbar && filterBar}
+                    <div className="dt-tools ms-auto">
+                        {searchable && (
+                            <div className="input-group dt-search" style={{ width: 220 }}>
+                                <span className="input-group-text"><Search size={14} /></span>
+                                <Input placeholder="Cari..." value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
+                            </div>
+                        )}
+                        <UncontrolledDropdown className="dt-cols">
+                            <DropdownToggle color="light" title="Tampilkan kolom"><Columns size={16} /></DropdownToggle>
+                            <DropdownMenu end style={{ maxHeight: 320, overflowY: 'auto' }}>
+                                {columns.map((c) => (
+                                    <DropdownItem key={c.key} toggle={false} onClick={() => setHidden((h) => { const n = new Set(h); n.has(c.key) ? n.delete(c.key) : n.add(c.key); return n; })}>
+                                        <Input type="checkbox" readOnly checked={!hidden.has(c.key)} className="me-2" />{c.label}
+                                    </DropdownItem>
+                                ))}
                             </DropdownMenu>
                         </UncontrolledDropdown>
-                    )}
+                        {exportable && (
+                            <UncontrolledDropdown className="dt-export">
+                                <DropdownToggle color="success" caret><Download size={14} className="me-1" />Export</DropdownToggle>
+                                <DropdownMenu end>
+                                    <DropdownItem onClick={() => dummy('Export Excel')}>Excel (.xlsx)</DropdownItem>
+                                    <DropdownItem onClick={() => dummy('Export PDF')}>PDF</DropdownItem>
+                                </DropdownMenu>
+                            </UncontrolledDropdown>
+                        )}
+                    </div>
                 </div>
+                {toolbar && filterBar && <div className="dt-toolbar-baris dt-toolbar-filter">{filterBar}</div>}
             </div>
 
             {card && (

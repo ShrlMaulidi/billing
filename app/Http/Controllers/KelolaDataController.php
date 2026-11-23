@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Pelanggan;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 
 class KelolaDataController extends Controller
@@ -27,14 +26,9 @@ class KelolaDataController extends Controller
                 ->map(fn (Pelanggan $p) => [
                     ...$p->toBaris(),
                     // Isi QR kartu: link Cek Tagihan bertanda tangan untuk pelanggan ini (permanen, karena kartu dicetak)
-                    'link_kartu' => url(URL::signedRoute('cek-tagihan.kartu', ['pelanggan' => $p->id], absolute: false)),
+                    'link_kartu' => $p->linkCekTagihan(),
                 ]),
         ]);
-    }
-
-    public function notifikasi(Request $request)
-    {
-        return $this->kosong($request, 'Notifikasi', ['wagw' => ['devices' => [], 'sent' => 0, 'outbox' => 0, 'failed' => 0]]);
     }
 
     public function pph(Request $request)

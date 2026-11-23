@@ -13,7 +13,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -147,7 +146,7 @@ class PortalPelangganController extends Controller
                     'paket' => $p->paket?->nama_paket, 'harga' => $p->paket?->harga, 'cabang' => $p->lokasi?->nama_lokasi,
                     'jns_tagihan' => $p->jns_tagihan, 'tgl_jatuh_tempo' => $p->tgl_jatuh_tempo, 'tgl_registrasi' => $p->tgl_registrasi?->toDateString(),
                     // Kartu member hanya untuk langganan aktif (sama dengan menu Kartu Member staf); QR = link Cek Tagihan bertanda tangan
-                    'link_kartu' => $p->status === 'aktif' ? url(URL::signedRoute('cek-tagihan.kartu', ['pelanggan' => $p->id], absolute: false)) : null,
+                    'link_kartu' => $p->status === 'aktif' ? $p->linkCekTagihan() : null,
                 ]),
         ]);
     }

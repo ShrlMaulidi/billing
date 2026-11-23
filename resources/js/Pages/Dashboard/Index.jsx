@@ -76,20 +76,21 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik, s
                                 <Link href="/kelola-data/notifikasi" prefetch className="btn btn-outline-primary btn-sm">Kelola</Link>
                             </CardHeader>
                             <CardBody>
-                                {!wagw.devices.length && <p className="f-light text-center mb-0">Belum ada device WhatsApp</p>}
+                                {wagw.gateway !== 'siap' && <p className="text-warning small mb-2">{wagw.gateway === 'offline' ? 'Layanan WhatsApp di server tidak berjalan' : 'Layanan WhatsApp belum dikonfigurasi'}</p>}
+                                {wagw.gateway === 'siap' && !wagw.devices.length && <p className="f-light text-center mb-0">Belum ada WhatsApp cabang yang di-scan</p>}
                                 {wagw.devices.map((d) => (
                                     <div key={d.id} className="d-flex justify-content-between align-items-start border-bottom pb-2 mb-2">
                                         <div>
                                             <h6 className="mb-0">{d.nama_device}</h6>
-                                            <small className="f-light">+{d.nomor} · {d.server_url}</small><br />
-                                            <small className="f-light">Terakhir aktif {waktu(d.last_seen)}</small>
+                                            <small className="f-light">{d.nomor ? `+${d.nomor}` : 'Belum terhubung'}</small>
+                                            {d.status === 'connected' && d.sejak && <><br /><small className="f-light">Terhubung sejak {waktu(d.sejak)}</small></>}
                                         </div>
                                         <StatusBadge value={d.status} />
                                     </div>
                                 ))}
                                 <div className="row text-center mt-3">
-                                    {[['Terkirim', wagw.sent, 'success'], ['Outbox', wagw.outbox, 'warning'], ['Gagal', wagw.failed, 'danger']].map(([l, v, c]) => (
-                                        <div className="col-4" key={l}><h4 className={`font-${c} mb-0`}>{angka(v)}</h4><small className="f-light">{l} hari ini</small></div>
+                                    {[['Terkirim hari ini', wagw.sent, 'success'], ['Terkirim bulan ini', wagw.bulan, 'primary'], ['Gagal hari ini', wagw.failed, 'danger']].map(([l, v, c]) => (
+                                        <div className="col-4" key={l}><h4 className={`font-${c} mb-0`}>{angka(v)}</h4><small className="f-light">{l}</small></div>
                                     ))}
                                 </div>
                             </CardBody>

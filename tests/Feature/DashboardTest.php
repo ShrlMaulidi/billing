@@ -58,7 +58,7 @@ class DashboardTest extends TestCase
             ->where('pelangganBaru.0.username_pppoe', 'stop')
             ->where('pelangganBaru.1.paket', 'Home 20 Mbps')
             ->where('pelangganBaru.1.harga', 200000)
-            ->where('wagw', ['devices' => [], 'sent' => 0, 'outbox' => 0, 'failed' => 0])
+            ->where('wagw', ['gateway' => 'belum_dikonfigurasi', 'devices' => [], 'sent' => 0, 'failed' => 0, 'bulan' => 0])
             ->has('grafik', 12)
             ->where('grafik.0', ['periode' => '2025-11-01', 'total' => 0])
             ->where('grafik.11', ['periode' => '2026-10-01', 'total' => 0]));

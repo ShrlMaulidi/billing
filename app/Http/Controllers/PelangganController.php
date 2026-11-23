@@ -6,6 +6,7 @@ use App\Models\Area;
 use App\Models\Paket;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
+use App\Models\PesanWa;
 use App\Models\Rekening;
 use App\Models\Router;
 use App\Models\User;
@@ -19,6 +20,8 @@ use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
@@ -80,6 +83,13 @@ class PelangganController extends Controller
                 // Pembayaran tagihan bulan filter: untuk kwitansi & pembatalan di halaman Pelanggan Lunas
                 'pembayaran_periode' => $p->pembayaran->firstWhere('periode', $p->periodePemakaian($periode))
                     ?->only(['id', 'no_invoice', 'harga', 'is_prorate', 'diskon', 'jml_bayar']),
+                // Bulan tagihan yang diingatkan lewat WhatsApp (ikon lonceng): bulan filter, bulan tagihan prorate, atau tunggakan terlama (Off)
+                'bulan_wa' => match ($status) {
+                    'belum_lunas' => $periode,
+                    'prorate' => $p->prorateMuncul() ? Carbon::parse($p->prorateMuncul())->startOfMonth()->toDateString() : null,
+                    'off' => $p->tagihanBelumDibayar()[0]['periode_pembayaran'] ?? null,
+                    default => null,
+                },
                 'prorate' => $p->periodeProrate() ? [
                     'periode' => $p->periodeProrate(),
                     'hari' => $p->hariProrate(),
@@ -88,6 +98,7 @@ class PelangganController extends Controller
                     'muncul' => $p->prorateMuncul(),
                 ] : null,
             ]);
+        $rows = $this->tandaiTagihanTerkirim($rows);
 
         // Empat hitungan status sederhana dalam satu query
         $hitungStatus = (clone $base)->toBase()->selectRaw(
@@ -457,5 +468,26 @@ class PelangganController extends Controller
         }
 
         return [$data, $akun];
+    }
+
+    /**
+     * Tambahkan wa_terkirim (waktu terakhir tagihan bulan_wa terkirim via WhatsApp) ke baris yang punya bulan_wa.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function tandaiTagihanTerkirim(Collection $rows): Collection
+    {
+        $dicek = $rows->filter(fn (array $r) => $r['bulan_wa'] !== null);
+        if ($dicek->isEmpty()) {
+            return $rows->map(fn (array $r) => [...$r, 'wa_terkirim' => null]);
+        }
+        // Kolom periode bertipe DATE: dibandingkan per 10 karakter pertama agar sama di MySQL & SQLite
+        $terkirim = PesanWa::where(['jenis' => 'tagihan', 'status' => 'terkirim'])->whereIn('pelanggan_id', $dicek->pluck('id'))
+            ->where('periode', '>=', $dicek->min('bulan_wa'))
+            ->selectRaw('pelanggan_id, periode, MAX(created_at) AS terakhir')->groupBy('pelanggan_id', 'periode')->get()
+            ->mapWithKeys(fn ($b) => [$b->pelanggan_id.'|'.substr((string) $b->getRawOriginal('periode'), 0, 10) => $b->terakhir]);
+
+        return $rows->map(fn (array $r) => [...$r, 'wa_terkirim' => $r['bulan_wa'] ? ($terkirim[$r['id'].'|'.$r['bulan_wa']] ?? null) : null]);
     }
 }

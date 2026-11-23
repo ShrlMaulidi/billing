@@ -1,0 +1,28 @@
+# Service WhatsApp gateway MSS Billing (folder wa-gateway). Pasang sekali di server:
+#   sudo cp deploy/mss-wa-gateway.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mss-wa-gateway
+# Kunci WA_GATEWAY_KEY dibaca dari .env aplikasi. Log: sudo journalctl -u mss-wa-gateway -f
+[Unit]
+Description=MSS Billing WhatsApp Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mss-billing/wa-gateway
+ExecStart=/usr/bin/env node server.js
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=5
+
+# Pembatasan: hanya folder data login WhatsApp yang boleh ditulis
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/mss-billing/storage/app/private/wa-gateway
+
+[Install]
+WantedBy=multi-user.target

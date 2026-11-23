@@ -1,0 +1,17 @@
+{
+  "name": "mss-wa-gateway",
+  "private": true,
+  "description": "Layanan WhatsApp per cabang untuk MSS Billing (scan QR & kirim tagihan). Hanya mendengarkan 127.0.0.1.",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "baileys": "7.0.0-rc14",
+    "pino": "9.14.0"
+  }
+}

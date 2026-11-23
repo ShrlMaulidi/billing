@@ -13,6 +13,7 @@ use App\Http\Controllers\IsolirController;
 use App\Http\Controllers\KelolaDataController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\NotifikasiController;
 use App\Http\Controllers\PajakController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PaymentGatewayController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\PortalTiketController;
 use App\Http\Controllers\RekeningController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\SistemController;
+use App\Http\Controllers\TagihanWaController;
 use App\Http\Controllers\TiketController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\TunnelController;
@@ -116,8 +118,18 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('kelola-data')->name('kelola-data.')->controller(KelolaDataController::class)->group(function () {
         Route::get('/kartu-member', 'kartuMember')->middleware('permission:kelola_data.kartu_member.view')->name('kartu-member');
-        Route::get('/notifikasi', 'notifikasi')->middleware('permission:kelola_data.notifikasi.view')->name('notifikasi');
         Route::get('/pph', 'pph')->middleware('permission:kelola_data.pph.view')->name('pph');
+    });
+
+    // Notifikasi: WhatsApp per cabang (scan QR lewat wa-gateway) & template tagihan; user cabang hanya cabangnya (dicek di controller)
+    Route::prefix('kelola-data/notifikasi')->name('kelola-data.notifikasi')->controller(NotifikasiController::class)->group(function () {
+        Route::get('/', 'index')->middleware('permission:kelola_data.notifikasi.view')->name('');
+        Route::get('/{lokasi}/whatsapp', 'status')->whereNumber('lokasi')->middleware(['permission:kelola_data.notifikasi.update', 'throttle:60,1'])->name('.status');
+        Route::post('/{lokasi}/whatsapp', 'hubungkan')->whereNumber('lokasi')->middleware(['permission:kelola_data.notifikasi.update', 'throttle:10,1'])->name('.hubungkan');
+        Route::delete('/{lokasi}/whatsapp', 'putuskan')->whereNumber('lokasi')->middleware(['permission:kelola_data.notifikasi.update', 'throttle:10,1'])->name('.putuskan');
+        Route::post('/{lokasi}/whatsapp/uji', 'uji')->whereNumber('lokasi')->middleware(['permission:kelola_data.notifikasi.update', 'throttle:5,1'])->name('.uji');
+        Route::put('/{lokasi}/template', 'simpanTemplate')->whereNumber('lokasi')->middleware('permission:kelola_data.notifikasi.update')->name('.template');
+        Route::delete('/{lokasi}/template', 'hapusTemplate')->whereNumber('lokasi')->middleware('permission:kelola_data.notifikasi.update')->name('.template.hapus');
     });
 
     // Pengaturan pajak per cabang per bulan; mengubah tarif & bagi hasil hanya untuk user semua cabang (lihat grup semua_cabang)
@@ -147,6 +159,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/pelanggan/{pelanggan}', [PelangganController::class, 'destroy'])->middleware('permission:pelanggan.data.delete')->name('pelanggan.destroy');
     Route::post('/pelanggan/{pelanggan}/bayar', [PembayaranController::class, 'store'])->middleware('permission:pelanggan.pembayaran.create')->name('pelanggan.bayar');
     Route::post('/pembayaran/massal', [PembayaranController::class, 'massal'])->middleware('permission:pelanggan.pembayaran.create')->name('pembayaran.massal');
+    // Kirim tagihan via WhatsApp cabang pelanggan (ikon lonceng di Pelanggan Belum Lunas)
+    Route::get('/pelanggan/{pelanggan}/tagihan-wa', [TagihanWaController::class, 'pratinjau'])->middleware('permission:pelanggan.belum_lunas.update')->name('pelanggan.tagihan-wa');
+    Route::post('/pelanggan/{pelanggan}/tagihan-wa', [TagihanWaController::class, 'kirim'])->middleware(['permission:pelanggan.belum_lunas.update', 'throttle:30,1'])->name('pelanggan.tagihan-wa.kirim');
     Route::get('/pelanggan/{pelanggan}/tagihan', [PembayaranController::class, 'tagihan'])->middleware('permission:pelanggan.belum_lunas.view|pelanggan.prorate.view')->name('pelanggan.tagihan');
     Route::get('/pelanggan/{pelanggan}/pembayaran', [PembayaranController::class, 'index'])->middleware('permission:pelanggan.pembayaran.view')->name('pelanggan.pembayaran');
     Route::get('/pembayaran/{pembayaran}/kwitansi', [PembayaranController::class, 'kwitansi'])->middleware('permission:pelanggan.pembayaran.view')->name('pembayaran.kwitansi');

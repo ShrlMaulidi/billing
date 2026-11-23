@@ -61,6 +61,13 @@ return [
         'email_pelanggan' => env('PEMBAYARAN_EMAIL_PELANGGAN', 'noreply@mediasolusisukses.co.id'),
     ],
 
+    // Layanan WhatsApp per cabang (folder wa-gateway, Node.js) yang berjalan di server yang sama; kunci sama di kedua sisi
+    'wa_gateway' => [
+        'url' => env('WA_GATEWAY_URL', 'http://127.0.0.1:3100'),
+        'key' => env('WA_GATEWAY_KEY'),
+        'timeout' => (int) env('WA_GATEWAY_TIMEOUT', 20),
+    ],
+
     'midtrans' => [
         'server_key' => env('MIDTRANS_SERVER_KEY'),
         // Dashboard Midtrans baru: notifikasi bisa ditandatangani dengan Signature Secret Key (opsional, selain Server Key)

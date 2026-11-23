@@ -105,16 +105,34 @@ body.dark-only .dt-card { border-color: #374558; background: #262932; }
 @media (max-width: 575.98px) {
     .dt-has-cards .dt-search { width: 100% !important; }
     .dt-has-cards .dt-cols { display: none; }
-    .dt-has-cards > .d-flex > .ms-auto { flex: 1 1 100%; margin-left: 0 !important; }
 }
+
+/* Toolbar tabel (DataTable) di semua menu: baris 1 = tombol aksi (kiri) + Cari/Kolom/Export (kanan), baris 2 = filter.
+   Semua tombol & kontrol setinggi 38 px agar sejajar. */
+.dt-toolbar { display: flex; flex-direction: column; gap: 10px; }
+.dt-toolbar-baris { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dt-aksi, .dt-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dt-toolbar .btn:not(.btn-sm), .dt-toolbar .form-select, .dt-toolbar .form-control, .dt-toolbar .input-group-text { height: 38px; font-size: 14px; }
+.dt-toolbar .btn:not(.btn-sm) { display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; white-space: nowrap; }
+.dt-toolbar .form-select, .dt-toolbar .form-control { padding-top: 0; padding-bottom: 0; }
+.dt-toolbar .search-select-toggle { display: flex; align-items: center; }
+.dt-toolbar .search-select-toggle > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-toolbar .dt-cols > .btn { width: 42px; padding: 0; }
+.dt-toolbar .btn svg { flex-shrink: 0; }
+.dt-toolbar .btn.dropdown-toggle { padding-right: 32px; }
+.dt-toolbar .filter-switch { height: 38px; }
 
 /* Toolbar tabel & filter di HP: seragam di semua menu (DataTable, FilterBar, filter Pengaturan Pajak).
    Tombol aksi selebar layar, filter grid 2 kolom, Cari + kolom + Export satu baris, tinggi kontrol 40 px. */
 @media (max-width: 575.98px) {
-    .dt-toolbar { display: grid !important; grid-template-columns: minmax(0, 1fr); gap: 10px !important; }
-    .dt-toolbar > h5 { margin: 0 !important; }
-    .dt-toolbar > .btn, .dt-toolbar > a.btn { width: 100%; display: inline-flex; align-items: center; justify-content: center; }
-    .dt-toolbar > .dt-tools { width: 100%; margin-left: 0 !important; flex-wrap: nowrap !important; gap: 8px !important; }
+    /* Satu kolom: judul, tombol aksi (mengisi baris), filter, lalu Cari + Kolom + Export */
+    .dt-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .dt-toolbar-baris { display: contents; }
+    .dt-toolbar-baris > h5 { order: 0; margin: 0 !important; }
+    .dt-aksi { order: 1; }
+    .dt-aksi > .btn, .dt-aksi > a.btn { flex: 1 1 auto; }
+    .dt-toolbar .filter-bar { order: 2; }
+    .dt-tools { order: 3; width: 100%; margin-left: 0 !important; flex-wrap: nowrap; }
     .dt-tools .dt-search { flex: 1 1 auto; width: auto !important; min-width: 0; }
     .dt-tools .dt-cols > .btn { width: 42px; padding-left: 0; padding-right: 0; display: inline-flex; align-items: center; justify-content: center; }
     .dt-tools .dt-export > .btn { white-space: nowrap; }
@@ -122,9 +140,8 @@ body.dark-only .dt-card { border-color: #374558; background: #262932; }
     .filter-bar > * { width: 100% !important; min-width: 0; }
     .filter-bar > :last-child:nth-child(odd), .filter-bar > .filter-switch { grid-column: 1 / -1; }
     .filter-switch { min-height: 40px; }
-    .dt-toolbar .btn, .dt-toolbar .form-select, .dt-toolbar .form-control, .dt-toolbar .input-group-text,
+    .dt-toolbar .btn:not(.btn-sm), .dt-toolbar .form-select, .dt-toolbar .form-control, .dt-toolbar .input-group-text { height: 40px; }
     .filter-bar .form-select, .filter-bar .form-control { min-height: 40px; font-size: 14px; }
-    .dt-toolbar .btn { padding-top: 8px; padding-bottom: 8px; }
     /* Filter di luar tabel (Dashboard, Income Summary) ikut selebar layar */
     .d-flex.justify-content-end > .filter-bar { flex: 1 1 100%; }
     /* Tab status Pelanggan: satu baris yang bisa digeser, tidak menumpuk */
@@ -1149,3 +1166,29 @@ body.dark-only .notif-pop { background: #262932; box-shadow: 0 12px 32px rgba(0,
 body.dark-only .notif-pop-judul, body.dark-only .notif-kosong strong { color: rgba(255, 255, 255, .9); }
 body.dark-only .notif-kosong-ikon { background: rgba(115, 102, 255, .15); }
 body.dark-only .page-wrapper .page-header .header-wrapper .nav-right ul li .notif-pop svg { stroke: #a99fff; }
+
+/* WhatsApp cabang & template tagihan (Pages/KelolaData/Notifikasi, Components/KirimTagihanWa) */
+.wa-preview .bubble { overflow-wrap: anywhere; line-height: 1.5; }
+body.dark-only .wa-preview { background: #1f2c34; }
+body.dark-only .wa-preview .bubble { background: #005c4b; color: #e9edef; }
+.wa-cabang-daftar { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.wa-cabang { padding: 14px 16px; border: 1px solid #ececf3; border-radius: 12px; }
+.wa-cabang-ikon { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 36px; height: 36px; color: #25a244; background: rgba(37, 211, 102, .12); border-radius: 10px; }
+.wa-cabang-hitung { display: flex; gap: 12px; margin-top: 10px; font-size: 12.5px; }
+body.dark-only .wa-cabang { border-color: #374558; }
+.wa-qr { width: 264px; max-width: 100%; margin: 0 auto 14px; padding: 10px; background: #fff; border: 1px solid #ececf3; border-radius: 12px; }
+.wa-qr svg { display: block; width: 100%; height: auto; }
+.wa-langkah { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; }
+.wa-placeholder { display: flex; flex-wrap: wrap; gap: 6px; }
+.wa-placeholder-item { padding: 3px 9px; font-family: SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: var(--theme-default); background: rgba(115, 102, 255, .08); border: 1px solid rgba(115, 102, 255, .2); border-radius: 999px; }
+.wa-placeholder-item:hover:not(:disabled) { background: rgba(115, 102, 255, .16); }
+.kirim-wa-info { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-bottom: 14px; font-size: 13.5px; }
+.kirim-wa-info dt { font-weight: 500; color: #8a8fa3; }
+.kirim-wa-info dd { margin: 0; overflow-wrap: anywhere; }
+/* Ingatkan banyak pelanggan sekaligus (Components/IngatkanMassal) */
+.ingatkan-daftar { max-height: 46vh; overflow-y: auto; border: 1px solid #ececf3; border-radius: 10px; }
+.ingatkan-baris { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; font-size: 13.5px; }
+.ingatkan-baris + .ingatkan-baris { border-top: 1px solid #f1f1f6; }
+.ingatkan-baris.is-lewat { opacity: .65; }
+body.dark-only .ingatkan-daftar { border-color: #374558; }
+body.dark-only .ingatkan-baris + .ingatkan-baris { border-color: #2f3443; }

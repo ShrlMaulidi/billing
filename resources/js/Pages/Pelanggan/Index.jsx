@@ -1,8 +1,10 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { CheckSquare, Clipboard, Clock, DollarSign, FileText, Info, Power, WifiOff } from 'react-feather';
+import { Bell, CheckSquare, Clipboard, Clock, DollarSign, FileText, Info, Power, WifiOff } from 'react-feather';
 import { Button, Input, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from 'reactstrap';
 import CrudPage from '../../Components/CrudPage';
+import IngatkanMassal, { alasanTidakBisa } from '../../Components/IngatkanMassal';
+import KirimTagihanWa from '../../Components/KirimTagihanWa';
 import { sumFooter } from '../../Components/DataTable';
 import { BayarMassal, FormPembayaran, JENIS_TAGIHAN, kunciPeriode, RiwayatPembayaran } from '../../Components/Pembayaran';
 import Select from '../../Components/Select';
@@ -18,6 +20,8 @@ const TAB = [
     ['berhenti', 'Berhenti', '/berhenti'], ['prorate', 'Prorate', '/prorate'],
 ];
 const TAGIHAN = ['lunas', 'belum_lunas'];
+// Halaman dengan ikon lonceng (ingatkan tagihan via WhatsApp cabang) & centang Ingatkan Terpilih
+const KIRIM_WA = ['belum_lunas', 'prorate', 'off'];
 // Tombol Input & Riwayat Pembayaran (Pelanggan Berhenti: riwayat saja)
 const HALAMAN_BAYAR = [null, 'belum_lunas', 'prorate', 'berhenti'];
 // Halaman daftar khusus: tanpa tombol Tambah Pelanggan
@@ -150,7 +154,9 @@ function RemoteAddress({ routerId, username, value, onChange, invalid }) {
  * halaman Pelanggan Off punya tombol On (kembali ke profile asal).
  */
 export default function PelangganIndex({ filters, status, rows, jumlah, periode, tahunBayar, areaOptions, routerOptions, paketOptions, salesOptions, rekeningOptions }) {
-    const { cabangOptions } = usePage().props;
+    const { cabangOptions, auth } = usePage().props;
+    // Akun cabang/mitra hanya melihat cabangnya sendiri (dibatasi server), jadi filter cabang tidak ditampilkan
+    const akunCabang = !!auth.user?.id_lokasi;
     const bisa = useBisa();
     // Saat edit, akun dianggap sudah ada di router (pilih "Buat baru" untuk membuat ulang)
     const formRows = useMemo(() => rows.map((r) => ({ ...r, mode_akun: 'sinkron' })), [rows]);
@@ -161,6 +167,14 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
     const [pilihProfile, setPilihProfile] = useState(null); // { p, options, value }
     const [bayar, setBayar] = useState(null); // target FormPembayaran
     const [riwayat, setRiwayat] = useState(null); // pelanggan yang riwayat pembayarannya dibuka
+    const [kirimWa, setKirimWa] = useState(null); // pelanggan yang tagihannya dikirim via WhatsApp
+    const [ingatkan, setIngatkan] = useState(false); // modal ingatkan banyak pelanggan sekaligus
+    const bisaKirimWa = KIRIM_WA.includes(status) && bisa('pelanggan.belum_lunas.update');
+    const tombolWa = (p) => bisaKirimWa && (
+        <ActionButton icon={Bell} color="warning"
+            label={alasanTidakBisa(p) ?? (p.wa_terkirim ? `Ingatkan via WhatsApp (terkirim ${waktu(p.wa_terkirim)})` : 'Ingatkan tagihan via WhatsApp')}
+            disabled={!!alasanTidakBisa(p)} onClick={() => setKirimWa(p)} />
+    );
     // Pelanggan Belum Lunas: centang beberapa pelanggan lalu bayar sekaligus
     const bayarMassal = status === 'belum_lunas' && bisa('pelanggan.pembayaran.create');
     const [dicentang, setDicentang] = useState(() => new Set());
@@ -240,15 +254,24 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                 canAdd={!TANPA_TAMBAH.includes(status) && bisa('pelanggan.data.create')} canEdit={!lunas && bisa('pelanggan.data.update')}
                 canDelete={lunas ? bisa('pelanggan.pembayaran.delete') : bisa('pelanggan.data.delete')}
                 tableProps={{
-                    ...(bayarMassal && { selectable: true, selected: dicentang, onSelect: setDicentang }),
+                    ...((bayarMassal || bisaKirimWa) && { selectable: true, selected: dicentang, onSelect: setDicentang }),
                     // Total tagihan belum lunas (mengikuti pencarian)
                     ...(status === 'belum_lunas' && { footer: sumFooter(['tagihan'], rupiah) }),
                     ...(lunas && { footer: totalLunas }),
                 }}
-                headerActions={bayarMassal && (
-                    <Button color="success" disabled={!barisDicentang.length} onClick={() => setMassal(true)}>
-                        <CheckSquare size={14} className="me-1" />Bayar Terpilih{barisDicentang.length > 0 && ` (${barisDicentang.length})`}
-                    </Button>
+                headerActions={(bayarMassal || bisaKirimWa) && (
+                    <>
+                        {bisaKirimWa && (
+                            <Button color="warning" disabled={!barisDicentang.length} onClick={() => setIngatkan(true)}>
+                                <Bell size={14} className="me-1" />Ingatkan Terpilih{barisDicentang.length > 0 && ` (${barisDicentang.length})`}
+                            </Button>
+                        )}
+                        {bayarMassal && (
+                            <Button color="success" disabled={!barisDicentang.length} onClick={() => setMassal(true)}>
+                                <CheckSquare size={14} className="me-1" />Bayar Terpilih{barisDicentang.length > 0 && ` (${barisDicentang.length})`}
+                            </Button>
+                        )}
+                    </>
                 )}
                 before={
                     <>
@@ -271,7 +294,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                         </div>
                     </>
                 }
-                filterFields={TAGIHAN.includes(status) ? ['bulan', 'tahun', 'cabang'] : ['cabang']}
+                filterFields={[...(TAGIHAN.includes(status) ? ['bulan', 'tahun'] : []), ...(akunCabang ? [] : ['cabang'])]}
                 rowActions={lunas ? (p) => bisa('pelanggan.pembayaran.view') && (
                     <ActionButton icon={FileText} label={`Kwitansi ${p.pembayaran_periode?.no_invoice ?? ''}`} href={`/pembayaran/${p.pembayaran_periode?.id}/kwitansi`} />
                 ) : halamanBayar ? (p) => (
@@ -281,17 +304,30 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                                 label={p.status !== 'aktif' ? 'Pelanggan berhenti' : !p.harga ? 'Paket gratis / belum ada paket' : 'Input Pembayaran'}
                                 disabled={p.status !== 'aktif' || !p.harga} onClick={() => bukaBayar(p)} />
                         )}
+                        {tombolWa(p)}
                         {['belum_lunas', 'prorate'].includes(status) && (
                             <ActionButton icon={Clipboard} color="primary" label={status === 'prorate' ? 'Lihat Invoice Prorate' : 'Lihat Tagihan / Invoice'} href={linkTagihan(p)} />
                         )}
                         {bisa('pelanggan.pembayaran.view') && <ActionButton icon={Clock} color="info" label="Riwayat Pembayaran" onClick={() => setRiwayat(p)} />}
                     </>
-                ) : ['on', 'off'].includes(status) && bisa(`pelanggan.${status}.update`) ? (p) => (status === 'on'
-                    ? <ActionButton icon={WifiOff} label="Off (Isolir)" color="danger" loading={busy === p.id} disabled={!!busy} onClick={() => setConfirm({ p, aksi: 'isolir' })} />
-                    : <ActionButton icon={Power} label="On (Aktifkan)" color="success" loading={busy === p.id} disabled={!!busy} onClick={() => klikOn(p)} />) : undefined}
+                ) : status === 'on' && bisa('pelanggan.on.update') ? (p) => (
+                    <ActionButton icon={WifiOff} label="Off (Isolir)" color="danger" loading={busy === p.id} disabled={!!busy} onClick={() => setConfirm({ p, aksi: 'isolir' })} />
+                ) : status === 'off' && (bisa('pelanggan.off.update') || bisaKirimWa) ? (p) => (
+                    <>
+                        {tombolWa(p)}
+                        {bisa('pelanggan.off.update') && <ActionButton icon={Power} label="On (Aktifkan)" color="success" loading={busy === p.id} disabled={!!busy} onClick={() => klikOn(p)} />}
+                    </>
+                ) : undefined}
                 columns={[
                     { key: 'id_pelanggan', label: 'ID Pelanggan' },
-                    { key: 'nama', label: 'Nama', render: (p) => <>{p.nama}{p.tlp && <><br /><small className="f-light">{p.tlp}</small></>}</> },
+                    {
+                        key: 'nama', label: 'Nama', render: (p) => (
+                            <>
+                                {p.nama}{p.tlp && <><br /><small className="f-light">{p.tlp}</small></>}
+                                {p.wa_terkirim && <><br /><small className="text-success" title={`Tagihan terkirim via WhatsApp ${waktu(p.wa_terkirim)}`}><Bell size={11} className="me-1 align-baseline" />WA terkirim</small></>}
+                            </>
+                        ),
+                    },
                     { key: 'alamat', label: 'Alamat', hidden: true },
                     { key: 'cabang', label: 'Cabang' },
                     { key: 'area', label: 'Area', render: (p) => p.area ?? <span className="f-light">-</span> },
@@ -399,6 +435,13 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
             <BayarMassal rows={barisDicentang} periode={periode} isOpen={massal} onClose={() => setMassal(false)} rekeningOptions={rekeningOptions}
                 onSaved={() => { setDicentang(new Set()); reloadData(RELOAD); }} />
             <RiwayatPembayaran pelanggan={riwayat} onClose={() => setRiwayat(null)} onChanged={() => reloadData(RELOAD)} rekeningOptions={rekeningOptions} tahunBayar={tahunBayar} />
+            {kirimWa && <KirimTagihanWa pelanggan={kirimWa} periode={kirimWa.bulan_wa} onTutup={(terkirim) => { setKirimWa(null); if (terkirim) reloadData(RELOAD); }} />}
+            {ingatkan && (
+                <IngatkanMassal rows={barisDicentang} onTutup={(adaTerkirim) => {
+                    setIngatkan(false);
+                    if (adaTerkirim) { setDicentang(new Set()); reloadData(RELOAD); }
+                }} />
+            )}
 
             <ConfirmDialog
                 isOpen={!!confirm}

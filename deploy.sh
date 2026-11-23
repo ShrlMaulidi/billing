@@ -20,6 +20,11 @@ npm ci --no-audit --no-fund
 npm run build
 rm -f public/hot
 
+echo "→ WhatsApp gateway"
+npm ci --omit=dev --no-audit --no-fund --prefix wa-gateway
+mkdir -p storage/app/private/wa-gateway
+grep -qE '^WA_GATEWAY_KEY=.{32,}' .env || echo "! Peringatan: WA_GATEWAY_KEY di .env belum diisi (minimal 32 karakter), fitur WhatsApp tidak aktif"
+
 echo "→ Database & cache"
 php artisan migrate --force
 # Daftar permission & role bawaan (role yang sudah diatur di menu Hak Akses tidak ditimpa)
@@ -32,6 +37,14 @@ chown -R www-data:www-data .
 chmod -R 775 storage bootstrap/cache database
 # .env berisi APP_KEY (kunci enkripsi password router) & password database: jangan bisa dibaca user lain
 chmod 640 .env
+# Data login WhatsApp cabang: hanya bisa dibaca user web
+chmod -R u=rwX,go= storage/app/private/wa-gateway
 systemctl reload php8.4-fpm
+# Sesi WhatsApp tersimpan di disk, jadi restart hanya memutus beberapa detik lalu tersambung lagi otomatis
+if systemctl is-enabled --quiet mss-wa-gateway 2>/dev/null; then
+    systemctl restart mss-wa-gateway
+else
+    echo "! Service mss-wa-gateway belum dipasang (lihat deploy/mss-wa-gateway.service)"
+fi
 
 echo "✓ Deploy selesai"
