@@ -49,7 +49,6 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
                 // Untuk menyembunyikan menu & tombol; server tetap memeriksa permission di setiap route
                 'permissions' => fn () => $request->user()?->getAllPermissions()->pluck('name') ?? [],
-                'ip' => $request->ip(),
             ],
             // Angka di menu Tiket: tiket baru (belum ditanggapi) di cabang user; user pusat menghitung semua cabang
             'tiketBaru' => fn () => $request->user() && ! $request->user()->isPelanggan() && $request->user()->can('tiket.view')

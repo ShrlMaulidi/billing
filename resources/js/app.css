@@ -12,6 +12,12 @@ body.dark-only .table-light {
     --bs-table-active-color: rgba(255, 255, 255, .85); --bs-table-active-bg: #343846;
     --bs-table-hover-color: rgba(255, 255, 255, .85); --bs-table-hover-bg: #343846;
 }
+/* Cuba sendiri mewarnai sel .table-light di dalam kartu dengan #262932 / #2f2f3b (hampir hitam) lewat selektor sangat spesifik,
+   jadi variabel di atas kalah: tulis ulang dengan selektor yang sama (dimuat setelah Cuba, jadi menang) */
+body.dark-only .page-wrapper .page-body-wrapper .page-body .card:not(.email-body) .table .table-light th,
+body.dark-only .page-wrapper .page-body-wrapper .page-body .card:not(.email-body) .table .table-light td,
+body.dark-only .page-wrapper .page-body-wrapper .page-body .card:not(.email-body) .table.table-light tr th,
+body.dark-only .page-wrapper .page-body-wrapper .page-body .card:not(.email-body) .table.table-light tr td { color: rgba(255, 255, 255, .9); }
 /* Sel pertama yang menempel (sticky) di baris total ikut warna barisnya */
 .table-sticky .table-light > td:first-child,
 body.dark-only .table-sticky .table-light > td:first-child { background: var(--bs-table-bg); }
@@ -38,13 +44,6 @@ body.dark-only .table-sticky .table-light > td:first-child { background: var(--b
 .perm-scroll .perm-table > thead > tr > th { position: sticky; top: 0; z-index: 3; background-color: var(--bs-body-bg, #fff); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .12); }
 body.dark-only .perm-scroll .perm-table > thead > tr > th { background-color: #262932; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .15); }
 @media (max-width: 991.98px) { .perm-scroll { max-height: max(320px, calc(100vh - 300px)); } }
-.page-header .header-wrapper .nav-right .nav-menus .ip-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid rgba(115, 102, 255, .2); border-radius: 999px; background: rgba(115, 102, 255, .07); color: var(--theme-default); font-size: 12px; line-height: 1; white-space: nowrap; vertical-align: middle; }
-.page-header .header-wrapper .nav-right .nav-menus .ip-chip svg { width: 14px; height: 14px; stroke: currentColor; }
-.page-header .header-wrapper .nav-right .nav-menus .ip-chip-label { font-size: 10px; font-weight: 600; letter-spacing: .06em; opacity: .7; }
-.page-header .header-wrapper .nav-right .nav-menus .ip-chip-value { font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
-body.dark-only .page-header .header-wrapper .nav-right .nav-menus .ip-chip { background: rgba(115, 102, 255, .15); border-color: rgba(115, 102, 255, .35); color: #a99fff; }
-body.dark-only .page-wrapper .page-header .header-wrapper .nav-right .nav-menus li .ip-chip svg,
-body.dark-only .page-wrapper .page-header .header-wrapper .nav-right .nav-menus li .ip-chip svg * { stroke: currentColor; color: inherit; }
 @media print {
     .page-header, .sidebar-wrapper, .footer, .no-print, .mnav, .msheet, .msheet-backdrop, .toast-host { display: none !important; }
     .page-body { margin: 0 !important; }
@@ -1108,4 +1107,15 @@ body.dark-only .pilih-kanal-item { background: #262932; }
     .ct-riwayat .ct-print { align-self: flex-start; }
     .ct-result + .ct-result { margin-top: 36px; }
     .ct .lp-footer { padding-bottom: 18px; }
+}
+
+/* Pergantian dark ↔ light yang halus (useNavLayout.toggleTheme). Browser yang mendukung View Transitions: seluruh halaman
+   memudar dari tampilan lama ke baru. Lainnya: warna dianimasikan sesaat lewat class sementara di <html>, agar tidak
+   membebani transisi elemen di luar momen ganti tema. */
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: .4s; animation-timing-function: ease-in-out; }
+html.tema-transisi *,
+html.tema-transisi *::before,
+html.tema-transisi *::after {
+    transition: background-color .4s ease, color .4s ease, border-color .4s ease, fill .4s ease, stroke .4s ease, box-shadow .4s ease !important;
 }

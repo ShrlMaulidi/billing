@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Avatar } from '../Components/ui';
-import { AlignCenter, Globe, LogOut, Moon, Sidebar as SidebarIcon, Sun, User, Settings } from 'react-feather';
+import { AlignCenter, LogOut, Moon, Sidebar as SidebarIcon, Sun, User, Settings } from 'react-feather';
 
 export default function Header({ closed, onToggle, dark, onToggleTheme, navMode, onToggleNavMode }) {
     const { auth } = usePage().props;
@@ -19,13 +19,6 @@ export default function Header({ closed, onToggle, dark, onToggleTheme, navMode,
                 </div>
                 <div className="nav-right col-xxl-7 col-xl-6 col-md-7 col-8 pull-right right-header p-0 ms-auto">
                     <ul className="nav-menus flex-row">
-                        <li className="d-none d-md-block">
-                            <div className="ip-chip" title="IP login">
-                                <Globe />
-                                <span className="ip-chip-label">IP</span>
-                                <span className="ip-chip-value">{auth.ip}</span>
-                            </div>
-                        </li>
                         {/* Ganti mode navigasi (khusus mobile); ikon menunjukkan mode tujuan, seperti tombol tema */}
                         <li className="d-lg-none">
                             <button type="button" className="mode nav-mode-toggle" onClick={onToggleNavMode}

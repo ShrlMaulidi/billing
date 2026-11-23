@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 /**
  * State layout Cuba yang dipakai dashboard staf & dashboard pelanggan: sidebar buka/tutup, mode navigasi di HP
@@ -28,9 +29,30 @@ export default function useNavLayout() {
     const [dark, setDark] = useState(() => document.body.classList.contains('dark-only'));
     const toggleTheme = () => {
         const next = !dark;
-        document.body.classList.toggle('dark-only', next);
-        try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch (e) { /* abaikan */ }
-        setDark(next);
+        const terapkan = () => {
+            document.body.classList.toggle('dark-only', next);
+            try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch (e) { /* abaikan */ }
+            // flushSync: ikon tombol tema ikut berganti sebelum tampilan baru direkam View Transition
+            flushSync(() => setDark(next));
+        };
+
+        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            terapkan();
+            return;
+        }
+        if (document.startViewTransition) {
+            // Jeda singkat agar grafik (Chart.jsx, mengamati class body) sempat berganti warna sebelum direkam
+            document.startViewTransition(async () => {
+                terapkan();
+                await new Promise((selesai) => setTimeout(selesai, 50));
+            });
+            return;
+        }
+        const html = document.documentElement;
+        html.classList.add('tema-transisi');
+        clearTimeout(window.__tungguTransisiTema);
+        window.__tungguTransisiTema = setTimeout(() => html.classList.remove('tema-transisi'), 450);
+        terapkan();
     };
 
     return { closed, toggle, navMode, setNavMode, toggleNavMode, dark, toggleTheme };
