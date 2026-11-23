@@ -6,6 +6,7 @@ import {
 } from 'react-feather';
 import { MENU, menuUntuk } from '../lib/menu';
 import { useBisa } from '../lib/ui';
+import useGeserTutup from './useGeserTutup';
 
 // Menu utama di navbar bawah (mobile); label dipersingkat agar muat di layar kecil
 const PRIMARY = [
@@ -47,6 +48,8 @@ export default function MobileNav() {
     const path = url.split('?')[0];
     const isActive = (href) => path === href || path.startsWith(`${href}/`);
     const [open, setOpen] = useState(false);
+    // Panel menu bisa ditutup dengan menggeser ke bawah
+    const { panelRef, backdropRef, sentuh } = useGeserTutup(() => setOpen(false));
 
     // Tutup panel saat pindah halaman, tombol Esc, dan kunci scroll halaman selama terbuka
     useEffect(() => router.on('navigate', () => setOpen(false)), []);
@@ -80,8 +83,8 @@ export default function MobileNav() {
                 </button>
             </nav>
 
-            <div className={`msheet-backdrop ${open ? 'show' : ''}`} onClick={() => setOpen(false)} aria-hidden="true" />
-            <div className={`msheet ${open ? 'show' : ''}`} role="dialog" aria-modal="true" aria-label="Menu lainnya" aria-hidden={!open}>
+            <div ref={backdropRef} className={`msheet-backdrop ${open ? 'show' : ''}`} onClick={() => setOpen(false)} aria-hidden="true" />
+            <div ref={panelRef} className={`msheet ${open ? 'show' : ''}`} role="dialog" aria-modal="true" aria-label="Menu lainnya" aria-hidden={!open} {...sentuh}>
                 <div className="msheet-handle" />
                 <div className="msheet-head">
                     <h6>Menu Lainnya</h6>

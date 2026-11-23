@@ -339,7 +339,11 @@ body.dark-only .btn-action-dark { --c: #a9a9c0; }
     .msheet-backdrop.show { opacity: 1; pointer-events: auto; }
     .msheet { display: flex; flex-direction: column; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1041; max-height: 82vh; padding-bottom: env(safe-area-inset-bottom); background: #fff; border-radius: 22px 22px 0 0; box-shadow: 0 -10px 40px rgba(15, 23, 42, .18); transform: translateY(100%); visibility: hidden; transition: transform .3s cubic-bezier(.32, .72, 0, 1), visibility .3s; }
     .msheet.show { transform: translateY(0); visibility: visible; }
-    .msheet-handle { width: 40px; height: 4px; margin: 10px auto 0; border-radius: 4px; background: #d9d9e3; }
+    /* Pegangan geser: area sentuh lebih lebar dari garisnya; geser bawah di pegangan/judul tidak memicu gulir halaman */
+    .msheet-handle { position: relative; width: 40px; height: 4px; margin: 10px auto 0; border-radius: 4px; background: #d9d9e3; }
+    .msheet-handle::before { content: ""; position: absolute; inset: -12px -60px; }
+    .msheet-handle, .msheet-head { touch-action: none; }
+    .msheet-body { overscroll-behavior: contain; }
     .msheet-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px 6px; }
     .msheet-head h6 { margin: 0; font-weight: 600; }
     .msheet-close { display: flex; padding: 6px; border: 0; border-radius: 50%; background: #f3f3f8; color: #52526c; }
