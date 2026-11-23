@@ -59,8 +59,9 @@ export default function PasangAplikasi() {
             <div className="pasang-aplikasi-baris">
                 <img src="/pwa/icon-192.png" alt="" className="pasang-aplikasi-ikon" />
                 <div className="pasang-aplikasi-teks">
-                    <strong>Pasang MSS Billing di {hp ? 'HP' : 'komputer'}</strong>
-                    <span>Buka lebih cepat dan akses seperti aplikasi</span>
+                    {/* HP: teks lebih pendek agar muat satu baris */}
+                    <strong>{hp ? 'Pasang MSS Billing' : 'Pasang MSS Billing di komputer'}</strong>
+                    <span>{hp ? 'Akses cepat seperti aplikasi' : 'Buka lebih cepat dan akses seperti aplikasi'}</span>
                 </div>
                 <button type="button" className="pasang-aplikasi-tombol" onClick={pasang}>
                     {ios ? <Share size={16} /> : <Download size={16} />}<span>Pasang</span>

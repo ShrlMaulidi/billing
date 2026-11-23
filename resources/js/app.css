@@ -836,17 +836,18 @@ body.dark-only .pm-menu-badge { border-color: #262932; }
     padding: 12px 12px 12px 14px; border-radius: 18px; background: #fff; border: 1px solid rgba(106, 113, 133, .15);
     box-shadow: 0 14px 36px rgba(11, 42, 111, .22); animation: pasang-muncul .3s ease-out; }
 @media (max-width: 767.98px) {
-    /* HP: lebih ringkas agar tidak menutupi banyak konten */
-    .pasang-aplikasi { top: 68px; width: calc(100vw - 24px); padding: 8px 6px 8px 10px; border-radius: 14px; box-shadow: 0 10px 28px rgba(11, 42, 111, .2); }
-    .pasang-aplikasi-baris { gap: 10px; }
-    .pasang-aplikasi-ikon { width: 36px; height: 36px; border-radius: 9px; }
-    .pasang-aplikasi-teks strong { font-size: 13px; }
-    .pasang-aplikasi-teks span { font-size: 11.5px; }
-    .pasang-aplikasi-tombol { gap: 5px; padding: 7px 13px; font-size: 12.5px; box-shadow: 0 4px 10px rgba(31, 79, 160, .25); }
-    .pasang-aplikasi-tombol svg { width: 14px; height: 14px; }
-    .pasang-aplikasi-tutup { padding: 4px; }
-    .pasang-aplikasi-tutup svg { width: 16px; height: 16px; }
-    .pasang-aplikasi-panduan { margin-top: 8px; padding: 8px 10px; font-size: 12px; }
+    /* HP: ringkas (±52px) agar tidak menutupi banyak konten; judul & subjudul satu baris */
+    .pasang-aplikasi { top: 66px; width: calc(100vw - 24px); padding: 7px 6px 7px 8px; border-radius: 14px; box-shadow: 0 8px 22px rgba(11, 42, 111, .2); }
+    .pasang-aplikasi-baris { gap: 9px; }
+    .pasang-aplikasi-ikon { width: 34px; height: 34px; border-radius: 9px; }
+    .pasang-aplikasi-teks { gap: 1px; }
+    .pasang-aplikasi-teks strong { overflow: hidden; font-size: 12.5px; white-space: nowrap; text-overflow: ellipsis; }
+    .pasang-aplikasi-teks span { font-size: 11px; }
+    .pasang-aplikasi-tombol { gap: 4px; padding: 6px 12px; font-size: 12px; box-shadow: 0 3px 8px rgba(31, 79, 160, .25); }
+    .pasang-aplikasi-tombol svg { width: 13px; height: 13px; }
+    .pasang-aplikasi-tutup { padding: 3px; }
+    .pasang-aplikasi-tutup svg { width: 15px; height: 15px; }
+    .pasang-aplikasi-panduan { margin-top: 7px; padding: 7px 9px; font-size: 11.5px; }
 }
 @keyframes pasang-muncul { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translateX(-50%); } }
 .pasang-aplikasi-baris { display: flex; align-items: center; gap: 12px; }
