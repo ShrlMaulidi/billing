@@ -102,7 +102,7 @@ export default function PaymentGateway({ rows, cabangUser, superAdmin, pemilikOp
                     key: 'nama', label: 'Nama', render: (r) => (
                         <>
                             <strong>{r.nama ?? METODE[r.provider] ?? r.provider}</strong>
-                            {r.utama && <span className="badge badge-light-primary ms-2"><Star size={11} className="me-1 align-baseline" />Utama</span>}
+                            {r.utama && <span className="badge badge-light-primary badge-ikon ms-2"><Star size={11} />Utama</span>}
                             <br /><small className="f-light">{METODE[r.provider] ?? r.provider}</small>
                         </>
                     ),
