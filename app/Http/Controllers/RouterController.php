@@ -97,7 +97,7 @@ class RouterController extends Controller
             'profile_isolir' => ['required', 'string', 'max:100'],
         ], $this->pesanValidasi(), [
             'nama_router' => 'Nama router', 'mode_koneksi' => 'Mode koneksi', 'host' => 'Host / IP publik', 'tunnel_id' => 'Tunnel',
-            'port_api' => 'Port API', 'username' => 'Username API', 'password' => 'Password API', 'profile_isolir' => 'Profile isolir',
+            'port_api' => 'Port API', 'username' => 'Username MikroTik', 'password' => 'Password MikroTik', 'profile_isolir' => 'Profile isolir',
         ]);
 
         if ($data['mode_koneksi'] === 'langsung') {

@@ -80,7 +80,7 @@ class TunnelController extends Controller
             'port_api' => ['nullable', 'integer', 'between:1,65535'],
             'api_user' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
             'api_password' => ['nullable', 'string', 'max:128', 'not_regex:/[\x00-\x1F\x7F]/'],
-        ], $this->pesanValidasi(), ['port_api' => 'Port API', 'api_user' => 'Username API', 'api_password' => 'Password API']);
+        ], $this->pesanValidasi(), ['port_api' => 'Port API', 'api_user' => 'Username MikroTik', 'api_password' => 'Password MikroTik']);
         $port = (int) ($opsi['port_api'] ?? $router?->port_api ?? 8728);
         $gateway = config('services.tunnel.gateway');
 
@@ -103,7 +103,7 @@ class TunnelController extends Controller
         ];
         if (! empty($opsi['api_user']) && ! empty($opsi['api_password'])) {
             array_push($baris, '',
-                '# 4. User API khusus billing (isi Username/Password API yang sama di menu Router)',
+                '# 4. User API khusus billing (isi Username/Password MikroTik yang sama di menu Router)',
                 ':if ([:len [/user group find name="billing-api"]] = 0) do={ /user group add name="billing-api" policy=read,write,api,test }',
                 "/user remove [find name={$q($opsi['api_user'])}]",
                 "/user add name={$q($opsi['api_user'])} password={$q($opsi['api_password'])} group=\"billing-api\" comment=\"API billing MSS\"",

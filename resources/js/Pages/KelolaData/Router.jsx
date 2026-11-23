@@ -25,7 +25,7 @@ export default function Router({ filters, rows, tunnelOptions }) {
     return (
         <CrudPage
             title="Router" rows={rows} filters={filters} deleteLabel={(r) => r.nama_router}
-            defaults={{ mode_koneksi: 'langsung', port_api: 8728, ssl: false, profile_isolir: 'ISOLIR' }}
+            defaults={{ mode_koneksi: 'langsung', port_api: 8728, ssl: false, profile_isolir: 'ISOLIREBILLING' }}
             onSave={saveTo('/mikrotik/router')} onDelete={deleteFrom('/mikrotik/router')}
             canAdd={bisa('kelola_data.router.create')} canEdit={bisa('kelola_data.router.update')} canDelete={bisa('kelola_data.router.delete')}
             before={
@@ -77,9 +77,9 @@ export default function Router({ filters, rows, tunnelOptions }) {
                 { name: 'tunnel_id', label: 'Tunnel', type: 'select', required: true, options: tunnelOptions, help: 'Billing terhubung ke IP router di dalam tunnel ini', show: (v) => v.mode_koneksi === 'tunnel' },
                 { name: 'port_api', label: 'Port API', type: 'number', required: true, help: '8728 (API) atau 8729 (API-SSL)' },
                 { name: 'ssl', label: 'Gunakan API-SSL', type: 'switch' },
-                { name: 'username', label: 'Username API', required: true },
-                { name: 'password', label: 'Password API', type: 'password', help: 'Saat edit, kosongkan bila tidak diubah. Disimpan terenkripsi.' },
-                { name: 'profile_isolir', label: 'Nama Profile Isolir', required: true, help: 'PPP Profile di router yang dipakai saat pelanggan diisolir' },
+                { name: 'username', label: 'Username MikroTik', required: true, help: 'User di System > Users router ini (grup write)' },
+                { name: 'password', label: 'Password MikroTik', type: 'password', help: 'Password user di atas. Saat edit, kosongkan bila tidak diubah. Disimpan terenkripsi.' },
+                { name: 'profile_isolir', label: 'Nama Profile Isolir', required: true, help: 'Profile di router (PPP / Hotspot) untuk pelanggan terisolir, sama dengan nama profile di Template Isolir' },
             ]}
         />
     );

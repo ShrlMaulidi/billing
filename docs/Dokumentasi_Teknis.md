@@ -440,7 +440,7 @@ CRUD area per cabang (kode, nama, cakupan, status). Pelanggan di area yang dihap
 
 ### 9.5 Router `/kelola-data/router` ([RouterController](../app/Http/Controllers/RouterController.php))
 
-- Field: kode, nama, cabang (kosong = dipakai bersama semua cabang), mode koneksi, host (mode langsung) atau tunnel (mode tunnel), port API, SSL, username & password API, profile isolir.
+- Field: kode, nama, cabang (kosong = dipakai bersama semua cabang), mode koneksi, host (mode langsung) atau tunnel (mode tunnel), port API, SSL, username & password MikroTik (user di System > Users router, grup write), profile isolir (bawaan form `ISOLIREBILLING`).
 - Password disimpan terenkripsi (`APP_KEY`) dan tidak pernah dikirim ke browser. Saat edit, kosong = tidak diubah.
 - Setiap simpan me-reset `status_koneksi` ke `belum_dicek`.
 - **Tes koneksi** `POST /mikrotik/router/{id}/test`: mengambil identity, versi RouterOS, board, uptime, lalu menyimpan identity & versi.

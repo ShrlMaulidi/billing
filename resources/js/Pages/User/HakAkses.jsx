@@ -67,7 +67,7 @@ export default function HakAkses({ roles, selected, menus, permissions }) {
                                         <button key={r.id} type="button" className={`list-group-item list-group-item-action d-flex justify-content-between ${r.id === selected ? 'active' : ''}`}
                                             onClick={() => pilihRole(r.id)}>
                                             <span>{r.nama} {r.is_locked && <Lock size={12} />}<br /><small>{r.keterangan}</small></span>
-                                            <span className="badge bg-light text-dark align-self-center">{r.jumlah_user}</span>
+                                            <span className="badge badge-light-primary align-self-center">{r.jumlah_user}</span>
                                         </button>
                                     ))}
                                 </div>

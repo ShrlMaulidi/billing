@@ -29,7 +29,7 @@ class IsolirController extends Controller
     {
         $router = Router::orderBy('nama_router')->get();
         $opsi = [
-            'profile' => $router->first()->profile_isolir ?? 'ISOLIR',
+            'profile' => $router->first()->profile_isolir ?? 'ISOLIREBILLING',
             'jaringan' => '192.168.200.0/24',
             'port_proxy' => 8099,
             'url_isolir' => $this->urlIsolir(),

@@ -553,7 +553,7 @@ class PelangganTest extends TestCase
 
         $this->postJson('/mikrotik/router', ['nama_router' => 'RB Garut', 'mode_koneksi' => 'tunnel'])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['tunnel_id' => 'Tunnel wajib diisi', 'password' => 'Password API wajib diisi']);
+            ->assertJsonValidationErrors(['tunnel_id' => 'Tunnel wajib diisi', 'password' => 'Password MikroTik wajib diisi']);
 
         $this->postJson('/mikrotik/router', [
             'nama_router' => 'RB Garut', 'mode_koneksi' => 'tunnel', 'tunnel_id' => $tunnel->id, 'host' => '1.2.3.4', 'port_api' => 8728,

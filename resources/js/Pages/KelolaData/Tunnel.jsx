@@ -80,17 +80,17 @@ export default function Tunnel({ filters, rows, saran, jaringan }) {
                                 <input type="number" className="form-control" min={1} max={65535} value={script.opsi.port_api ?? ''} onChange={ubahOpsi('port_api')} />
                             </div>
                             <div className="col-sm-3">
-                                <label className="form-label mb-1">Username API</label>
+                                <label className="form-label mb-1">Username MikroTik</label>
                                 <input className="form-control" value={script.opsi.api_user ?? ''} onChange={ubahOpsi('api_user')} />
                             </div>
                             <div className="col-sm-3">
-                                <label className="form-label mb-1">Password API</label>
+                                <label className="form-label mb-1">Password MikroTik</label>
                                 <input type="password" className="form-control" placeholder="Opsional" value={script.opsi.api_password} onChange={ubahOpsi('api_password')} autoComplete="new-password" />
                             </div>
                             <div className="col-sm-3">
                                 <Button color="info" className="w-100" disabled={loading === script.id}>Perbarui Script</Button>
                             </div>
-                            <small className="f-light">Isi Password API bila ingin sekalian membuat user API khusus billing di router. Port & user API harus sama dengan isian di menu Router.</small>
+                            <small className="f-light">Isi Password MikroTik bila ingin sekalian membuat user khusus billing di router. Port API & user MikroTik harus sama dengan isian di menu Router.</small>
                         </form>
                     )}
                     <p className="f-light mb-2">Tempel di <strong>New Terminal</strong> Winbox router mitra:</p>

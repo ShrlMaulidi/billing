@@ -4,6 +4,17 @@
 body.dark-only .table-sticky th:first-child,
 body.dark-only .table-sticky td:first-child { background: #262932; }
 .table-sticky tfoot td { font-weight: 600; }
+/* Bootstrap .table-light mengunci teks hitam & latar terang dan Cuba tidak menyesuaikannya di dark mode
+   (baris Total DataTable, header tabel di modal): ikuti palet gelap */
+body.dark-only .table-light {
+    --bs-table-color: rgba(255, 255, 255, .85); --bs-table-bg: #2c2f3a; --bs-table-border-color: #374558;
+    --bs-table-striped-color: rgba(255, 255, 255, .85); --bs-table-striped-bg: #30333f;
+    --bs-table-active-color: rgba(255, 255, 255, .85); --bs-table-active-bg: #343846;
+    --bs-table-hover-color: rgba(255, 255, 255, .85); --bs-table-hover-bg: #343846;
+}
+/* Sel pertama yang menempel (sticky) di baris total ikut warna barisnya */
+.table-sticky .table-light > td:first-child,
+body.dark-only .table-sticky .table-light > td:first-child { background: var(--bs-table-bg); }
 .table th { white-space: nowrap; }
 .th-sort { cursor: pointer; user-select: none; }
 .skeleton { display: block; height: 14px; border-radius: 4px; background: linear-gradient(90deg, rgba(0,0,0,.06) 25%, rgba(0,0,0,.12) 37%, rgba(0,0,0,.06) 63%); background-size: 400% 100%; animation: skel 1.2s ease infinite; }
@@ -867,6 +878,7 @@ body.dark-only .pm-menu-badge { border-color: #262932; }
 .pasang-aplikasi-panduan { margin-top: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.55; color: #3f4254; background: #f1f4fa; border-radius: 12px; }
 body.dark-only .pasang-aplikasi { background: #262932; border-color: rgba(255, 255, 255, .08); }
 body.dark-only .pasang-aplikasi-teks strong { color: #fff; }
+body.dark-only .pasang-aplikasi-tutup:hover { color: #fff; }
 body.dark-only .pasang-aplikasi-panduan { color: rgba(255, 255, 255, .8); background: rgba(255, 255, 255, .06); }
 
 /* Pilihan metode bayar Tripay (Components/PilihKanal.jsx) */
