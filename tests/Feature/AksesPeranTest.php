@@ -62,6 +62,45 @@ class AksesPeranTest extends TestCase
         $this->assertModelExists($pelanggan);
     }
 
+    #[TestWith(['Direktur'])]
+    #[TestWith(['Manajemen'])]
+    public function test_monitoring_roles_only_view_and_export_without_customer_data_export(string $role): void
+    {
+        $izin = Role::findByName($role)->permissions->pluck('name');
+
+        $this->assertContains('laporan.export', $izin);
+        $this->assertEmpty($izin->reject(fn (string $nama) => str_ends_with($nama, '.view') || str_ends_with($nama, '.export')));
+        $this->assertNotContains('pelanggan.data.export', $izin);
+        $this->assertEmpty($izin->filter(fn (string $nama) => str_starts_with($nama, 'kelola_data.') || str_starts_with($nama, 'user.') || str_starts_with($nama, 'payment_gateway.')));
+    }
+
+    public function test_director_can_monitor_reports_but_cannot_change_anything(): void
+    {
+        $this->actingAs(User::factory()->peran('Direktur')->create());
+        $pelanggan = Pelanggan::create(['nama' => 'Budi', 'username_pppoe' => 'budi']);
+
+        $this->get('/dashboard')->assertOk();
+        $this->get('/laporan')->assertOk();
+        $this->get('/income-summary')->assertOk();
+        $this->get('/pelanggan/belum-lunas')->assertOk();
+        $this->get('/logs')->assertOk();
+        $this->postJson('/pelanggan', ['nama' => 'Disusupkan'])->assertForbidden();
+        $this->postJson("/pelanggan/{$pelanggan->id}/isolir")->assertForbidden();
+        $this->postJson("/pelanggan/{$pelanggan->id}/bayar")->assertForbidden();
+        $this->postJson("/pelanggan/{$pelanggan->id}/tagihan-wa")->assertForbidden();
+        $this->get('/kelola-data/paket')->assertForbidden();
+
+        $this->assertDatabaseCount('pelanggan', 1);
+    }
+
+    public function test_management_cannot_open_logs(): void
+    {
+        $this->actingAs(User::factory()->peran('Manajemen')->create());
+
+        $this->get('/laporan')->assertOk();
+        $this->get('/logs')->assertForbidden();
+    }
+
     public function test_role_without_permissions_is_forbidden_everywhere(): void
     {
         Role::create(['name' => 'Tamu', 'guard_name' => 'web']);

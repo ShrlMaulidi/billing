@@ -17,7 +17,7 @@ class HakAksesTest extends TestCase
         $sales = Role::findByName('Sales');
 
         $this->get("/user/hak-akses?role={$sales->id}")->assertOk()->assertInertia(fn ($page) => $page->component('User/HakAkses')
-            ->has('roles', 5)->where('roles.0.nama', 'Super Admin')->where('roles.0.is_locked', true)
+            ->has('roles', 7)->where('roles.0.nama', 'Super Admin')->where('roles.0.is_locked', true)
             ->where('selected', $sales->id)
             ->where('permissions', ['dashboard' => ['view' => true], 'pelanggan.data' => ['view' => true, 'create' => true]])
             ->where('menus.0', ['key' => 'dashboard', 'label' => 'Dashboard', 'aksi' => ['view']]));

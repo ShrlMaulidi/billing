@@ -66,11 +66,26 @@ class HakAkses
         'Mitra' => 'Pemilik / pengelola cabang',
         'Sales' => 'Registrasi pelanggan baru',
         'Teknisi' => 'Instalasi & gangguan',
+        'Direktur' => 'Monitoring laporan & rekap seluruh cabang (hanya lihat & export laporan)',
+        'Manajemen' => 'Monitoring laporan & rekap seluruh cabang (hanya lihat)',
         AkunPelanggan::ROLE => AkunPelanggan::KETERANGAN_ROLE,
     ];
 
     /** Menu yang bisa mengubah konfigurasi router secara langsung atau mengatur akun; bawaan hanya Super Admin. */
     private const KHUSUS_SUPER_ADMIN = ['kelola_data.router', 'kelola_data.tunnel', 'kelola_data.template_isolir', 'user.manajemen', 'user.hak_akses'];
+
+    /**
+     * Menu yang dibuka role monitoring (Direktur & Manajemen), hanya aksi Lihat: tidak bisa mengubah data, mematikan
+     * pelanggan, mengirim WhatsApp, atau mencatat pembayaran.
+     */
+    private const MENU_MONITORING = ['dashboard', 'dashboard_cabang', 'income_summary',
+        'laporan', 'laporan.mitra', 'laporan.pemerintah', 'laporan.korporat', 'laporan.shafanet',
+        'transaksi.setor', 'transaksi.penarikan', 'transaksi.pengeluaran',
+        'pelanggan.data', 'pelanggan.on', 'pelanggan.off', 'pelanggan.lunas', 'pelanggan.belum_lunas', 'pelanggan.berhenti', 'pelanggan.prorate',
+        'tiket'];
+
+    /** Laporan yang boleh di-export role monitoring; export Data Pelanggan (nama & nomor HP) sengaja tidak diberikan. */
+    private const LAPORAN_MONITORING = ['dashboard_cabang', 'laporan', 'laporan.mitra', 'laporan.pemerintah', 'laporan.korporat', 'laporan.shafanet'];
 
     /** @return list<string> semua nama permission */
     public static function permissions(): array
@@ -88,6 +103,8 @@ class HakAkses
                 ...self::untukMenu(['payment_gateway', 'kelola_data.notifikasi'])],
             'Sales' => ['dashboard.view', 'pelanggan.data.view', 'pelanggan.data.create'],
             'Teknisi' => ['dashboard.view', 'pelanggan.data.view', 'pelanggan.on.view', 'pelanggan.off.view', 'tiket.view', 'tiket.update'],
+            'Direktur' => [...self::untukMenu(self::MENU_MONITORING, ['view']), ...self::untukMenu([...self::LAPORAN_MONITORING, 'income_summary'], ['export']), 'logs.view'],
+            'Manajemen' => [...self::untukMenu(self::MENU_MONITORING, ['view']), ...self::untukMenu(self::LAPORAN_MONITORING, ['export'])],
             default => [],
         };
     }
