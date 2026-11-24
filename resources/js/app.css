@@ -1367,3 +1367,39 @@ body.dark-only .ingatkan-baris + .ingatkan-baris { border-color: #2f3443; }
     .ip-isi { padding-bottom: 0; }
     .ip-kaki { padding-top: 4px; }
 }
+
+/* Dashboard Laporan (Pages/Laporan/Dashboard.jsx): kotak Sudah / Belum Bayar per tipe klien, klik = daftar nama (slide dari kanan) */
+.dl-judul { margin-bottom: 14px; }
+.dl-judul small { display: block; margin-top: 2px; font-size: 12.5px; }
+.dl-kotak-baris { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.dl-kotak { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding: 12px 14px; text-align: left; border: 1px solid transparent; border-radius: 12px; cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease; }
+.dl-kotak:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(36, 41, 52, .08); }
+.dl-kotak:not(:disabled):active { transform: scale(.98); }
+.dl-kotak:disabled { cursor: default; opacity: .75; }
+.dl-kotak.is-sudah { background: rgba(84, 186, 74, .08); border-color: rgba(84, 186, 74, .2); }
+.dl-kotak.is-belum { background: rgba(252, 74, 74, .07); border-color: rgba(252, 74, 74, .18); }
+.dl-kotak-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+.dl-kotak-label svg { flex-shrink: 0; }
+.is-sudah .dl-kotak-label { color: #3f9a36; }
+.is-belum .dl-kotak-label { color: #e04848; }
+.dl-kotak-jumlah { margin-top: 4px; font-size: 22px; font-weight: 700; line-height: 1.15; color: var(--theme-body-font-color, #2c323f); }
+.dl-kotak-jumlah small { font-size: 12px; font-weight: 500; color: #8a8aa0; }
+.dl-kotak-nominal { max-width: 100%; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--theme-body-font-color, #2c323f); overflow-wrap: anywhere; }
+.dl-kotak-ket { font-size: 11.5px; line-height: 1.3; color: #8a8aa0; }
+.dl-kotak-panah { position: absolute; top: 12px; right: 10px; color: #b0b0c0; }
+.dl-total .dl-kotak-jumlah { font-size: 26px; }
+.dl-total .dl-kotak-nominal { font-size: 15px; }
+.dl-tipe-kepala { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.dl-tipe-ikon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; }
+.dl-tipe-kepala small { display: block; margin-top: 1px; font-size: 12px; }
+.dl-panel .offcanvas-title small { margin-top: 2px; font-size: 12.5px; }
+body.dark-only .dl-kotak.is-sudah { background: rgba(84, 186, 74, .12); border-color: rgba(84, 186, 74, .25); }
+body.dark-only .dl-kotak.is-belum { background: rgba(252, 74, 74, .12); border-color: rgba(252, 74, 74, .25); }
+body.dark-only .dl-kotak-jumlah, body.dark-only .dl-kotak-nominal { color: rgba(255, 255, 255, .9); }
+@media (max-width: 575.98px) {
+    .dl-kotak { padding: 11px 12px; }
+    .dl-kotak-jumlah { font-size: 20px; }
+    .dl-total .dl-kotak-jumlah { font-size: 22px; }
+    .dl-kotak-nominal, .dl-total .dl-kotak-nominal { font-size: 13px; }
+}

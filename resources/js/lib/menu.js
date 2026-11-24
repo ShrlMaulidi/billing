@@ -62,6 +62,7 @@ export const MENU = [
             {
                 title: 'Laporan', icon: 'file', base: '/laporan',
                 children: [
+                    { title: 'Dashboard Laporan', href: '/laporan/dashboard', izin: 'laporan.dashboard.view', pusat: true },
                     { title: 'Semua Laporan', href: '/laporan', izin: 'laporan.view' },
                     { title: 'Laporan Mitra', href: '/laporan/mitra', izin: 'laporan.mitra.view' },
                     { title: 'Laporan Instansi Pemerintah', href: '/laporan/pemerintah', izin: 'laporan.pemerintah.view', pusat: true },

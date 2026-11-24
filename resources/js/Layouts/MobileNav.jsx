@@ -1,7 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ArrowDownCircle, ArrowUpCircle, Bell, LifeBuoy, Box, CheckCircle, Circle, CreditCard, Database, FileText, GitBranch, Key, List, LogOut, Map, MapPin, Menu, Percent, Server, Shield,
+    ArrowDownCircle, ArrowUpCircle, Bell, PieChart, LifeBuoy, Box, CheckCircle, Circle, CreditCard, Database, FileText, GitBranch, Key, List, LogOut, Map, MapPin, Menu, Percent, Server, Shield,
     ShoppingBag, Slash, UploadCloud, User, UserCheck, Users, UserX, X, XCircle, Zap,
 } from 'react-feather';
 import { MENU, menuUntuk } from '../lib/menu';
@@ -23,7 +23,7 @@ const SHEET_ICON = {
     '/kelola-data/pph': UploadCloud, '/kelola-data/tunnel': GitBranch, '/transaksi/penarikan-saldo': ArrowUpCircle,
     '/transaksi/setor-kewajiban': ArrowDownCircle, '/transaksi/pengeluaran': ShoppingBag, '/payment-gateway': Zap, '/logs': List,
     '/user/manajemen': Users, '/user/hak-akses': Shield, '/data-pelanggan': Users, '/tiket': LifeBuoy, '/user/akun-pelanggan': UserCheck,
-    '/laporan/mitra': FileText, '/laporan/pemerintah': FileText, '/laporan/korporat': FileText, '/laporan/shafa-net': FileText,
+    '/laporan/dashboard': PieChart, '/laporan/mitra': FileText, '/laporan/pemerintah': FileText, '/laporan/korporat': FileText, '/laporan/shafa-net': FileText,
 };
 
 // Sisa menu sidebar (selain menu utama), dikelompokkan seperti di sidebar

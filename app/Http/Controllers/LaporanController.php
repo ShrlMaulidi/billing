@@ -29,6 +29,9 @@ class LaporanController extends Controller
     /** Tipe yang tidak terikat cabang: hanya untuk user semua cabang. */
     private const KHUSUS_PUSAT = ['pemerintah', 'korporat'];
 
+    /** Tipe di Dashboard Laporan: klien perusahaan yang ditagih per bulan (pelanggan end user Shafa.net tidak termasuk). */
+    private const TIPE_DASHBOARD = ['reseller', 'pemerintah', 'korporat'];
+
     public function semua(Request $request): Response
     {
         $boleh = collect(array_keys(self::LAPORAN))->filter(fn (string $tipe) => $request->user()->can(self::LAPORAN[$tipe][1].'.view')
@@ -56,6 +59,51 @@ class LaporanController extends Controller
     public function pemerintah(Request $request): Response
     {
         return $this->laporan($request, self::LAPORAN['pemerintah'][0], ['pemerintah']);
+    }
+
+    /**
+     * Dashboard Laporan (khusus user pusat): per tipe klien, berapa yang sudah bayar (lunas) dan yang belum bayar
+     * (belum sama sekali atau baru sebagian), beserta daftar namanya. Tipe yang laporannya tidak boleh dilihat user tidak ditampilkan.
+     */
+    public function dashboard(Request $request): Response
+    {
+        $f = $this->filterLaporan($request);
+        $periode = $this->periodeLaporan($f);
+        $hasil = collect(self::TIPE_DASHBOARD)
+            ->filter(fn (string $tipe) => $request->user()->can(self::LAPORAN[$tipe][1].'.view'))
+            ->mapWithKeys(fn (string $tipe) => [$tipe => LaporanKeuangan::hitung($tipe, $periode)]);
+
+        return Inertia::render('Laporan/Dashboard', [
+            'filters' => ['bulan' => $f['bulan'], 'tahun' => $f['tahun'], 'mode' => $f['mode']],
+            'periode' => $periode,
+            'perTipe' => $hasil->map(fn (Collection $baris, string $tipe) => ['tipe' => $tipe, ...$this->sudahBelum($baris)])->values(),
+            'total' => $this->sudahBelum($hasil->flatten(1)),
+            'rows' => $hasil->flatten(1)->map(fn (array $b) => collect($b)->only(['key', 'tipe', 'nama', 'keterangan', 'omset', 'masuk', 'sisa', 'status', 'periode_belum'])->all())->values(),
+            'tahunList' => $this->tahunList(),
+        ]);
+    }
+
+    /**
+     * Sudah bayar = lunas (nominal = tagihan yang sudah dibayar); belum bayar = belum sama sekali atau baru sebagian
+     * (nominal = sisa tagihan).
+     *
+     * @param  Collection<int, array<string, mixed>>  $baris
+     * @return array{jumlah: int, omset: int, masuk: int, persen_masuk: float, sudah: array{jumlah: int, nominal: int}, belum: array{jumlah: int, nominal: int, sebagian: int}}
+     */
+    private function sudahBelum(Collection $baris): array
+    {
+        $lunas = $baris->where('status', 'lunas');
+        $belum = $baris->where('status', '!=', 'lunas');
+        $ringkasan = LaporanKeuangan::ringkasan($baris);
+
+        return [
+            'jumlah' => $baris->count(),
+            'omset' => $ringkasan['omset'],
+            'masuk' => $ringkasan['masuk'],
+            'persen_masuk' => $ringkasan['persen_masuk'],
+            'sudah' => ['jumlah' => $lunas->count(), 'nominal' => (int) $lunas->sum('omset')],
+            'belum' => ['jumlah' => $belum->count(), 'nominal' => (int) $belum->sum('sisa'), 'sebagian' => $ringkasan['sebagian']],
+        ];
     }
 
     /**

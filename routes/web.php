@@ -241,6 +241,7 @@ Route::middleware('auth')->group(function () {
 
     // Menu global (tidak terikat cabang): hanya untuk user semua cabang
     Route::middleware('semua_cabang')->group(function () {
+        Route::get('/laporan/dashboard', [LaporanController::class, 'dashboard'])->middleware('permission:laporan.dashboard.view')->name('laporan.dashboard');
         Route::get('/laporan/korporat', [LaporanController::class, 'korporat'])->middleware('permission:laporan.korporat.view')->name('laporan.korporat');
         Route::get('/laporan/pemerintah', [LaporanController::class, 'pemerintah'])->middleware('permission:laporan.pemerintah.view')->name('laporan.pemerintah');
 

@@ -47,6 +47,7 @@ class HakAkses
         'transaksi.penarikan' => ['Transaksi › Penarikan Saldo Mitra', '/transaksi/penarikan-saldo', ['view', 'create', 'approve']],
         'transaksi.setor' => ['Transaksi › Pembayaran Masuk (Tambah & Hapus khusus user pusat)', '/transaksi/setor-kewajiban', ['view', 'create', 'delete']],
         'transaksi.pengeluaran' => ['Transaksi › Pengeluaran', '/transaksi/pengeluaran', self::CRUD],
+        'laporan.dashboard' => ['Laporan › Dashboard Laporan (Mitra, Instansi & Korporat yang sudah / belum bayar; khusus user pusat)', '/laporan/dashboard', ['view']],
         'laporan' => ['Laporan › Semua Laporan', '/laporan', ['view', 'export']],
         'laporan.mitra' => ['Laporan › Laporan Mitra', '/laporan/mitra', ['view', 'export']],
         'laporan.pemerintah' => ['Laporan › Laporan Instansi Pemerintah (khusus user pusat)', '/laporan/pemerintah', ['view', 'export']],
@@ -79,7 +80,7 @@ class HakAkses
      * pelanggan, mengirim WhatsApp, atau mencatat pembayaran.
      */
     private const MENU_MONITORING = ['dashboard', 'dashboard_cabang', 'income_summary',
-        'laporan', 'laporan.mitra', 'laporan.pemerintah', 'laporan.korporat', 'laporan.shafanet',
+        'laporan.dashboard', 'laporan', 'laporan.mitra', 'laporan.pemerintah', 'laporan.korporat', 'laporan.shafanet',
         'transaksi.setor', 'transaksi.penarikan', 'transaksi.pengeluaran',
         'pelanggan.data', 'pelanggan.on', 'pelanggan.off', 'pelanggan.lunas', 'pelanggan.belum_lunas', 'pelanggan.berhenti', 'pelanggan.prorate',
         'tiket'];

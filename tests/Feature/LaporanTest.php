@@ -250,6 +250,37 @@ class LaporanTest extends TestCase
         $this->get('/laporan/shafa-net')->assertForbidden();
     }
 
+    public function test_report_dashboard_counts_paid_and_unpaid_clients_per_type_with_their_names(): void
+    {
+        $this->instansi(['nama' => 'PT Lunas'])->pembayaran()->create(['periode' => '2026-10-01', 'nominal' => 1000000, 'ppn_persen' => 11, 'ppn' => 110000, 'total' => 1110000]);
+        $this->instansi(['nama' => 'PT Sebagian'])->pembayaran()->create(['periode' => '2026-10-01', 'nominal' => 500000, 'ppn_persen' => 11, 'ppn' => 55000, 'total' => 555000]);
+        $this->instansi(['nama' => 'PT Belum']);
+        $this->instansi(['tipe' => 'pemerintah', 'nama' => 'RSUD Garut']);
+        // Pelanggan end user Shafa.net tidak termasuk dashboard
+        $this->pelanggan('Budi', Paket::create(['nama_paket' => 'Home', 'harga' => 150000]));
+        $this->actingAs(User::factory()->peran('Direktur')->create());
+
+        $this->get('/laporan/dashboard?bulan=10&tahun=2026')->assertOk()->assertInertia(fn ($page) => $page->component('Laporan/Dashboard')
+            ->where('perTipe.1.tipe', 'pemerintah')
+            ->where('perTipe.1.sudah', ['jumlah' => 0, 'nominal' => 0])
+            ->where('perTipe.1.belum', ['jumlah' => 1, 'nominal' => 1110000, 'sebagian' => 0])
+            ->where('perTipe.2.tipe', 'korporat')
+            ->where('perTipe.2.sudah', ['jumlah' => 1, 'nominal' => 1110000])
+            ->where('perTipe.2.belum', ['jumlah' => 2, 'nominal' => 1665000, 'sebagian' => 1])
+            ->where('total.jumlah', 4)->where('total.sudah.jumlah', 1)->where('total.belum.jumlah', 3)
+            ->has('rows', 4)->where('rows.1.nama', 'PT Belum')->where('rows.1.status', 'belum_lunas')
+            ->missing('rows.0.periode'));
+    }
+
+    public function test_report_dashboard_is_only_for_head_office_users_with_permission(): void
+    {
+        $cabang = User::factory()->peran('Mitra')->create(['id_lokasi' => $this->garut->id]);
+        $cabang->givePermissionTo('laporan.dashboard.view');
+
+        $this->actingAs($cabang)->get('/laporan/dashboard')->assertForbidden();
+        $this->actingAs(User::factory()->peran('Teknisi')->create())->get('/laporan/dashboard')->assertForbidden();
+    }
+
     public function test_invalid_filters_fall_back_to_the_current_month(): void
     {
         $this->actingAs(User::factory()->create());
