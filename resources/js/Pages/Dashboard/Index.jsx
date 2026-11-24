@@ -9,9 +9,11 @@ import PerubahanGateway from '../../Components/PerubahanGateway';
 import SaldoCard, { RincianSaldo, useSaldoHidden } from '../../Components/SaldoCard';
 import { StatCard, StatusBadge } from '../../Components/ui';
 import { angka, periode, rupiah, tanggal, waktu } from '../../lib/format';
+import { useBisa } from '../../lib/ui';
 
 export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik, saldoMitra, perubahanGateway }) {
     const [saldoHidden, toggleSaldo] = useSaldoHidden();
+    const bisa = useBisa();
     // Kartu pelanggan membuka menu Pelanggan yang sesuai (data asli, ada aksi lengkap); kategori lain ke daftar dashboard
     const MENU_PELANGGAN = {
         total: '/pelanggan/data', on: '/pelanggan/on', off: '/pelanggan/off', lunas: '/pelanggan/lunas', belum_lunas: '/pelanggan/belum-lunas', berhenti: '/pelanggan/berhenti',
@@ -42,6 +44,8 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik, s
             yaxis: { labels: { formatter: (v) => `${(v / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt` } },
             tooltip: { y: { formatter: rupiah } },
             fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
+            // HP: grafik lebih pendek, label bulan tegak (tidak miring) dengan huruf lebih kecil
+            responsive: [{ breakpoint: 576, options: { chart: { height: 230 }, xaxis: { labels: { rotate: 0, hideOverlappingLabels: true, style: { fontSize: '10px' } } } } }],
         },
         series: [{ name: 'Pemasukan', data: grafik.map((g) => g.total) }],
     };
@@ -73,7 +77,7 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik, s
                         <Card>
                             <CardHeader className="pb-0 d-flex justify-content-between align-items-center">
                                 <h5 className="mb-0"><MessageCircle size={18} className="me-1" />Data WAGW</h5>
-                                <Link href="/kelola-data/notifikasi" prefetch className="btn btn-outline-primary btn-sm">Kelola</Link>
+                                {bisa('kelola_data.notifikasi.view') && <Link href="/kelola-data/notifikasi" prefetch className="btn btn-outline-primary btn-sm">Kelola</Link>}
                             </CardHeader>
                             <CardBody>
                                 {wagw.gateway !== 'siap' && <p className="text-warning small mb-2">{wagw.gateway === 'offline' ? 'Layanan WhatsApp di server tidak berjalan' : 'Layanan WhatsApp belum dikonfigurasi'}</p>}
@@ -109,7 +113,7 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik, s
                             emptyText="Belum ada pelanggan baru bulan ini"
                             columns={[
                                 { key: 'id_pelanggan', label: 'ID Pelanggan' },
-                                { key: 'nama', label: 'Nama' },
+                                { key: 'nama', label: 'Nama', kartu: 'judul' },
                                 { key: 'cabang', label: 'Cabang' },
                                 { key: 'paket', label: 'Paket' },
                                 { key: 'tgl_registrasi', label: 'Tgl Registrasi', render: (r) => tanggal(r.tgl_registrasi) },

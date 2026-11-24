@@ -10,7 +10,8 @@ const cellValue = (row, col) => (col.sortValue ? col.sortValue(row) : row[col.ke
  * Tabel reusable: search, sort, paginasi, export, column toggle, sticky kolom pertama,
  * baris total, seleksi, serta empty / loading / error state.
  * card(row): bila diisi, di layar HP (< 576px) baris tampil sebagai kartu dari fungsi ini, bukan tabel lebar;
- * pencarian & paginasi tetap sama.
+ * pencarian & paginasi tetap sama. Tanpa card, kartu HP dibuat otomatis dari kolom (KartuOtomatis); card={false} = tetap tabel.
+ * Kolom bisa memberi `kartu`: 'judul' (judul kartu, bawaan kolom pertama), 'penuh' (selebar kartu), atau false (tidak tampil di kartu).
  * toolbar = tombol aksi (kiri baris pertama, sejajar Cari/Kolom/Export di kanan); filterBar = filter, tampil di baris kedua
  * bila ada tombol aksi, atau di baris pertama bila tidak ada.
  */
@@ -45,13 +46,34 @@ export default function DataTable({
     const rows = filtered.slice((current - 1) * per, current * per);
     const totalCols = cols.length + (actions ? 1 : 0) + (selectable ? 1 : 0);
     const allChecked = selectable && rows.length > 0 && rows.every((r) => selected?.has(r[rowKey]));
+    const otomatis = card === undefined;
+    const kolomJudul = otomatis ? cols.find((c) => c.kartu === 'judul') ?? cols.find((c) => c.kartu !== false) : null;
+    const kolomKartu = otomatis ? cols.filter((c) => c !== kolomJudul && c.kartu !== false) : [];
+    const isiSel = (r, c, i) => (c.render ? c.render(r, (current - 1) * per + i) : r[c.key] ?? '-');
+    const kartu = card || ((r, i) => (
+        <>
+            <div className="dt-card-head">
+                {selectable && <span onClick={(e) => e.stopPropagation()}><Input type="checkbox" className="dt-card-cek" checked={selected?.has(r[rowKey]) ?? false} onChange={() => toggleRow(r[rowKey])} /></span>}
+                <div className="dt-card-judul">{kolomJudul && isiSel(r, kolomJudul, i)}</div>
+            </div>
+            {kolomKartu.length > 0 && (
+                <dl className="dt-card-grid">
+                    {kolomKartu.map((c) => <div key={c.key} className={c.kartu === 'penuh' ? 'dt-card-penuh' : undefined}><dt>{c.label}</dt><dd>{isiSel(r, c, i)}</dd></div>)}
+                </dl>
+            )}
+            {actions && <div className="dt-card-aksi" onClick={(e) => e.stopPropagation()}>{actions(r)}</div>}
+        </>
+    ));
+    const totalKartu = otomatis && footer && !loading && filtered.length > 0
+        ? kolomKartu.map((c) => [c, footer(c, filtered)]).filter(([, v]) => v != null && v !== '')
+        : [];
 
     const toggleSort = (key) => setSort((s) => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }));
     const toggleRow = (id) => { const next = new Set(selected); next.has(id) ? next.delete(id) : next.add(id); onSelect(next); };
     const toggleAll = () => { const next = new Set(selected); rows.forEach((r) => (allChecked ? next.delete(r[rowKey]) : next.add(r[rowKey]))); onSelect(next); };
 
     return (
-        <div className={card ? 'dt-has-cards' : undefined}>
+        <div className={card !== false ? `dt-has-cards ${otomatis ? 'dt-kartu-otomatis' : ''}` : undefined}>
             <div className="dt-toolbar mb-3">
                 <div className="dt-toolbar-baris">
                     {title && <h5 className="mb-0 me-2">{title}</h5>}
@@ -88,17 +110,26 @@ export default function DataTable({
                 {toolbar && filterBar && <div className="dt-toolbar-baris dt-toolbar-filter">{filterBar}</div>}
             </div>
 
-            {card && (
+            {card !== false && (
                 <div className="dt-cards d-sm-none">
+                    {selectable && !loading && rows.length > 0 && (
+                        <label className="dt-cards-pilih"><Input type="checkbox" checked={allChecked} onChange={toggleAll} />Pilih semua di halaman ini{selected?.size > 0 && <span className="ms-auto f-light">{selected.size} dipilih</span>}</label>
+                    )}
                     {loading ? <span className="skeleton" style={{ height: 120 }} /> : error ? <ErrorState text={error} onRetry={onRetry} />
                         : rows.length === 0 ? <EmptyState text={q ? `Tidak ada hasil untuk "${q}"` : emptyText} />
                         : rows.map((r, i) => (
-                            <div key={r[rowKey] ?? i} className={`dt-card ${onRowClick ? 'clickable' : ''}`} onClick={onRowClick ? () => onRowClick(r) : undefined}>{card(r)}</div>
+                            <div key={r[rowKey] ?? i} className={`dt-card ${onRowClick ? 'clickable' : ''} ${selectable && selected?.has(r[rowKey]) ? 'is-terpilih' : ''}`} onClick={onRowClick ? () => onRowClick(r) : undefined}>{kartu(r, i)}</div>
                         ))}
+                    {totalKartu.length > 0 && (
+                        <div className="dt-card dt-card-total">
+                            <div className="dt-card-head"><div className="dt-card-judul">Total</div><small className="f-light">{filtered.length} data</small></div>
+                            <dl className="dt-card-grid">{totalKartu.map(([c, v]) => <div key={c.key}><dt>{c.label}</dt><dd>{v}</dd></div>)}</dl>
+                        </div>
+                    )}
                 </div>
             )}
 
-            <div className={`table-responsive ${card ? 'd-none d-sm-block' : ''}`}>
+            <div className={`table-responsive ${card !== false ? 'd-none d-sm-block' : ''}`}>
                 <table className={`table table-hover table-bordernone align-middle ${stickyFirst ? 'table-sticky' : ''}`}>
                     <thead>
                         <tr>
@@ -141,7 +172,7 @@ export default function DataTable({
                 </table>
             </div>
 
-            <div className="dt-paging d-flex flex-wrap align-items-center gap-2 mt-3">
+            <div className={`dt-paging d-flex flex-wrap align-items-center gap-2 mt-3 ${filtered.length <= 10 ? 'is-ringkas' : ''}`}>
                 <small className="f-light">
                     Menampilkan {filtered.length ? (current - 1) * per + 1 : 0}–{Math.min(current * per, filtered.length)} dari {filtered.length} data
                 </small>

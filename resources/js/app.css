@@ -105,7 +105,32 @@ body.dark-only .dt-card { border-color: #374558; background: #262932; }
 @media (max-width: 575.98px) {
     .dt-has-cards .dt-search { width: 100% !important; }
     .dt-has-cards .dt-cols { display: none; }
+    /* Kosong / cukup satu halaman: cukup teks jumlah data, tanpa pilihan jumlah baris & tombol halaman */
+    .dt-paging.is-ringkas .form-select, .dt-paging.is-ringkas .pagination { display: none; }
+    .dt-paging.is-ringkas { justify-content: center; }
+    .dt-cards .py-5 { padding-top: 28px !important; padding-bottom: 28px !important; }
 }
+/* Kartu HP otomatis dari kolom tabel (DataTable tanpa prop card): judul, pasangan label–nilai 2 kolom, aksi di bawah */
+.dt-card-judul { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--theme-body-font-color, #2c323f); overflow-wrap: anywhere; }
+.dt-card-judul small, .dt-card-judul .f-light { font-weight: 400; }
+.dt-card-head .dt-card-cek { width: 18px; height: 18px; margin: 0; flex-shrink: 0; }
+.dt-card-head > span:has(.dt-card-cek) { display: flex; align-self: flex-start; padding-top: 1px; }
+.dt-kartu-otomatis .dt-card-grid { margin: 10px 0 0; padding-top: 10px; border-top: 1px dashed #ececf3; }
+.dt-kartu-otomatis .dt-card-grid dd { font-weight: 500; font-size: 13px; line-height: 1.4; }
+.dt-kartu-otomatis .dt-card-grid dd small { font-size: 11.5px; font-weight: 400; }
+.dt-kartu-otomatis .dt-card-grid dd br + small { display: inline-block; margin-top: 1px; }
+.dt-card-grid .dt-card-penuh { grid-column: 1 / -1; }
+.dt-card-grid dd .badge { font-size: 11px; }
+.dt-card-aksi { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #f1f1f6; }
+.dt-card-aksi:not(:has(button, a)) { display: none; }
+.dt-card.is-terpilih { border-color: rgba(115, 102, 255, .45); background: rgba(115, 102, 255, .04); }
+.dt-card-total .dt-card-judul { color: var(--theme-default, #7366ff); }
+.dt-cards-pilih { display: flex; align-items: center; gap: 8px; margin: 0; padding: 2px 4px; font-size: 13px; cursor: pointer; }
+.dt-cards-pilih .form-check-input, .dt-cards-pilih input { width: 18px; height: 18px; margin: 0; }
+body.dark-only .dt-card-judul { color: rgba(255, 255, 255, .9); }
+body.dark-only .dt-kartu-otomatis .dt-card-grid { border-top-color: #374558; }
+body.dark-only .dt-card-aksi { border-top-color: #374558; }
+body.dark-only .dt-card.is-terpilih { background: rgba(115, 102, 255, .12); }
 
 /* Toolbar tabel (DataTable) di semua menu: baris 1 = tombol aksi (kiri) + Cari/Kolom/Export (kanan), baris 2 = filter.
    Semua tombol & kontrol setinggi 38 px agar sejajar. */
@@ -417,14 +442,14 @@ body.dark-only .btn-action-dark { --c: #a9a9c0; }
 @media (max-width: 575.98px) {
     .stat-compact { --bs-gutter-x: 12px; }
     .stat-compact .stat-card.mb-4 { margin-bottom: 12px !important; border-radius: 14px; }
-    .stat-compact .stat-card .card-body { flex-direction: column; align-items: flex-start !important; gap: 10px !important; padding: 14px; }
-    .stat-compact .stat-icon { width: 36px; height: 36px; border-radius: 9px; }
-    .stat-compact .stat-icon svg { width: 18px; height: 18px; }
-    .stat-compact .stat-card .flex-grow-1 { width: 100%; }
-    /* Judul maks. 2 baris dengan tinggi tetap agar angka di kartu sebaris tetap sejajar */
-    .stat-compact .stat-card .f-light:first-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.6em; font-size: 12px; line-height: 1.3; letter-spacing: normal; }
-    .stat-compact .stat-card h4 { margin-top: 4px !important; font-size: 17px; white-space: normal; overflow-wrap: anywhere; }
-    .stat-compact .stat-card small { display: block; margin-top: 2px; font-size: 11px; line-height: 1.3; letter-spacing: normal; }
+    /* Ikon + judul (maks. 2 baris, tinggi tetap) sebaris, angka & keterangan di bawahnya selebar kartu */
+    .stat-compact .stat-card .card-body { display: grid !important; grid-template-columns: 34px minmax(0, 1fr); align-items: center !important; gap: 10px 10px !important; padding: 14px; }
+    .stat-compact .stat-icon { width: 34px; height: 34px; border-radius: 10px; }
+    .stat-compact .stat-icon svg { width: 17px; height: 17px; }
+    .stat-compact .stat-card .flex-grow-1 { display: contents; }
+    .stat-compact .stat-card .f-light:first-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.6em; font-size: 12px; line-height: 1.3; letter-spacing: normal; align-content: center; }
+    .stat-compact .stat-card h4 { grid-column: 1 / -1; margin: 2px 0 0 !important; font-size: 18px; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; }
+    .stat-compact .stat-card small { grid-column: 1 / -1; display: block; margin-top: -6px; font-size: 11px; line-height: 1.3; letter-spacing: normal; }
 }
 
 /* Invoice / tagihan pelanggan (Pages/Pelanggan/Tagihan.jsx): kertas putih, aksen biru logo MSS */

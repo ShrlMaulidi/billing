@@ -148,15 +148,15 @@ export default function Setor({ filters, rows, kewajiban, periodeOptions, period
                     </>
                 )}
                 columns={[
-                    { key: 'no', label: 'No', sortable: false, render: (r, i) => i + 1 },
+                    { key: 'no', label: 'No', sortable: false, kartu: false, render: (r, i) => i + 1 },
                     { key: 'tipe', label: 'Tipe', sortValue: (r) => labelTipe[r.tipe], render: (r) => <span className={`badge badge-light-${WARNA[r.tipe] ?? 'secondary'}`}>{labelTipe[r.tipe] ?? '-'}</span> },
-                    { key: 'nama', label: 'Nama Pelanggan', render: (r) => <>{r.nama}{r.nama_mitra && <><br /><small className="f-light">{r.nama_mitra}</small></>}</> },
+                    { key: 'nama', label: 'Nama Pelanggan', kartu: 'judul', render: (r) => <>{r.nama}{r.nama_mitra && <><br /><small className="f-light">{r.nama_mitra}</small></>}</> },
                     { key: 'periode', label: 'Periode', render: (r) => periode(r.periode) },
                     { key: 'nominal', label: 'Nominal', align: 'end', render: (r) => rupiah(r.nominal) },
                     { key: 'ppn', label: 'PPN', align: 'end', render: (r) => (r.ppn === null ? '-' : <>{rupiah(r.ppn)}<br /><small className="f-light">{persen(r.ppn_persen)}</small></>) },
                     { key: 'total', label: 'Total', align: 'end', render: (r) => rupiah(r.total) },
                     { key: 'metode', label: 'Metode / Rekening', render: (r) => (r.sumber === 'instansi' ? '-' : r.metode === 'cash' ? 'Cash' : r.rekening ?? 'Transfer') },
-                    { key: 'keterangan', label: 'Keterangan', render: (r) => r.keterangan ?? '-' },
+                    { key: 'keterangan', label: 'Keterangan', kartu: 'penuh', render: (r) => r.keterangan ?? '-' },
                     { key: 'petugas', label: 'Petugas' },
                     { key: 'created_at', label: 'Waktu Entry', render: (r) => waktu(r.created_at) },
                 ]}

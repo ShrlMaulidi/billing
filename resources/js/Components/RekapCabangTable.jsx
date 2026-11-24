@@ -1,4 +1,5 @@
-import { Eye } from 'react-feather';
+import { router } from '@inertiajs/react';
+import { ChevronRight, Eye } from 'react-feather';
 import { angka, rupiah } from '../lib/format';
 import DataTable, { sumFooter } from './DataTable';
 import { ActionButton } from './ui';
@@ -36,9 +37,35 @@ const footer = (col, rows) => {
     return col.render({ [col.key]: total });
 };
 
+/** Pasangan label–nilai di kartu HP. */
+const Nilai = ({ label, children, className = '' }) => <div><dt>{label}</dt><dd className={className}>{children}</dd></div>;
+
+/** Kartu HP satu cabang: ringkasan terpenting dari 23 kolom rekap; rincian lengkap di halaman Detail Cabang. */
+const kartuCabang = (row, detail) => (
+    <>
+        <div className="dt-card-head">
+            <span className="fw-semibold text-truncate">{row.nama_cabang}</span>
+            {detail && <ChevronRight size={16} className="f-light flex-shrink-0" />}
+        </div>
+        <small className="f-light d-block">
+            {angka(row.jumlah_pelanggan)} pelanggan · <span className="font-success">{angka(row.lunas)} lunas</span> · <span className="font-danger">{angka(row.belum_lunas)} belum lunas</span>
+        </small>
+        <dl className="dt-card-grid mb-0">
+            <Nilai label="Total Pemasukan">{rupiah(row.pemasukan)}</Nilai>
+            <Nilai label="Pengeluaran">{rupiah(row.pengeluaran)}</Nilai>
+            <Nilai label="Total Setor ke MSS">{rupiah(row.harus_setor)}</Nilai>
+            <Nilai label="Sisa Harus Setor" className={row.sisa_setor > 0 ? 'font-danger' : ''}>{rupiah(row.sisa_setor)}</Nilai>
+            <Nilai label="Saldo / Balance" className={row.saldo < 0 ? 'font-danger' : 'font-success'}>{rupiah(row.saldo)}</Nilai>
+        </dl>
+    </>
+);
+
 export default function RekapCabangTable({ rows, toolbar, detailQuery = '', withDetail = true }) {
+    const linkDetail = (row) => `/dashboard-cabang/${row.id_lokasi}${detailQuery}`;
     return (
         <DataTable
+            card={(row) => kartuCabang(row, withDetail)}
+            onRowClick={withDetail ? (row) => router.visit(linkDetail(row)) : undefined}
             columns={REKAP_COLUMNS}
             data={rows}
             rowKey="id_lokasi"
@@ -47,7 +74,7 @@ export default function RekapCabangTable({ rows, toolbar, detailQuery = '', with
             toolbar={toolbar}
             pageSize={25}
             actions={withDetail ? (row) => (
-                <ActionButton icon={Eye} label="Detail Cabang" href={`/dashboard-cabang/${row.id_lokasi}${detailQuery}`} />
+                <ActionButton icon={Eye} label="Detail Cabang" href={linkDetail(row)} />
             ) : undefined}
         />
     );

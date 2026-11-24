@@ -321,7 +321,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                 columns={[
                     { key: 'id_pelanggan', label: 'ID Pelanggan' },
                     {
-                        key: 'nama', label: 'Nama', render: (p) => (
+                        key: 'nama', label: 'Nama', kartu: 'judul', render: (p) => (
                             <>
                                 {p.nama}{p.tlp && <><br /><small className="f-light">{p.tlp}</small></>}
                                 {p.wa_terkirim && <div className="mt-1"><span className="badge badge-light-success badge-ikon" title={`Tagihan terkirim via WhatsApp ${waktu(p.wa_terkirim)}`}><Bell size={11} />WA terkirim</span></div>}
@@ -330,7 +330,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                     },
                     { key: 'alamat', label: 'Alamat', hidden: true },
                     { key: 'cabang', label: 'Cabang' },
-                    { key: 'area', label: 'Area', render: (p) => p.area ?? <span className="f-light">-</span> },
+                    { key: 'area', label: 'Area', kartu: false, render: (p) => p.area ?? <span className="f-light">-</span> },
                     { key: 'paket', label: 'Paket', render: (p) => <>{p.paket}{p.harga != null && <><br /><small className="f-light">{rupiah(p.harga)}</small></>}</> },
                     // Bulan tagihan (filter) vs bulan pemakaian yang ditagih: pascabayar = bulan sebelumnya
                     ...(!status || [...TAGIHAN, 'on', 'off', 'prorate', 'berhenti'].includes(status) ? [{ key: 'jns_tagihan', label: 'Tipe Pembayaran', render: (p) => JENIS_TAGIHAN[p.jns_tagihan] ?? 'Prabayar' }] : []),
@@ -374,10 +374,10 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                     }] : []),
                     ...(status === 'berhenti' ? [] : [{ key: 'pembayaran_terakhir', label: 'Pembayaran Terakhir', render: (p) => (p.pembayaran_terakhir ? namaPeriode(p.pembayaran_terakhir) : <span className="f-light">Belum ada</span>) }]),
                     {
-                        key: 'username_pppoe', label: 'Router / Koneksi', sortValue: (p) => p.username_pppoe ?? p.mac_address ?? p.ip_address,
+                        key: 'username_pppoe', label: 'Router / Koneksi', kartu: false, sortValue: (p) => p.username_pppoe ?? p.mac_address ?? p.ip_address,
                         render: (p) => <>{p.router?.nama_router ?? <span className="text-danger">Router dihapus</span>}<br /><small className="f-light">{KONEKSI[p.jns_koneksi]} · {p.username_pppoe ?? p.mac_address ?? p.ip_address}</small></>,
                     },
-                    { key: 'tgl_registrasi', label: 'Tgl Registrasi', render: (p) => tanggal(p.tgl_registrasi) },
+                    { key: 'tgl_registrasi', label: 'Tgl Registrasi', kartu: false, render: (p) => tanggal(p.tgl_registrasi) },
                     { key: 'tgl_jatuh_tempo', label: 'Jatuh Tempo', render: (p) => (p.tgl_jatuh_tempo ? `Tanggal ${p.tgl_jatuh_tempo}` : '-') },
                     {
                         key: 'status_langganan', label: 'Internet', render: (p) => (

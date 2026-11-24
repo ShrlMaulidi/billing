@@ -16,7 +16,7 @@ export default function TiketIndex({ filters, rows, statusOptions }) {
             columns={[
                 { key: 'no_tiket', label: 'No. Tiket', render: (r) => <span className="fw-semibold">{r.no_tiket}</span> },
                 { key: 'pelanggan', label: 'Pelanggan', sortValue: (r) => `${r.pelanggan?.id_pelanggan ?? ''} ${r.pelanggan?.nama ?? ''}`, render: (r) => <>{r.pelanggan?.nama ?? '-'}<br /><small className="f-light">{r.pelanggan?.id_pelanggan}</small></> },
-                { key: 'judul', label: 'Judul', render: (r) => <>{r.judul}<br /><small className="f-light">{r.kategori_label}</small></> },
+                { key: 'judul', label: 'Judul', kartu: 'judul', render: (r) => <>{r.judul}<br /><small className="f-light">{r.kategori_label}</small></> },
                 { key: 'status', label: 'Status', render: (r) => <StatusBadge value={r.status} /> },
                 { key: 'cabang', label: 'Cabang', render: (r) => r.cabang ?? '-' },
                 { key: 'created_at', label: 'Dibuat', render: (r) => waktu(r.created_at) },

@@ -6,20 +6,21 @@ import CrudPage from '../../Components/CrudPage';
 import DataTable, { sumFooter } from '../../Components/DataTable';
 import { ActionButton, ActionGroup, FormModal, StatusBadge } from '../../Components/ui';
 import { rupiah, waktu } from '../../lib/format';
-import { dummy } from '../../lib/ui';
+import { dummy, useBisa } from '../../lib/ui';
 
 function MasterWajib({ rows, cabangOptions }) {
     const [form, setForm] = useState(null);
+    const bisa = useBisa();
     return (
         <Card>
             <CardBody>
                 <DataTable
                     title="Master Pengeluaran Wajib Bulanan"
-                    toolbar={<Button color="primary" onClick={() => setForm({})}><Plus size={14} className="me-1" />Tambah Template</Button>}
+                    toolbar={bisa('transaksi.pengeluaran.create') ? <Button color="primary" onClick={() => setForm({})}><Plus size={14} className="me-1" />Tambah Template</Button> : null}
                     data={rows} exportable={false} pageSize={10}
-                    actions={(r) => <ActionGroup><ActionButton icon={Edit2} label="Edit" color="warning" onClick={() => setForm(r)} /></ActionGroup>}
+                    actions={bisa('transaksi.pengeluaran.update') ? (r) => <ActionGroup><ActionButton icon={Edit2} label="Edit" color="warning" onClick={() => setForm(r)} /></ActionGroup> : undefined}
                     columns={[
-                        { key: 'cabang', label: 'Cabang' }, { key: 'jenis_pengeluaran', label: 'Jenis Pengeluaran' },
+                        { key: 'cabang', label: 'Cabang' }, { key: 'jenis_pengeluaran', label: 'Jenis Pengeluaran', kartu: 'judul' },
                         { key: 'nominal', label: 'Nominal', align: 'end', render: (r) => rupiah(r.nominal) },
                         { key: 'tgl_generate', label: 'Generate Otomatis', render: (r) => `Setiap tgl ${r.tgl_generate}` },
                         { key: 'aktif', label: 'Status', render: (r) => <StatusBadge value={r.aktif ? 'aktif' : 'tidak_aktif'} /> },
@@ -41,19 +42,21 @@ function MasterWajib({ rows, cabangOptions }) {
 
 export default function Pengeluaran({ filters, rows, ringkasan, master, rekeningOptions }) {
     const { cabangOptions } = usePage().props;
+    const bisa = useBisa();
     return (
         <CrudPage
+            canAdd={bisa('transaksi.pengeluaran.create')} canEdit={bisa('transaksi.pengeluaran.update')} canDelete={bisa('transaksi.pengeluaran.delete')}
             title="Pengeluaran" crumbs={['Transaksi']} rows={rows} filters={filters} filterFields={['bulan', 'tahun', 'cabang']}
             deleteLabel={(r) => `${r.jenis_pengeluaran} (${rupiah(r.nominal)})`} defaults={{ tipe: 'tidak_wajib' }}
             tableProps={{ footer: sumFooter(['nominal'], rupiah) }}
             columns={[
-                { key: 'cabang', label: 'Cabang' }, { key: 'jenis_pengeluaran', label: 'Jenis Pengeluaran' },
+                { key: 'cabang', label: 'Cabang' }, { key: 'jenis_pengeluaran', label: 'Jenis Pengeluaran', kartu: 'judul' },
                 { key: 'tipe', label: 'Tipe', render: (r) => <StatusBadge value={r.tipe === 'wajib_bulanan' ? 'pending' : 'info'} text={r.tipe === 'wajib_bulanan' ? 'Wajib Bulanan' : 'Tidak Wajib'} /> },
                 { key: 'waktu', label: 'Waktu', render: (r) => waktu(r.waktu) },
                 { key: 'nominal', label: 'Nominal', align: 'end', render: (r) => rupiah(r.nominal) },
                 { key: 'metode', label: 'Metode' },
                 { key: 'bukti', label: 'Bukti', render: (r) => (r.bukti ? <a href="#" onClick={(e) => { e.preventDefault(); dummy('Lihat bukti'); }}>Lihat</a> : '-') },
-                { key: 'keterangan', label: 'Keterangan', hidden: true }, { key: 'created_by', label: 'Dicatat Oleh' },
+                { key: 'keterangan', label: 'Keterangan', kartu: 'penuh', hidden: true }, { key: 'created_by', label: 'Dicatat Oleh' },
             ]}
             fields={[
                 { name: 'id_lokasi', label: 'Cabang', type: 'select', required: true, options: cabangOptions },

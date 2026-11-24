@@ -71,7 +71,7 @@ export default function IncomeSummary({ filters, total, metode, rekening, pembay
                 <OffcanvasBody>
                     {drawer && (
                         <DataTable key={drawer.title} data={list} rowKey="no_invoice" footer={sumFooter(['jml_bayar'], rupiah)} columns={[
-                            { key: 'no_invoice', label: 'No Invoice' }, { key: 'id_pelanggan', label: 'ID Pelanggan' }, { key: 'nama', label: 'Nama' },
+                            { key: 'no_invoice', label: 'No Invoice' }, { key: 'id_pelanggan', label: 'ID Pelanggan' }, { key: 'nama', label: 'Nama', kartu: 'judul' },
                             { key: 'cabang', label: 'Cabang' }, { key: 'periode', label: 'Periode', render: (r) => periode(r.periode) },
                             { key: 'jml_bayar', label: 'Nominal', align: 'end', render: (r) => rupiah(r.jml_bayar) },
                             { key: 'paid_at', label: 'Waktu Bayar', render: (r) => waktu(r.paid_at) },

@@ -48,13 +48,13 @@ export default function Penarikan({ filters, rows, saldo, periodeOptions }) {
                     </>
                 )}
                 columns={[
-                    { key: 'no', label: 'No', sortable: false, render: (r, i) => i + 1 },
-                    { key: 'nama_request', label: 'Nama Request', render: (r) => <>{r.nama_request}<br /><small className="f-light">oleh {r.pemohon}</small></> },
+                    { key: 'no', label: 'No', sortable: false, kartu: false, render: (r, i) => i + 1 },
+                    { key: 'nama_request', label: 'Nama Request', kartu: 'judul', render: (r) => <>{r.nama_request}<br /><small className="f-light">oleh {r.pemohon}</small></> },
                     { key: 'cabang', label: 'Mitra / Cabang', render: (r) => <>{r.nama_mitra}<br /><small className="f-light">{r.cabang}</small></> },
                     { key: 'periode_sumber', label: 'Periode Sumber', render: (r) => periode(r.periode_sumber) },
                     { key: 'nominal', label: 'Nominal', align: 'end', render: (r) => rupiah(r.nominal) },
-                    { key: 'rekening_penerima', label: 'Rekening Penerima', render: (r) => <>{r.bank_penerima} · {maskRekening(r.no_rekening_penerima)}<br /><small className="f-light">a.n. {r.atas_nama_penerima}</small></> },
-                    { key: 'keterangan', label: 'Keterangan' },
+                    { key: 'rekening_penerima', label: 'Rekening Penerima', kartu: 'penuh', render: (r) => <>{r.bank_penerima} · {maskRekening(r.no_rekening_penerima)}<br /><small className="f-light">a.n. {r.atas_nama_penerima}</small></> },
+                    { key: 'keterangan', label: 'Keterangan', kartu: 'penuh' },
                     { key: 'created_at', label: 'Waktu Request', render: (r) => waktu(r.created_at) },
                     { key: 'status', label: 'Status', render: (r) => <><StatusBadge value={r.status} />{r.catatan && <><br /><small className="f-light">{r.catatan}</small></>}</> },
                     { key: 'diproses_oleh', label: 'Diproses Oleh', render: (r) => (r.diproses_oleh ? <>{r.diproses_oleh}<br /><small className="f-light">{waktu(r.diproses_at)}</small></> : '-') },

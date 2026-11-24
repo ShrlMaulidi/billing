@@ -58,9 +58,9 @@ export default function Logs({ filters, rows, options, total, batas }) {
                                 { key: 'user', label: 'User', render: (r) => <>{r.user ?? '-'}{r.role && <><br /><small className="f-light">{r.role}</small></>}</> },
                                 { key: 'modul', label: 'Modul' },
                                 { key: 'aksi', label: 'Aksi', sortValue: (r) => AKSI[r.aksi]?.[0] ?? r.aksi, render: (r) => badgeAksi(r.aksi) },
-                                { key: 'deskripsi', label: 'Deskripsi', nowrap: false },
+                                { key: 'deskripsi', label: 'Deskripsi', kartu: 'penuh', nowrap: false },
                                 { key: 'ip_address', label: 'IP Address', render: (r) => r.ip_address ?? '-' },
-                                { key: 'user_agent', label: 'Perangkat', hidden: true, render: (r) => r.user_agent ?? '-' },
+                                { key: 'user_agent', label: 'Perangkat', kartu: 'penuh', hidden: true, render: (r) => r.user_agent ?? '-' },
                             ]} />
                     </CardBody>
                 </Card>

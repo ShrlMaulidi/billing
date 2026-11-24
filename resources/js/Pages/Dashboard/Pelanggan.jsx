@@ -19,8 +19,8 @@ export default function Pelanggan({ filters, rows }) {
                             toolbar={<FilterBar filters={filters} fields={[{ name: 'kategori', label: 'Kategori', options: Object.entries(KATEGORI).map(([value, label]) => ({ value, label })) }, 'cabang']} />}
                             columns={[
                                 { key: 'id_pelanggan', label: 'ID Pelanggan' },
-                                { key: 'nama', label: 'Nama' },
-                                { key: 'alamat', label: 'Alamat', hidden: true },
+                                { key: 'nama', label: 'Nama', kartu: 'judul' },
+                                { key: 'alamat', label: 'Alamat', kartu: 'penuh', hidden: true },
                                 { key: 'tlp', label: 'Tlp' },
                                 { key: 'cabang', label: 'Cabang' },
                                 { key: 'paket', label: 'Paket' },

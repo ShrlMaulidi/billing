@@ -44,7 +44,7 @@ export default function CabangDetail({ filters, lokasi, rekap, pelanggan, pembay
                         </Nav>
                         {tab === 'pelanggan' && (
                             <DataTable key="p" data={pelanggan} columns={[
-                                { key: 'id_pelanggan', label: 'ID' }, { key: 'nama', label: 'Nama' }, { key: 'paket', label: 'Paket' },
+                                { key: 'id_pelanggan', label: 'ID' }, { key: 'nama', label: 'Nama', kartu: 'judul' }, { key: 'paket', label: 'Paket' },
                                 { key: 'harga', label: 'Harga', align: 'end', render: (r) => rupiah(r.harga) },
                                 { key: 'tgl_registrasi', label: 'Registrasi', render: (r) => tanggal(r.tgl_registrasi) },
                                 { key: 'status_langganan', label: 'Internet', render: (r) => <StatusBadge value={r.status_langganan} /> },
@@ -53,7 +53,7 @@ export default function CabangDetail({ filters, lokasi, rekap, pelanggan, pembay
                         )}
                         {tab === 'pembayaran' && (
                             <DataTable key="b" data={pembayaran} rowKey="no_invoice" footer={sumFooter(['jml_bayar'], rupiah)} columns={[
-                                { key: 'no_invoice', label: 'No Invoice' }, { key: 'id_pelanggan', label: 'ID Pelanggan' }, { key: 'nama', label: 'Nama' },
+                                { key: 'no_invoice', label: 'No Invoice' }, { key: 'id_pelanggan', label: 'ID Pelanggan' }, { key: 'nama', label: 'Nama', kartu: 'judul' },
                                 { key: 'metode', label: 'Metode', render: (r) => METODE[r.metode] },
                                 { key: 'jml_bayar', label: 'Nominal', align: 'end', render: (r) => rupiah(r.jml_bayar) },
                                 { key: 'paid_at', label: 'Waktu Bayar', render: (r) => waktu(r.paid_at) }, { key: 'petugas', label: 'Petugas' },
