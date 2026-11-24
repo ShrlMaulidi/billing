@@ -324,7 +324,7 @@ export default function PelangganIndex({ filters, status, rows, jumlah, periode,
                         key: 'nama', label: 'Nama', render: (p) => (
                             <>
                                 {p.nama}{p.tlp && <><br /><small className="f-light">{p.tlp}</small></>}
-                                {p.wa_terkirim && <><br /><small className="text-success" title={`Tagihan terkirim via WhatsApp ${waktu(p.wa_terkirim)}`}><Bell size={11} className="me-1 align-baseline" />WA terkirim</small></>}
+                                {p.wa_terkirim && <div className="mt-1"><span className="badge badge-light-success badge-ikon" title={`Tagihan terkirim via WhatsApp ${waktu(p.wa_terkirim)}`}><Bell size={11} />WA terkirim</span></div>}
                             </>
                         ),
                     },
