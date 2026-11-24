@@ -344,7 +344,7 @@ class PelangganTest extends TestCase
         $this->pelanggan('budi', ['id_lokasi' => $this->lokasi->id, 'id_area' => $area->id]);
 
         // Lokasi & area dikirim sebagai nama saja, router tetap utuh untuk tombol isolir
-        $this->get('/pelanggan')->assertInertia(fn ($page) => $page
+        $this->get('/pelanggan/data')->assertInertia(fn ($page) => $page
             ->where('rows.0.cabang', 'MSS Garut')->where('rows.0.area', 'Garut Kota')
             ->where('rows.0.router.profile_isolir', 'ISOLIR')->where('rows.0.router.nama_router', 'CCR Pusat')
             ->missing('rows.0.lokasi')->missing('rows.0.created_at')->missing('rows.0.updated_at')->missing('rows.0.router.password'));
@@ -357,7 +357,7 @@ class PelangganTest extends TestCase
         $this->pelanggan('lama', ['status' => 'berhenti', 'status_langganan' => 'off']);
 
         // Pelanggan berhenti hanya tampil di menu Pelanggan Berhenti
-        $this->get('/pelanggan')->assertInertia(fn ($page) => $page->component('Pelanggan/Index')->where('status', null)->has('rows', 2)
+        $this->get('/pelanggan/data')->assertInertia(fn ($page) => $page->component('Pelanggan/Index')->where('status', null)->has('rows', 2)
             ->where('rows.0.username_pppoe', 'budi')->where('rows.1.username_pppoe', 'sari')
             ->where('jumlah', ['semua' => 2, 'on' => 1, 'off' => 1, 'lunas' => 0, 'belum_lunas' => 0, 'berhenti' => 1, 'prorate' => 0]));
         $this->get('/pelanggan/on')->assertInertia(fn ($page) => $page->where('status', 'on')->has('rows', 1)->where('rows.0.username_pppoe', 'budi'));

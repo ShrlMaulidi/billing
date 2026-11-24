@@ -47,7 +47,7 @@ class PembayaranTest extends TestCase
         $this->get('/pelanggan/belum-lunas')->assertInertia(fn ($page) => $page->has('rows', 0));
         $this->get('/pelanggan/lunas')->assertInertia(fn ($page) => $page->has('rows', 1)->where('jumlah.lunas', 1)
             ->where('rows.0.pembayaran_periode.harga', 200000)->where('rows.0.pembayaran_periode.diskon', 25000)->where('rows.0.pembayaran_periode.jml_bayar', 175000));
-        $this->get('/pelanggan')->assertInertia(fn ($page) => $page->where('rows.0.periode_lunas', ['2026-10-01'])->where('rows.0.pembayaran_terakhir', '2026-10-01'));
+        $this->get('/pelanggan/data')->assertInertia(fn ($page) => $page->where('rows.0.periode_lunas', ['2026-10-01'])->where('rows.0.pembayaran_terakhir', '2026-10-01'));
         $this->get('/dashboard')->assertInertia(fn ($page) => $page->where('kpi.lunas', 1)->where('kpi.pemasukan_bulan', 175000)->where('grafik.11.total', 175000));
     }
 
@@ -136,7 +136,7 @@ class PembayaranTest extends TestCase
         $oktober = Pembayaran::firstWhere('periode', '2026-10-01');
         $this->pelanggan->paket->update(['harga' => 250000]);
 
-        $this->get('/pelanggan')->assertInertia(fn ($page) => $page->where('rows.0.pembayaran_terakhir', '2026-12-01'));
+        $this->get('/pelanggan/data')->assertInertia(fn ($page) => $page->where('rows.0.pembayaran_terakhir', '2026-12-01'));
         $this->getJson("/pelanggan/{$this->pelanggan->id}/pembayaran")->assertOk()
             ->assertJsonCount(2, 'data')->assertJsonPath('data.0.periode', '2026-12-01')->assertJsonPath('data.1.no_invoice', $oktober->no_invoice);
 
@@ -182,7 +182,7 @@ class PembayaranTest extends TestCase
             ->assertJsonPath('data.0.periode', '2026-09-01')->assertJsonPath('data.0.periode_pembayaran', '2026-10-01');
         $this->get("/pembayaran/{$p->id}/kwitansi")->assertInertia(fn ($page) => $page
             ->where('kwitansi.periode', '2026-09-01')->where('kwitansi.periode_pembayaran', '2026-10-01')->where('kwitansi.jns_tagihan', 'pascabayar'));
-        $this->get('/pelanggan')->assertInertia(fn ($page) => $page
+        $this->get('/pelanggan/data')->assertInertia(fn ($page) => $page
             ->where('rows.0.pembayaran_terakhir', '2026-09-01')->where('rows.0.periode_pembayaran_terakhir', '2026-10-01'));
 
         $this->bayar()->assertOk();

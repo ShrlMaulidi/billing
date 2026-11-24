@@ -16,7 +16,7 @@ const RELOAD = ['rows', 'jumlah'];
 const JUDUL = { on: 'Pelanggan On', off: 'Pelanggan Off', lunas: 'Pelanggan Lunas', belum_lunas: 'Pelanggan Belum Lunas', berhenti: 'Pelanggan Berhenti', prorate: 'Tagihan Prorate' };
 // Tombol filter cepat: [status, label, path]
 const TAB = [
-    ['', 'Semua', ''], ['on', 'On', '/on'], ['off', 'Off', '/off'], ['lunas', 'Lunas', '/lunas'], ['belum_lunas', 'Belum Lunas', '/belum-lunas'],
+    ['', 'Semua', '/data'], ['on', 'On', '/on'], ['off', 'Off', '/off'], ['lunas', 'Lunas', '/lunas'], ['belum_lunas', 'Belum Lunas', '/belum-lunas'],
     ['berhenti', 'Berhenti', '/berhenti'], ['prorate', 'Prorate', '/prorate'],
 ];
 const TAGIHAN = ['lunas', 'belum_lunas'];

@@ -1192,3 +1192,153 @@ body.dark-only .wa-cabang { border-color: #374558; }
 .ingatkan-baris.is-lewat { opacity: .65; }
 body.dark-only .ingatkan-daftar { border-color: #374558; }
 body.dark-only .ingatkan-baris + .ingatkan-baris { border-color: #2f3443; }
+
+/*
+ * Halaman informasi pelanggan /pelanggan (Pages/InfoPelanggan): gaya aplikasi mobile banking. HP satu kolom; desktop dua
+ * kolom (banner + menu di kiri, sapaan + cek tagihan + masuk di kanan); hasil cek tagihan selebar halaman di bawahnya.
+ */
+.ip { --ip-biru: #0b5cad; --ip-gelap: #0b2a6f; --ip-tinta: #1f2a44; --ip-redup: #6b7488; --ip-garis: #e3eaf4;
+    display: flex; flex-direction: column; min-height: 100vh; font-family: Rubik, sans-serif; color: var(--ip-tinta);
+    background: radial-gradient(circle at 85% -5%, rgba(11, 92, 173, .16) 0 220px, transparent 221px), linear-gradient(180deg, #e6f0fb 0, #f4f7fc 340px, #f4f7fc 100%); }
+.ip a { text-decoration: none; }
+.ip-wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 18px; }
+.ip-atas { padding: 14px 0 10px; }
+.ip-atas-isi { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ip-logo img { height: 38px; width: auto; }
+.ip-atas-aksi { display: flex; gap: 8px; }
+.ip-pil { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 13.5px; font-weight: 600; color: var(--ip-gelap); background: #fff; border-radius: 999px; box-shadow: 0 4px 14px rgba(11, 42, 111, .1); }
+.ip-pil svg { color: var(--ip-biru); }
+.ip-pil.is-gelap { color: #fff; background: var(--ip-gelap); }
+.ip-pil.is-gelap svg { color: #fff; }
+.ip-isi { flex: 1 0 auto; display: flex; flex-direction: column; gap: 18px; padding-bottom: 28px; }
+
+/* Banner: geser horizontal, slide samping mengintip */
+.ip-banner { margin: 0 -18px; }
+.ip-banner-jalur { position: relative; display: flex; gap: 12px; padding: 4px 18px 24px; margin-bottom: -18px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; scroll-padding: 0 18px; }
+.ip-banner-jalur::-webkit-scrollbar { display: none; }
+.ip-slide { position: relative; flex: 0 0 88%; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 150px; padding: 20px 20px 18px; overflow: hidden; color: #fff; border-radius: 20px; scroll-snap-align: center; box-shadow: 0 10px 24px rgba(11, 42, 111, .18); }
+.ip-slide::before { content: ''; position: absolute; right: -40px; top: -50px; width: 170px; height: 170px; border-radius: 50%; background: rgba(255, 255, 255, .12); }
+.ip-slide.is-biru { background: linear-gradient(135deg, #0b2a6f, #1f5fc0); }
+.ip-slide.is-hijau { background: linear-gradient(135deg, #0b6b5a, #19a37f); }
+.ip-slide.is-ungu { background: linear-gradient(135deg, #4b2fa8, #7a5af0); }
+.ip-slide-teks { position: relative; display: flex; flex-direction: column; gap: 6px; max-width: 74%; }
+.ip-slide-teks strong { font-size: 19px; font-weight: 700; line-height: 1.25; color: #fff; }
+.ip-slide-teks span { font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, .88); }
+.ip-slide-teks em { display: inline-flex; align-self: flex-start; align-items: center; gap: 2px; margin-top: 4px; padding: 5px 12px; font-size: 12.5px; font-style: normal; font-weight: 600; color: var(--ip-gelap); background: #f2c94c; border-radius: 999px; }
+.ip-slide-ikon { position: relative; flex-shrink: 0; width: 64px; height: 64px; padding: 14px; color: #fff; background: rgba(255, 255, 255, .16); border-radius: 18px; }
+.ip-titik { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+.ip-titik span { width: 7px; height: 7px; background: #c4d2e6; border-radius: 999px; transition: width .25s, background .25s; }
+.ip-titik span.is-aktif { width: 20px; background: var(--ip-biru); }
+
+/* Sapaan, cek tagihan, tombol masuk */
+.ip-akses { display: flex; flex-direction: column; gap: 14px; }
+.ip-sapa { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; }
+.ip-sapa span { font-size: 17px; color: var(--ip-redup); }
+.ip-sapa strong { font-size: 19px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--ip-tinta); }
+.ip-sapa small { font-size: 13px; color: var(--ip-redup); }
+.ip-kartu { background: #fff; border: 1px solid var(--ip-garis); border-radius: 18px; box-shadow: 0 6px 20px rgba(11, 42, 111, .06); }
+.ip-cek { padding: 16px; }
+.ip-cek label { display: block; margin: 0; font-size: 16px; font-weight: 700; color: var(--ip-tinta); }
+.ip-cek > p { margin: 2px 0 12px; font-size: 13px; color: var(--ip-redup); }
+.ip-cek-baris { display: flex; gap: 8px; }
+.ip-cek-baris input { flex: 1; min-width: 0; height: 48px; padding: 0 14px; font-size: 15px; color: var(--ip-tinta); background: #f4f7fc; border: 1px solid var(--ip-garis); border-radius: 12px; outline: none; }
+.ip-cek-baris input:focus { border-color: var(--ip-biru); background: #fff; box-shadow: 0 0 0 3px rgba(11, 92, 173, .12); }
+.ip-cek-baris button { display: inline-flex; align-items: center; gap: 6px; height: 48px; padding: 0 18px; font-weight: 600; color: #fff; background: var(--ip-biru); border: 0; border-radius: 12px; }
+.ip-cek-baris button:disabled { opacity: .7; }
+.ip-galat { margin: 8px 0 0; font-size: 13px; color: #d63b3b; }
+.ip-tombol-utama { display: flex; align-items: center; justify-content: center; gap: 8px; height: 54px; font-size: 17px; font-weight: 600; color: #fff !important; background: var(--ip-biru); border-radius: 999px; box-shadow: 0 8px 20px rgba(11, 92, 173, .28); }
+.ip-tombol-utama:hover { background: var(--ip-gelap); }
+.ip-masuk-ket { display: flex; align-items: center; justify-content: center; gap: 5px; margin: -6px 0 0; font-size: 12.5px; text-align: center; color: var(--ip-redup); }
+
+/* Menu cepat */
+.ip-menu { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 16px 8px; background: #f0f6fd; }
+.ip-menu-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px; color: var(--ip-tinta) !important; background: none; border: 0; }
+.ip-menu-ikon { display: inline-flex; align-items: center; justify-content: center; width: 54px; height: 54px; border-radius: 16px; box-shadow: 0 6px 14px rgba(11, 42, 111, .1); transition: transform .15s; }
+.ip-menu-item:hover .ip-menu-ikon { transform: translateY(-2px); }
+.ip-menu-ikon.is-biru { color: #0b5cad; background: #dbeafb; }
+.ip-menu-ikon.is-hijau { color: #138a5e; background: #d8f3e8; }
+.ip-menu-ikon.is-merah { color: #d14343; background: #fde2e2; }
+.ip-menu-ikon.is-kuning { color: #b7791f; background: #fdefd3; }
+.ip-menu-label { font-size: 13px; font-weight: 500; line-height: 1.25; text-align: center; }
+
+/* Hasil cek tagihan (komponen HasilPelanggan dari halaman Cek Tagihan, dibungkus .lp agar gayanya sama) */
+.ip-hasil { scroll-margin-top: 12px; }
+.ip-hasil-kepala { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.ip-hasil-kepala h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--ip-tinta); }
+.ip-hasil-kepala span { overflow: hidden; font-size: 13px; color: var(--ip-redup); text-overflow: ellipsis; white-space: nowrap; }
+.ip-hasil-isi { padding: 18px 16px; overflow: visible; background: #fff; border: 1px solid var(--ip-garis); border-radius: 18px; }
+.ip-kosong { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; text-align: center; }
+.ip-kosong strong { font-size: 16px; }
+.ip-kosong p { margin: 0 0 8px; font-size: 13.5px; color: var(--ip-redup); }
+
+/* Paket & layanan lainnya: kartu geser */
+.ip-bagian h2 { margin: 0 0 10px; font-size: 17px; font-weight: 700; color: var(--ip-tinta); }
+.ip-geser { display: flex; gap: 12px; margin: 0 -18px; padding: 2px 18px 10px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding: 0 18px; scrollbar-width: none; }
+.ip-geser::-webkit-scrollbar { display: none; }
+.ip-paket-item { flex: 0 0 200px; display: flex; flex-direction: column; gap: 3px; padding: 14px; background: #fff; border: 1px solid var(--ip-garis); border-radius: 16px; scroll-snap-align: start; }
+.ip-paket-ikon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; margin-bottom: 6px; color: var(--ip-biru); background: #e6f0fb; border-radius: 10px; }
+.ip-paket-item strong { font-size: 15px; }
+.ip-paket-item small { font-size: 12.5px; color: var(--ip-redup); }
+.ip-paket-harga { margin-top: 6px; font-size: 17px; font-weight: 700; color: var(--ip-gelap); }
+.ip-paket-harga small { margin-left: 2px; font-weight: 400; }
+.ip-paket-item a { display: inline-flex; align-items: center; align-self: flex-start; gap: 2px; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--ip-biru); }
+.ip-lainnya { margin: 4px -18px 0; padding: 18px 18px 6px; background: #fff; border-radius: 24px 24px 0 0; box-shadow: 0 -6px 20px rgba(11, 42, 111, .05); }
+.ip-lainnya-item { flex: 0 0 128px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 96px; padding: 12px; font-size: 13px; text-align: center; color: var(--ip-tinta) !important; background: #fff; border: 1px solid var(--ip-garis); border-radius: 14px; box-shadow: 0 4px 12px rgba(11, 42, 111, .06); scroll-snap-align: start; }
+.ip-lainnya-item svg { color: var(--ip-biru); }
+.ip-tentang { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px 0 4px; font-size: 14px; font-weight: 600; color: var(--ip-biru) !important; }
+.ip-kaki { padding: 14px 18px 22px; font-size: 12px; text-align: center; color: var(--ip-redup); background: #fff; }
+
+/* Lembar Cara Bayar */
+.ip-lapis { position: fixed; inset: 0; z-index: 1050; display: flex; align-items: flex-end; justify-content: center; background: rgba(15, 23, 42, .45); animation: ip-pudar .18s ease-out; }
+.ip-lembar { width: 100%; max-width: 520px; max-height: 88vh; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); overflow-y: auto; background: #fff; border-radius: 22px 22px 0 0; animation: ip-naik .22s ease-out; }
+.ip-lembar-kepala { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.ip-lembar-kepala h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.ip-lembar-kepala button { display: inline-flex; padding: 8px; color: var(--ip-redup); background: #f1f4fa; border: 0; border-radius: 50%; }
+.ip-langkah { margin: 0 0 16px; padding: 0; list-style: none; counter-reset: langkah; }
+.ip-langkah li { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 10px 0 10px 40px; counter-increment: langkah; }
+.ip-langkah li + li { border-top: 1px solid var(--ip-garis); }
+.ip-langkah li::before { content: counter(langkah); position: absolute; left: 0; top: 10px; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; font-size: 13px; font-weight: 700; color: var(--ip-biru); background: #e6f0fb; border-radius: 50%; }
+.ip-langkah strong { font-size: 14.5px; }
+.ip-langkah span { font-size: 13px; line-height: 1.55; color: var(--ip-redup); }
+@keyframes ip-pudar { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ip-naik { from { transform: translateY(40px); } to { transform: none; } }
+
+/* Desktop: dua kolom */
+@media (min-width: 992px) {
+    .ip-wrap { padding: 0 28px; }
+    .ip-atas { padding: 20px 0 14px; }
+    .ip-logo img { height: 44px; }
+    .ip-isi { display: grid; grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: 'banner akses' 'menu akses' 'hasil hasil' 'paket paket' 'lainnya lainnya'; align-items: start; gap: 22px 28px; padding-top: 8px; }
+    .ip-banner { grid-area: banner; margin: 0; }
+    .ip-banner-jalur { padding: 4px 0 28px; margin-bottom: -22px; scroll-padding: 0; }
+    .ip-slide { flex-basis: 100%; min-height: 240px; padding: 34px 36px; border-radius: 24px; box-shadow: none; }
+    .ip-slide::before { width: 260px; height: 260px; right: -60px; top: -80px; }
+    .ip-slide-teks strong { font-size: 28px; }
+    .ip-slide-teks span { font-size: 15.5px; max-width: 460px; }
+    .ip-slide-ikon { width: 110px; height: 110px; padding: 26px; border-radius: 28px; }
+    .ip-akses { grid-area: akses; padding: 24px; background: #fff; border: 1px solid var(--ip-garis); border-radius: 24px; box-shadow: 0 12px 32px rgba(11, 42, 111, .08); }
+    .ip-sapa { align-items: flex-start; text-align: left; }
+    .ip-cek { padding: 0; border: 0; box-shadow: none; }
+    .ip-menu { grid-area: menu; padding: 22px 16px; }
+    .ip-menu-ikon { width: 62px; height: 62px; }
+    .ip-menu-label { font-size: 14px; }
+    .ip-hasil { grid-area: hasil; }
+    .ip-hasil-isi { padding: 28px 32px; }
+    .ip-paket { grid-area: paket; }
+    .ip-lainnya { grid-area: lainnya; margin: 0; padding: 24px; border-radius: 24px; }
+    .ip-geser { margin: 0; padding: 2px 0 6px; flex-wrap: wrap; overflow: visible; }
+    .ip-paket-item { flex: 1 1 200px; max-width: calc(33.333% - 8px); }
+    .ip-lainnya-item { flex: 1 1 160px; }
+    .ip-lapis { align-items: center; }
+    .ip-lembar { border-radius: 22px; }
+}
+/* HP: urutan seperti aplikasi bank — banner, sapaan, cek tagihan (+hasil), menu cepat, tombol masuk, paket, layanan lain */
+@media (max-width: 991.98px) {
+    .ip-akses { display: contents; }
+    .ip-banner { order: 1; } .ip-sapa { order: 2; } .ip-cek { order: 3; } .ip-hasil { order: 4; } .ip-menu { order: 5; }
+    .ip-masuk { order: 6; } .ip-masuk-ket { order: 7; } .ip-paket { order: 8; } .ip-lainnya { order: 9; }
+}
+@media (max-width: 991.98px) {
+    .ip-isi { padding-bottom: 0; }
+    .ip-kaki { padding-top: 4px; }
+}

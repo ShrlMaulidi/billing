@@ -191,7 +191,7 @@ class AkunPelangganTest extends TestCase
 
         $this->actingAs($akun)->get('/dashboard')->assertRedirect('/akun-saya');
         $this->get('/profil')->assertRedirect('/akun-saya');
-        $this->getJson('/pelanggan')->assertForbidden();
+        $this->getJson('/pelanggan/data')->assertForbidden();
         $this->postJson('/pelanggan', $this->data(['nama' => 'Sisipan', 'ip_address' => '10.12.10.50']))->assertForbidden();
         $this->assertSame(0, Pelanggan::where('nama', 'Sisipan')->count());
     }

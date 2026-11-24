@@ -21,7 +21,7 @@ export const MENU = [
             {
                 title: 'Pelanggan', icon: 'contact', base: '/pelanggan',
                 children: [
-                    { title: 'Data Pelanggan', href: '/pelanggan', izin: 'pelanggan.data.view' },
+                    { title: 'Data Pelanggan', href: '/pelanggan/data', izin: 'pelanggan.data.view' },
                     { title: 'Pelanggan On', href: '/pelanggan/on', izin: 'pelanggan.on.view' },
                     { title: 'Pelanggan Off', href: '/pelanggan/off', izin: 'pelanggan.off.view' },
                     { title: 'Pelanggan Lunas', href: '/pelanggan/lunas', izin: 'pelanggan.lunas.view' },

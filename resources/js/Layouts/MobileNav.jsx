@@ -17,7 +17,7 @@ const PRIMARY = [
 ];
 
 const SHEET_ICON = {
-    '/pelanggan': Users, '/pelanggan/on': UserCheck, '/pelanggan/off': UserX, '/pelanggan/lunas': CheckCircle, '/pelanggan/belum-lunas': XCircle, '/pelanggan/berhenti': Slash, '/pelanggan/prorate': Percent,
+    '/pelanggan/data': Users, '/pelanggan/on': UserCheck, '/pelanggan/off': UserX, '/pelanggan/lunas': CheckCircle, '/pelanggan/belum-lunas': XCircle, '/pelanggan/berhenti': Slash, '/pelanggan/prorate': Percent,
     '/kelola-data/kartu-member': CreditCard, '/kelola-data/cabang': MapPin, '/kelola-data/area': Map, '/kelola-data/pajak': Percent,
     '/kelola-data/paket': Box, '/kelola-data/router': Server, '/kelola-data/rekening': Database, '/kelola-data/notifikasi': Bell,
     '/kelola-data/pph': UploadCloud, '/kelola-data/tunnel': GitBranch, '/transaksi/penarikan-saldo': ArrowUpCircle,

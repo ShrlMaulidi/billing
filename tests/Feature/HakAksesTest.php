@@ -33,7 +33,7 @@ class HakAksesTest extends TestCase
             ->assertOk()->assertJsonPath('message', 'Hak akses role Teknisi disimpan');
 
         $this->actingAs($teknisi->fresh())->get('/kelola-data/paket')->assertOk();
-        $this->get('/pelanggan')->assertForbidden();
+        $this->get('/pelanggan/data')->assertForbidden();
     }
 
     public function test_update_rejects_unknown_permission_locked_super_admin_and_own_role(): void

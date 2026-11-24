@@ -42,13 +42,23 @@ class CekTagihanController extends Controller
 
     public function cari(Request $request): Response
     {
+        return Inertia::render('CekTagihan/Index', self::cariDari($request));
+    }
+
+    /**
+     * Validasi kata kunci (ID pelanggan / nomor HP) lalu cari tagihannya; dipakai Cek Tagihan & halaman Info Pelanggan.
+     *
+     * @return array{cari: string, hasil: Collection}
+     */
+    public static function cariDari(Request $request): array
+    {
         $data = $request->validate(
             ['cari' => ['required', 'string', 'min:3', 'max:30', 'regex:/^[A-Za-z0-9+\-. ]+$/']],
             ['cari.required' => 'Masukkan ID pelanggan atau nomor HP', 'cari.min' => 'Minimal 3 karakter', 'cari.max' => 'Maksimal 30 karakter', 'cari.regex' => 'Hanya huruf, angka, spasi, +, -, dan titik'],
         );
         $cari = trim($data['cari']);
 
-        return Inertia::render('CekTagihan/Index', ['cari' => $cari, 'hasil' => self::hasil($this->cariPelanggan($cari))]);
+        return ['cari' => $cari, 'hasil' => self::hasil(self::cariPelanggan($cari))];
     }
 
     /** Dibuka dari QR kartu member (link bertanda tangan, lihat KelolaDataController::kartuMember). Pelanggan nonaktif tampil "tidak ditemukan". */
@@ -158,7 +168,7 @@ class CekTagihanController extends Controller
      *
      * @return Collection<int, Pelanggan>
      */
-    private function cariPelanggan(string $cari): Collection
+    private static function cariPelanggan(string $cari): Collection
     {
         $query = fn () => self::query();
 

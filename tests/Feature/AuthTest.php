@@ -94,7 +94,7 @@ class AuthTest extends TestCase
         Role::findByName('Sales')->syncPermissions(['pelanggan.data.view']);
         $user = User::factory()->peran('Sales')->create(['username' => 'agus', 'password' => 'rahasia123']);
 
-        $this->post('/login', ['username' => 'agus', 'password' => 'rahasia123'], ['REMOTE_ADDR' => '203.0.113.7'])->assertRedirect('/pelanggan');
+        $this->post('/login', ['username' => 'agus', 'password' => 'rahasia123'], ['REMOTE_ADDR' => '203.0.113.7'])->assertRedirect('/pelanggan/data');
 
         $user->refresh();
         $this->assertSame(['2026-10-30 09:15:00', '203.0.113.7'], [$user->last_login_at->toDateTimeString(), $user->last_login_ip]);

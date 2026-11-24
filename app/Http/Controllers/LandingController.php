@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Paket;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,22 +18,29 @@ class LandingController extends Controller
 
     public function __invoke(): Response
     {
-        return Inertia::render('Landing/Index', [
-            // Paket bernama sama di beberapa cabang cukup tampil sekali
-            'paket' => Paket::where('tampil_registrasi', true)->where('harga', '>', 0)->orderBy('harga')->get(['nama_paket', 'harga', 'rate_limit', 'jns_koneksi', 'keterangan'])
-                ->unique('nama_paket')->take(self::MAKS_PAKET)->values()
-                ->map(fn (Paket $p) => [
-                    'nama' => $p->nama_paket,
-                    'harga' => $p->harga,
-                    // Rate limit Mikrotik "upload/download", mis. "10M/20M" → kecepatan download "20 Mbps"
-                    'kecepatan' => $this->kecepatan($p->rate_limit),
-                    'koneksi' => $p->jns_koneksi,
-                    'keterangan' => $p->keterangan,
-                ]),
-        ]);
+        return Inertia::render('Landing/Index', ['paket' => self::paketPublik()]);
     }
 
-    private function kecepatan(?string $rateLimit): ?string
+    /**
+     * Paket yang ditandai tampil di registrasi (data publik), termurah dulu. Paket bernama sama di beberapa cabang cukup sekali.
+     *
+     * @return Collection<int, array{nama: string, harga: int, kecepatan: ?string, koneksi: ?string, keterangan: ?string}>
+     */
+    public static function paketPublik(): Collection
+    {
+        return Paket::where('tampil_registrasi', true)->where('harga', '>', 0)->orderBy('harga')->get(['nama_paket', 'harga', 'rate_limit', 'jns_koneksi', 'keterangan'])
+            ->unique('nama_paket')->take(self::MAKS_PAKET)->values()
+            ->map(fn (Paket $p) => [
+                'nama' => $p->nama_paket,
+                'harga' => $p->harga,
+                // Rate limit Mikrotik "upload/download", mis. "10M/20M" → kecepatan download "20 Mbps"
+                'kecepatan' => self::kecepatan($p->rate_limit),
+                'koneksi' => $p->jns_koneksi,
+                'keterangan' => $p->keterangan,
+            ]);
+    }
+
+    private static function kecepatan(?string $rateLimit): ?string
     {
         $download = explode('/', (string) $rateLimit)[1] ?? explode('/', (string) $rateLimit)[0];
         if (! preg_match('/^(\d+(?:\.\d+)?)\s*([kKmMgG])?$/', trim($download), $m)) {

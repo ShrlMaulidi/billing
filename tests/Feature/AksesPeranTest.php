@@ -39,7 +39,7 @@ class AksesPeranTest extends TestCase
         $router = Router::create(['nama_router' => 'CCR', 'mode_koneksi' => 'langsung', 'host' => '10.0.0.1', 'port_api' => 8728, 'username' => 'u', 'password' => 'p', 'profile_isolir' => 'ISOLIR']);
 
         $this->get('/dashboard')->assertOk();
-        $this->get('/pelanggan')->assertOk();
+        $this->get('/pelanggan/data')->assertOk();
         $this->get('/pelanggan/belum-lunas')->assertOk();
         $this->get('/kelola-data/paket')->assertOk();
         $this->get('/kelola-data/router')->assertForbidden();
@@ -83,7 +83,7 @@ class AksesPeranTest extends TestCase
         $this->actingAs(User::factory()->peran('Admin')->create(['id_lokasi' => $garut->id]));
 
         // Filter cabang di URL diabaikan: tetap terkunci ke cabang sendiri
-        $this->get('/pelanggan?cabang='.$cimahi->id)->assertInertia(fn ($page) => $page->has('rows', 1)->where('rows.0.nama', 'Budi'));
+        $this->get('/pelanggan/data?cabang='.$cimahi->id)->assertInertia(fn ($page) => $page->has('rows', 1)->where('rows.0.nama', 'Budi'));
         $this->putJson("/pelanggan/{$lain->id}", ['nama' => 'Diubah'])->assertNotFound();
         $this->deleteJson("/pelanggan/{$lain->id}")->assertNotFound();
         $this->postJson("/pelanggan/{$lain->id}/isolir")->assertNotFound();

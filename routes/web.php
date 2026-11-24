@@ -9,6 +9,7 @@ use App\Http\Controllers\CekTagihanController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataPelangganController;
 use App\Http\Controllers\HakAksesController;
+use App\Http\Controllers\InfoPelangganController;
 use App\Http\Controllers\IsolirController;
 use App\Http\Controllers\KelolaDataController;
 use App\Http\Controllers\LandingController;
@@ -35,6 +36,10 @@ use Illuminate\Support\Facades\Route;
 // Halaman pertama: company profile (tanpa login)
 Route::get('/', LandingController::class)->name('landing');
 // Cek tagihan pelanggan tanpa login; pencarian lewat POST agar nomor HP tidak tercatat di URL
+// Halaman informasi pelanggan (link untuk dibagikan ke pelanggan); staf yang login dialihkan ke Data Pelanggan (/pelanggan/data)
+Route::get('/pelanggan', [InfoPelangganController::class, 'index'])->name('info-pelanggan');
+Route::post('/pelanggan/cek-tagihan', [InfoPelangganController::class, 'cari'])->middleware('throttle:cek-tagihan')->name('info-pelanggan.cari');
+Route::get('/pelanggan/cek-tagihan', [InfoPelangganController::class, 'kembali']);
 Route::get('/cek-tagihan', [CekTagihanController::class, 'index'])->name('cek-tagihan');
 Route::post('/cek-tagihan', [CekTagihanController::class, 'cari'])->middleware('throttle:cek-tagihan')->name('cek-tagihan.cari');
 // Tujuan QR kartu member: link bertanda tangan (tanda tangan relatif agar tetap sah di balik proxy/Cloudflare), tanpa login
@@ -146,7 +151,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/area/{area}', [AreaController::class, 'destroy'])->middleware('permission:kelola_data.area.delete')->name('area.destroy');
 
     // Data pelanggan (database) — akun koneksi di Mikrotik & On/Off internet lewat isolir PPPoE
-    Route::get('/pelanggan', [PelangganController::class, 'index'])->middleware('permission:pelanggan.data.view')->name('pelanggan.index');
+    // /pelanggan dipakai halaman informasi pelanggan (publik), jadi Data Pelanggan staf di /pelanggan/data
+    Route::get('/pelanggan/data', [PelangganController::class, 'index'])->middleware('permission:pelanggan.data.view')->name('pelanggan.index');
     Route::get('/pelanggan/on', [PelangganController::class, 'index'])->defaults('status', 'on')->middleware('permission:pelanggan.on.view')->name('pelanggan.on');
     // Lunas / belum lunas dihitung dari pembayaran pada periode filter (default bulan berjalan)
     Route::get('/pelanggan/lunas', [PelangganController::class, 'index'])->defaults('status', 'lunas')->middleware('permission:pelanggan.lunas.view')->name('pelanggan.lunas');

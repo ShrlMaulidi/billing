@@ -14,7 +14,7 @@ export default function Dashboard({ filters, kpi, pelangganBaru, wagw, grafik, s
     const [saldoHidden, toggleSaldo] = useSaldoHidden();
     // Kartu pelanggan membuka menu Pelanggan yang sesuai (data asli, ada aksi lengkap); kategori lain ke daftar dashboard
     const MENU_PELANGGAN = {
-        total: '/pelanggan', on: '/pelanggan/on', off: '/pelanggan/off', lunas: '/pelanggan/lunas', belum_lunas: '/pelanggan/belum-lunas', berhenti: '/pelanggan/berhenti',
+        total: '/pelanggan/data', on: '/pelanggan/on', off: '/pelanggan/off', lunas: '/pelanggan/lunas', belum_lunas: '/pelanggan/belum-lunas', berhenti: '/pelanggan/berhenti',
     };
     const target = (kategori) => (MENU_PELANGGAN[kategori]
         ? [MENU_PELANGGAN[kategori], { cabang: filters.cabang ?? undefined }]
