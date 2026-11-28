@@ -52,4 +52,30 @@ jobs:
 
       # Database test: SQLite in-memory (phpunit.xml)
       - name: PHPUnit
-        run: php artisan test --compact
+        run: php artisan test --compact --log-junit storage/logs/junit.xml
+
+      # Tulis setiap tes yang gagal sebagai anotasi error: tampil di halaman
+      # GitHub dan bisa dibaca lewat API check-runs tanpa perlu membuka log.
+      - name: Anotasi tes yang gagal
+        if: failure()
+        run: |
+          php -r '
+            $xml = @simplexml_load_file("storage/logs/junit.xml");
+            if (! $xml) {
+                echo "::error title=PHPUnit::junit.xml tidak ada, PHPUnit gagal sebelum menjalankan tes. Lihat log langkah PHPUnit.\n";
+                exit;
+            }
+            $root = getcwd()."/";
+            $properti = fn (string $nilai): string => str_replace(["%", "\r", "\n", ":", ","], ["%25", "%0D", "%0A", "%3A", "%2C"], $nilai);
+            $pesan = fn (string $nilai): string => str_replace(["%", "\r", "\n"], ["%25", "%0D", "%0A"], $nilai);
+            foreach ($xml->xpath("//testcase[failure or error]") as $tes) {
+                $node = $tes->failure ?: $tes->error;
+                printf(
+                    "::error file=%s,line=%s,title=%s::%s\n",
+                    $properti(str_replace($root, "", (string) $tes["file"])),
+                    $tes["line"],
+                    $properti($tes["class"]."::".$tes["name"]),
+                    $pesan(str_replace($root, "", substr(trim((string) $node), 0, 1500)))
+                );
+            }
+          '
