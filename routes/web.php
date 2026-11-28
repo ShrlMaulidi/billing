@@ -3,6 +3,7 @@
 use App\Http\Controllers\AkunPelangganController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AutoIsolirController;
 use App\Http\Controllers\BayarOnlineController;
 use App\Http\Controllers\CabangController;
 use App\Http\Controllers\CekTagihanController;
@@ -276,6 +277,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/kelola-data/template-isolir', [IsolirController::class, 'index'])->middleware('permission:kelola_data.template_isolir.view')->name('kelola-data.template-isolir');
         Route::put('/isolir/pengaturan', [IsolirController::class, 'simpanPengaturan'])->middleware('permission:kelola_data.template_isolir.update')->name('isolir.pengaturan');
         Route::post('/isolir/script', [IsolirController::class, 'script'])->middleware('permission:kelola_data.template_isolir.view')->name('isolir.script');
+
+        // Auto isolir: jadwal isolir otomatis pelanggan lewat jatuh tempo (prosesnya perintah isolir:otomatis)
+        Route::get('/kelola-data/auto-isolir', [AutoIsolirController::class, 'index'])->middleware('permission:kelola_data.auto_isolir.view')->name('kelola-data.auto-isolir');
+        Route::put('/kelola-data/auto-isolir', [AutoIsolirController::class, 'update'])->middleware('permission:kelola_data.auto_isolir.update')->name('kelola-data.auto-isolir.update');
 
         // Tunnel memakai database + FreeRADIUS
         Route::get('/kelola-data/tunnel', [TunnelController::class, 'index'])->middleware('permission:kelola_data.tunnel.view')->name('kelola-data.tunnel');

@@ -99,6 +99,11 @@ Artisan::command('pelanggan:buat-akun', function (AkunPelanggan $akunPelanggan) 
     return 0;
 })->purpose('Buat akun login pelanggan (username & password = nomor HP) untuk pelanggan yang belum punya');
 
-// Catatan audit (menu Logs) lebih tua dari masa simpan dipangkas tiap hari. Butuh cron di server:
-// * * * * * cd /var/www/mss-billing && php artisan schedule:run >> /dev/null 2>&1
+// Tugas terjadwal butuh cron di server, dipasang otomatis oleh deploy.sh di /etc/cron.d/mss-billing:
+// * * * * * www-data cd /var/www/mss-billing && php artisan schedule:run >> /dev/null 2>&1
+
+// Catatan audit (menu Logs) lebih tua dari masa simpan dipangkas tiap hari.
 Schedule::command('model:prune', ['--model' => [AuditLog::class]])->dailyAt('02:00');
+
+// Auto isolir (Kelola Data › Auto Isolir): dicek tiap menit, berjalan sekali sehari mulai jam yang diatur (WIB)
+Schedule::command('isolir:otomatis')->everyMinute()->withoutOverlapping(60);

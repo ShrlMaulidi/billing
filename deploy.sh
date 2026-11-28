@@ -32,6 +32,15 @@ php artisan db:seed --class=HakAksesSeeder --force
 php artisan optimize:clear
 php artisan optimize
 
+echo "→ Penjadwal (cron Laravel: auto isolir & pembersihan Logs)"
+# Dijalankan sebagai www-data agar file cache/log yang dibuat tetap bisa ditulis aplikasi
+CRON_BARIS="* * * * * www-data cd $PWD && php artisan schedule:run >> /dev/null 2>&1"
+if [ "$(cat /etc/cron.d/mss-billing 2>/dev/null)" != "$CRON_BARIS" ]; then
+    echo "$CRON_BARIS" > /etc/cron.d/mss-billing
+    chmod 644 /etc/cron.d/mss-billing
+    echo "  cron dipasang di /etc/cron.d/mss-billing"
+fi
+
 echo "→ Hak akses file & reload PHP"
 chown -R www-data:www-data .
 chmod -R 775 storage bootstrap/cache database

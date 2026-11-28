@@ -44,6 +44,7 @@ export const MENU = [
                     { title: 'Upload Bukti PPh', href: '/kelola-data/pph', izin: 'kelola_data.pph.view' },
                     { title: 'Tunnel', href: '/kelola-data/tunnel', izin: 'kelola_data.tunnel.view' },
                     { title: 'Template Isolir', href: '/kelola-data/template-isolir', izin: 'kelola_data.template_isolir.view' },
+                    { title: 'Auto Isolir', href: '/kelola-data/auto-isolir', izin: 'kelola_data.auto_isolir.view', pusat: true },
                 ],
             },
             {

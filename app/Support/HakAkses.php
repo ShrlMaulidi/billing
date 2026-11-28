@@ -44,6 +44,7 @@ class HakAkses
         'kelola_data.pph' => ['Kelola Data › Upload Bukti PPh', '/kelola-data/pph', ['view', 'create', 'delete']],
         'kelola_data.tunnel' => ['Kelola Data › Tunnel', '/kelola-data/tunnel', self::CRUD],
         'kelola_data.template_isolir' => ['Kelola Data › Template Isolir', '/kelola-data/template-isolir', ['view', 'update']],
+        'kelola_data.auto_isolir' => ['Kelola Data › Auto Isolir (isolir otomatis pelanggan lewat jatuh tempo; Ubah = nyala/mati, Hari H/H+1, jam isolir)', '/kelola-data/auto-isolir', ['view', 'update']],
         'transaksi.penarikan' => ['Transaksi › Penarikan Saldo Mitra', '/transaksi/penarikan-saldo', ['view', 'create', 'approve']],
         'transaksi.setor' => ['Transaksi › Pembayaran Masuk (Tambah & Hapus khusus user pusat)', '/transaksi/setor-kewajiban', ['view', 'create', 'delete']],
         'transaksi.pengeluaran' => ['Transaksi › Pengeluaran', '/transaksi/pengeluaran', self::CRUD],
@@ -72,8 +73,8 @@ class HakAkses
         AkunPelanggan::ROLE => AkunPelanggan::KETERANGAN_ROLE,
     ];
 
-    /** Menu yang bisa mengubah konfigurasi router secara langsung atau mengatur akun; bawaan hanya Super Admin. */
-    private const KHUSUS_SUPER_ADMIN = ['kelola_data.router', 'kelola_data.tunnel', 'kelola_data.template_isolir', 'user.manajemen', 'user.hak_akses'];
+    /** Menu yang bisa mengubah konfigurasi router secara langsung (termasuk isolir otomatis massal) atau mengatur akun; bawaan hanya Super Admin. */
+    private const KHUSUS_SUPER_ADMIN = ['kelola_data.router', 'kelola_data.tunnel', 'kelola_data.template_isolir', 'kelola_data.auto_isolir', 'user.manajemen', 'user.hak_akses'];
 
     /**
      * Menu yang dibuka role monitoring (Direktur & Manajemen), hanya aksi Lihat: tidak bisa mengubah data, mematikan

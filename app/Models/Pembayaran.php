@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Mikrotik\AutoIsolir;
 use App\Support\Audit;
 use App\Support\RekapCabang;
 use App\Support\TercatatAudit;
@@ -137,7 +138,8 @@ class Pembayaran extends Model
     /** Label di deskripsi Logs. */
     /**
      * Simpan pembayaran satu periode beserta snapshot nama, paket, dan jenis tagihan; no. invoice dibentuk dari periode + id.
-     * Dipakai input manual, pembayaran massal, dan Midtrans. Tercatat sekali di Logs (sudah lengkap dengan no. invoice).
+     * Dipakai input manual, pembayaran massal, dan payment gateway. Tercatat sekali di Logs (sudah lengkap dengan no. invoice).
+     * Internet pelanggan yang Off dinyalakan kembali otomatis (AutoIsolir::jadwalkanAktifSetelahBayar).
      *
      * @param  array{periode: string, harga: int, metode: string, rekening_id: ?int, diskon_tipe: ?string, diskon_nilai: mixed, diskon: int, jml_bayar: int}  $data
      *
@@ -161,6 +163,8 @@ class Pembayaran extends Model
             return $pembayaran;
         }));
         $pembayaran->catatAudit('create');
+        // Pelanggan yang terisolir (Off) dinyalakan kembali setelah respons terkirim bila tagihannya sudah tidak lewat jatuh tempo
+        AutoIsolir::jadwalkanAktifSetelahBayar($pelanggan);
 
         return $pembayaran;
     }

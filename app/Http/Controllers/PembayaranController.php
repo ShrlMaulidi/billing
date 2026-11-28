@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Pelanggan;
 use App\Models\Pembayaran;
 use App\Models\Rekening;
+use App\Services\Mikrotik\AutoIsolir;
 use Closure;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -62,8 +63,12 @@ class PembayaranController extends Controller
             throw ValidationException::withMessages(['bulan' => 'Periode ini sudah dibayar']);
         }
 
+        // Internet pelanggan Off dinyalakan setelah respons terkirim (AutoIsolir::jadwalkanAktifSetelahBayar)
+        $akanAktif = $pelanggan->status_langganan === 'off' && $pelanggan->router_id && ! app(AutoIsolir::class)->masihLewatTempo($pelanggan);
+
         return response()->json([
-            'message' => "Pembayaran {$pelanggan->nama} periode {$this->namaPeriode($pembayaran)} sebesar {$this->rupiah($pembayaran->jml_bayar)} tersimpan ({$pembayaran->no_invoice})",
+            'message' => "Pembayaran {$pelanggan->nama} periode {$this->namaPeriode($pembayaran)} sebesar {$this->rupiah($pembayaran->jml_bayar)} tersimpan ({$pembayaran->no_invoice})"
+                .($akanAktif ? '. Internet diaktifkan kembali otomatis.' : ''),
         ]);
     }
 

@@ -1,7 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ArrowDownCircle, ArrowUpCircle, Bell, PieChart, LifeBuoy, Box, CheckCircle, Circle, CreditCard, Database, FileText, GitBranch, Key, List, LogOut, Map, MapPin, Menu, Percent, Server, Shield,
+    ArrowDownCircle, ArrowUpCircle, Bell, Clock, PieChart, LifeBuoy, Box, CheckCircle, Circle, CreditCard, Database, FileText, GitBranch, Key, List, LogOut, Map, MapPin, Menu, Percent, Server, Shield,
     ShoppingBag, Slash, UploadCloud, User, UserCheck, Users, UserX, X, XCircle, Zap,
 } from 'react-feather';
 import { MENU, menuUntuk } from '../lib/menu';
@@ -20,7 +20,7 @@ const SHEET_ICON = {
     '/pelanggan/data': Users, '/pelanggan/on': UserCheck, '/pelanggan/off': UserX, '/pelanggan/lunas': CheckCircle, '/pelanggan/belum-lunas': XCircle, '/pelanggan/berhenti': Slash, '/pelanggan/prorate': Percent,
     '/kelola-data/kartu-member': CreditCard, '/kelola-data/cabang': MapPin, '/kelola-data/area': Map, '/kelola-data/pajak': Percent,
     '/kelola-data/paket': Box, '/kelola-data/router': Server, '/kelola-data/rekening': Database, '/kelola-data/notifikasi': Bell,
-    '/kelola-data/pph': UploadCloud, '/kelola-data/tunnel': GitBranch, '/transaksi/penarikan-saldo': ArrowUpCircle,
+    '/kelola-data/pph': UploadCloud, '/kelola-data/auto-isolir': Clock, '/kelola-data/tunnel': GitBranch, '/transaksi/penarikan-saldo': ArrowUpCircle,
     '/transaksi/setor-kewajiban': ArrowDownCircle, '/transaksi/pengeluaran': ShoppingBag, '/payment-gateway': Zap, '/logs': List,
     '/user/manajemen': Users, '/user/hak-akses': Shield, '/data-pelanggan': Users, '/tiket': LifeBuoy, '/user/akun-pelanggan': UserCheck,
     '/laporan/dashboard': PieChart, '/laporan/mitra': FileText, '/laporan/pemerintah': FileText, '/laporan/korporat': FileText, '/laporan/shafa-net': FileText,
