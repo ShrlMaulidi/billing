@@ -762,12 +762,15 @@ body:not(.dark-only) .page-wrapper.portal-wrapper .page-body { background: #f1f4
 .page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right.right-header ul li .profile-media .media-body p { color: #fff; }
 /* Tombol ikon header (mode navbar, lonceng, dark mode): ikon polos tanpa kotak, lingkaran tipis hanya saat disentuh/hover */
 .page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right .mode,
-.page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right .nav-mode-toggle { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0;
+.page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right .nav-mode-toggle { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0;
     background: transparent; border: 0; border-radius: 50%; box-shadow: none; transition: background-color .15s ease; }
 .page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right .mode:hover,
 .page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right .mode:active,
 .page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right .nav-mode-toggle:hover,
 .page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right .nav-mode-toggle:active { background: rgba(255, 255, 255, .14); }
+/* Jarak antar ikon dari lebar tombol saja (padding li bawaan tema dibuang) agar rapat & sama rata, termasuk ke avatar */
+.page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right > ul > li:not(.profile-nav) { padding: 0; }
+.page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right > ul > li.profile-nav { padding-left: 4px !important; }
 .page-wrapper.portal-wrapper .page-header .header-wrapper .nav-right .profile-dropdown li svg { stroke: #2c323f; }
 
 /* Pita biru & isi yang menumpuk */
