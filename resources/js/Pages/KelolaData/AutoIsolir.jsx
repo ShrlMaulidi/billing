@@ -21,7 +21,7 @@ const PILIHAN_HARI = [
 
 /**
  * Kelola Data › Auto Isolir: atur kapan pelanggan yang belum bayar diisolir otomatis (Hari H / H+1 dari jatuh tempo,
- * jam WIB), lihat hasil jalan terakhir, dan pratinjau pelanggan yang akan diisolir pada jalan berikutnya.
+ * jam WIB), lihat hasil pengecekan terakhir, dan pratinjau pelanggan yang akan diisolir pada pengecekan berikutnya.
  */
 export default function AutoIsolir({ pengaturan, hasil, berikutnya, tanggalPratinjau, penjadwalAktif, batas, pratinjau }) {
     const bisa = useBisa();
@@ -123,14 +123,14 @@ export default function AutoIsolir({ pengaturan, hasil, berikutnya, tanggalPrati
                                     <div className="ai-status-baris">
                                         <Clock size={16} className="font-primary flex-shrink-0" />
                                         <div>
-                                            <span className="f-light small d-block">Jalan berikutnya</span>
+                                            <span className="f-light small d-block">Pengecekan berikutnya</span>
                                             {berikutnya ? <strong>{tanggalWib(berikutnya)}, {jamWib(berikutnya)} WIB</strong> : <strong className="f-light">Auto isolir nonaktif</strong>}
                                         </div>
                                     </div>
                                     <div className="ai-status-baris">
                                         <CheckCircle size={16} className="font-success flex-shrink-0" />
                                         <div className="min-w-0">
-                                            <span className="f-light small d-block">Jalan terakhir</span>
+                                            <span className="f-light small d-block">Pengecekan terakhir</span>
                                             {hasil ? (
                                                 <>
                                                     <strong>{tanggalWib(hasil.waktu)}, {jamWib(hasil.waktu)} WIB</strong>
@@ -143,6 +143,9 @@ export default function AutoIsolir({ pengaturan, hasil, berikutnya, tanggalPrati
                                         </div>
                                     </div>
                                 </div>
+                                <p className="small f-light mb-0 mt-3">
+                                    Dicek setiap hari. Tiap pelanggan hanya diisolir sekali per tagihan, saat lewat jatuh tempo dan belum bayar.
+                                </p>
                                 {hasil?.rincian_gagal?.length > 0 && (
                                     <div className="ai-gagal mt-3">
                                         <div className="small fw-semibold mb-1"><XCircle size={13} className="font-danger me-1" />Gagal diisolir</div>
@@ -186,7 +189,7 @@ export default function AutoIsolir({ pengaturan, hasil, berikutnya, tanggalPrati
                 title="Aktifkan Auto Isolir"
                 color="warning"
                 confirmLabel="Ya, aktifkan"
-                message={<>Mulai jam <strong>{form.jam} WIB</strong>, pelanggan yang belum bayar akan diisolir otomatis setiap hari. Saat ini ada <strong>{angka(pratinjau.length)} pelanggan</strong> yang sudah lewat jatuh tempo{pengaturan.hari !== form.hari ? ' (menurut pengaturan lama)' : ''} dan akan ikut diisolir pada jalan pertama. Periksa daftar di bawah sebelum mengaktifkan.</>}
+                message={<>Mulai jam <strong>{form.jam} WIB</strong>, sistem mengecek setiap hari dan mengisolir pelanggan yang lewat jatuh tempo dan belum bayar (sekali per tagihan). Saat ini ada <strong>{angka(pratinjau.length)} pelanggan</strong> yang sudah lewat jatuh tempo{pengaturan.hari !== form.hari ? ' (menurut pengaturan lama)' : ''} dan akan ikut diisolir pada pengecekan pertama. Periksa daftar di bawah sebelum mengaktifkan.</>}
                 onConfirm={simpan}
             />
         </>
