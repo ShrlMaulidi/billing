@@ -35,7 +35,11 @@ class PortalPelangganController extends Controller
         $pelanggan = CekTagihanController::query()->where('user_id', $user->id)->orderBy('nama')->get();
 
         return Inertia::render('Portal/Home', [
-            'hasil' => CekTagihanController::hasil($pelanggan, samarkanNama: false),
+            // Status internet hanya untuk pemilik akun (tidak ikut di Cek Tagihan publik): Off = terisolir di billing
+            'hasil' => CekTagihanController::hasil($pelanggan, samarkanNama: false)->map(fn (array $langganan, int $i) => [
+                ...$langganan,
+                'terisolir' => $pelanggan[$i]->status_langganan === 'off',
+            ]),
             'tiketAktif' => Tiket::where('user_id', $user->id)->where('status', '!=', 'selesai')->count(),
             // Tagihan bulan berjalan tampil paling atas; tanggal dari server agar hitungan jatuh tempo tidak bergantung jam HP
             'bulanIni' => today()->startOfMonth()->toDateString(),

@@ -804,6 +804,14 @@ body:not(.dark-only) .page-wrapper.portal-wrapper .page-body { background: #f1f4
 .pm-card-paket { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pm-card-body { padding: 18px 20px 20px; }
 .pm-card-label { display: block; font-size: 13px; color: var(--pm-redup); }
+.pm-card-kepala { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+/* Status internet (On = Aktif, Off = Terisolir) */
+.pm-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; border-radius: 999px; }
+.pm-status.is-aktif { color: #198754; background: rgba(25, 135, 84, .1); }
+.pm-status.is-isolir { color: #dc3545; background: rgba(220, 53, 69, .1); }
+.pm-card.is-isolir .pm-card-strip { background: linear-gradient(95deg, #c0392b, #e8644f); }
+.pm-isolir { display: flex; align-items: flex-start; gap: 10px; margin-top: 14px; padding: 12px 14px; font-size: 13px; line-height: 1.45; color: #842029; background: rgba(220, 53, 69, .08); border: 1px solid rgba(220, 53, 69, .25); border-radius: 12px; }
+.pm-isolir a { font-weight: 600; color: #b02a37; }
 .pm-nominal { margin-top: 2px; font-size: 32px; font-weight: 700; line-height: 1.15; letter-spacing: .3px; }
 .pm-redup { color: #b5b9c7; }
 .pm-due { margin-top: 4px; font-size: 13px; color: var(--pm-redup); }
@@ -896,6 +904,8 @@ a.pm-list-item:hover { color: inherit; background: rgba(31, 79, 160, .04); }
 }
 @media print { .pm-isi { margin-top: 0 !important; } .page-wrapper.portal-wrapper .page-body { background: #fff !important; } }
 body.dark-only .pm-info { background: #262932; }
+body.dark-only .pm-isolir { color: #f1aeb5; }
+body.dark-only .pm-isolir a { color: #ea868f; }
 body.dark-only .pm-menu-label { color: rgba(255, 255, 255, .8); }
 body.dark-only .pm-menu-badge { border-color: #262932; }
 

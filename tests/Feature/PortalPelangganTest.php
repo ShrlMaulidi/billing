@@ -58,6 +58,17 @@ class PortalPelangganTest extends TestCase
             ->where('tiketAktif', 1));
     }
 
+    public function test_home_shows_internet_status_from_billing(): void
+    {
+        $budi = $this->pelanggan('Budi', '081234567890');
+
+        $this->actingAs($budi->user)->get('/akun-saya')->assertOk()->assertInertia(fn ($page) => $page->where('hasil.0.terisolir', false));
+
+        $budi->update(['status_langganan' => 'off', 'isolir_at' => '2026-11-11 09:00:00']);
+
+        $this->actingAs($budi->user)->get('/akun-saya')->assertOk()->assertInertia(fn ($page) => $page->where('hasil.0.terisolir', true));
+    }
+
     public function test_billing_history_lists_own_payments_with_receipt_link(): void
     {
         $budi = $this->pelanggan('Budi', '081234567890');

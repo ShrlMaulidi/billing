@@ -50,7 +50,7 @@ class CekTagihanTest extends TestCase
             ->where('hasil.0.cabang', ['nama_lokasi' => 'MSS Garut', 'alamat_lokasi' => null, 'tlp_lokasi' => '0262123'])
             ->has('hasil.0.lunas', 1)->where('hasil.0.lunas.0.periode_pembayaran', '2026-08-01')->where('hasil.0.lunas.0.paid_at', '2026-08-05')
             ->where('hasil.0.rekening', [['nama_rekening' => 'BCA', 'no_rekening' => '111', 'atas_nama' => 'MSS']])
-            ->missing('hasil.0.alamat')->missing('hasil.0.tlp')->missing('hasil.0.username_pppoe'));
+            ->missing('hasil.0.alamat')->missing('hasil.0.tlp')->missing('hasil.0.username_pppoe')->missing('hasil.0.terisolir'));
     }
 
     public function test_paid_periods_show_as_paid_with_payment_method_and_a_masked_receipt(): void
